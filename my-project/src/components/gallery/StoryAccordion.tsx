@@ -5,7 +5,7 @@
  * Shows full-size photo when expanded (only if photo exists)
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { StoryRecord } from '../../types';
 import { formatDuration } from '../../utils/formatting';
 import styles from './gallery.module.css';
@@ -24,6 +24,7 @@ export function StoryAccordion({
   onDelete,
 }: StoryAccordionProps): JSX.Element {
   const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Create object URL for photo
   const photoUrl = useMemo(() => {
@@ -33,14 +34,45 @@ export function StoryAccordion({
     return null;
   }, [story.photo]);
 
-  // Cleanup photo URL on unmount
+  // Create object URL for audio
+  const audioUrl = useMemo(() => {
+    if (story.audio_blob) {
+      return URL.createObjectURL(story.audio_blob);
+    }
+    return null;
+  }, [story.audio_blob]);
+
+  // Initialize audio element
+  useEffect(() => {
+    if (audioUrl) {
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+
+      // Handle audio ending
+      audio.addEventListener('ended', () => {
+        setIsPlaying(false);
+      });
+
+      return () => {
+        audio.pause();
+        audio.removeEventListener('ended', () => {
+          setIsPlaying(false);
+        });
+      };
+    }
+  }, [audioUrl]);
+
+  // Cleanup URLs on unmount
   useEffect(() => {
     return () => {
       if (photoUrl) {
         URL.revokeObjectURL(photoUrl);
       }
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
     };
-  }, [photoUrl]);
+  }, [photoUrl, audioUrl]);
 
   const handleHeaderClick = useCallback(() => {
     // Only allow opening if photo exists
@@ -51,7 +83,18 @@ export function StoryAccordion({
 
   const handlePlayClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsPlaying(!isPlaying);
+
+    if (!audioRef.current) return;
+
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play().catch((err) => {
+        console.error('Failed to play audio:', err);
+      });
+      setIsPlaying(true);
+    }
   }, [isPlaying]);
 
   const handleDeleteClick = useCallback(
