@@ -1,0 +1,149 @@
+/**
+ * Story Portal Semantic Color Variables
+ * =====================================
+ *
+ * Maps design tokens to semantic meaning.
+ * Enables easy theme switching and dark mode support in future.
+ *
+ * Usage: Use semantic names in components (--color-brass-light, --bg-primary)
+ *        instead of direct hex values. This separates intent from implementation.
+ *
+ * Philosophy: Colors describe their PURPOSE (brass, wood, flame) not their value.
+ *            This makes dark mode implementation straightforward: just override values.
+ */
+
+:root {
+  /* ========================================
+     SEMANTIC TEXT COLORS
+     ======================================== */
+
+  /* Primary text color - used for body copy, default text */
+  --color-brass-light: #f5deb3;      /* Warm wheat/aged brass */
+  --color-brass-mid: #e8dcc8;        /* Slightly warmer variant for buttons */
+  --color-brass-dim: #8a7a5a;        /* Dimmed/disabled text */
+
+  /* ========================================
+     SEMANTIC METAL COLORS (Borders, accents)
+     ======================================== */
+
+  /* Bronze - aged metallic brown used for borders and outlines */
+  --color-bronze-bright: #a88545;    /* Lighter bronze for hover/active states */
+  --color-bronze-standard: #8b6f47;  /* Standard bronze borders */
+  --color-bronze-dark: #6a5a4a;      /* Darker bronze for depth */
+
+  /* ========================================
+     SEMANTIC WOOD COLORS
+     ======================================== */
+
+  /* Wood tones - used for panel backgrounds, organic feel */
+  --color-wood-light: #c9b896;       /* Light wood grain highlight */
+  --color-wood-mid: #6a4a35;         /* Medium brown wood tone */
+  --color-wood-dark: #3d2820;        /* Dark wood shadow */
+
+  /* ========================================
+     SEMANTIC FLAME COLORS (Interaction, energy)
+     ======================================== */
+
+  /* Flame/energy - used for interactive states, emphasis, highlights */
+  --color-flame-bright: #ff9100;     /* Bright orange - active state */
+  --color-flame-core: #ffb836;       /* Gold-orange - primary accent */
+  --color-flame-dim: #dd8800;        /* Dimmed flame for disabled state */
+
+  /* ========================================
+     SEMANTIC BACKGROUND COLORS
+     ======================================== */
+
+  /* Page/primary background - very dark with warm undertone */
+  --bg-primary: #0a0705;             /* Nearly black, warm undertone */
+
+  /* Container backgrounds - semi-transparent dark overlays */
+  --bg-container: rgba(0, 0, 0, 0.8);    /* Modal, card backgrounds */
+  --bg-container-light: rgba(0, 0, 0, 0.5); /* Lighter container variant */
+
+  /* Overlay/backdrop colors */
+  --bg-backdrop: rgba(0, 0, 0, 0.7);  /* Focus dimming, modal backdrop */
+  --bg-overlay: rgba(0, 0, 0, 0.9);   /* Stronger overlay for emphasis */
+
+  /* Panel backgrounds */
+  --bg-panel: rgba(0, 0, 0, 0.1);     /* Subtle panel separation */
+  --bg-prompt: rgba(139, 69, 19, 0.3); /* Prompt display background (translucent wood) */
+
+  /* ========================================
+     SEMANTIC TEXT ON BACKGROUNDS
+     ======================================== */
+
+  /* Text color mapping to backgrounds */
+  --text-on-dark: var(--color-brass-light);      /* #f5deb3 on dark bg */
+  --text-on-dark-muted: var(--color-brass-mid);  /* #e8dcc8 for buttons */
+  --text-on-dark-disabled: var(--color-brass-dim); /* #8a7a5a for disabled */
+
+  /* ========================================
+     SEMANTIC EMPHASIS COLORS
+     ======================================== */
+
+  /* Colors for important UI states */
+  --color-focus: var(--color-flame-core);     /* #ffb836 - keyboard focus */
+  --color-success: #4caf50;                   /* Green - confirmation states */
+  --color-warning: #ff9100;                   /* Orange - warning states */
+  --color-error: #f44336;                     /* Red - error states */
+
+  /* ========================================
+     GRADIENT DEFINITIONS (Semantic)
+     ======================================== */
+
+  /* Button gradient - brass to darker brass */
+  --gradient-button: linear-gradient(180deg, #6a5a4a, #2a1a0a);
+
+  /* Bronze patina gradient - used for engraved effects */
+  --gradient-bronze-patina:
+    radial-gradient(ellipse 150% 60% at 25% 15%, rgba(255,245,200,0.5) 0%, transparent 40%),
+    radial-gradient(ellipse 80% 40% at 75% 25%, rgba(248,235,170,0.35) 0%, transparent 35%),
+    radial-gradient(ellipse 60% 80% at 15% 70%, rgba(200,160,80,0.25) 0%, transparent 40%),
+    radial-gradient(ellipse 100% 50% at 60% 85%, rgba(100,70,20,0.2) 0%, transparent 50%),
+    radial-gradient(ellipse 70% 60% at 85% 50%, rgba(120,85,30,0.15) 0%, transparent 45%);
+
+  /* Wood grain gradient - used for carved text */
+  --gradient-wood-grain: linear-gradient(
+    168deg,
+    #c9b896 0%,
+    #ddd0b5 12%,
+    #c4aa84 22%,
+    #e2d6bc 35%,
+    #bfa87c 48%,
+    #d8caa8 60%,
+    #cbb992 72%,
+    #e0d4b8 85%,
+    #c7b690 100%
+  );
+
+  /* ========================================
+     DARK MODE PLACEHOLDERS (Phase 2)
+     ======================================== */
+  /*
+   * When dark mode is implemented in Phase 2, override these in:
+   *
+   * @media (prefers-color-scheme: dark) {
+   *   :root {
+   *     --color-brass-light: #e8dcc8;  (lighter for contrast on dark)
+   *     --bg-primary: #0f0a06;         (slightly lighter than current)
+   *     --bg-container: rgba(30, 25, 15, 0.9);
+   *   }
+   * }
+   */
+}
+
+/* ========================================
+   ACCESSIBILITY: prefers-reduced-motion
+
+   Disable animations for users with motion sensitivities.
+   This is applied GLOBALLY; individual animations can be
+   disabled at component level if needed.
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
