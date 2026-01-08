@@ -12,10 +12,6 @@ import { shuffleArray } from '../utils';
 export interface UseWheelSelectionOptions {
   /** Whether test mode is enabled (uses specific test batch) */
   testMode?: boolean;
-  /** Callback when electricity effect should start */
-  onElectricityStart?: () => void;
-  /** Callback when electricity effect should end */
-  onElectricityEnd?: () => void;
 }
 
 export interface UseWheelSelectionReturn {
@@ -54,7 +50,7 @@ const TEST_BATCH_2 = LONG_PROMPTS.slice(20, 40);
  * Wheel selection hook for prompt management
  */
 export function useWheelSelection(options: UseWheelSelectionOptions = {}): UseWheelSelectionReturn {
-  const { testMode = false, onElectricityStart, onElectricityEnd } = options;
+  const { testMode = false } = options;
 
   // Prompt state
   const [prompts, setPrompts] = useState<string[]>(testMode ? TEST_BATCH_2 : shuffleArray(ALL_PROMPTS));
@@ -78,11 +74,11 @@ export function useWheelSelection(options: UseWheelSelectionOptions = {}): UseWh
 
   // Load new topics - picks 20 unused prompts, resets if all used
   const loadNewTopics = useCallback(() => {
-    // Trigger electricity effect
-    onElectricityStart?.();
+    // Note: Electricity effect callbacks removed (archived experimental work)
+    // onElectricityStart?.();
 
-    // Delay the actual topic swap so electricity effect can play
-    setTimeout(() => {
+    // Load topics immediately (no animation)
+    const loadTopics = () => {
       const currentOnWheel = new Set(prompts.slice(0, 20));
       const availablePrompts = ALL_PROMPTS.filter(
         (p) => !currentOnWheel.has(p) && !usedPromptsRef.current.has(p)
@@ -124,13 +120,11 @@ export function useWheelSelection(options: UseWheelSelectionOptions = {}): UseWh
 
       // Reset tracking for new set
       recentLandingsRef.current = [];
-    }, ELECTRICITY_CONFIG.topicSwapDelayMs);
+    };
 
-    // End electricity effect after full animation
-    setTimeout(() => {
-      onElectricityEnd?.();
-    }, ELECTRICITY_CONFIG.effectDurationMs);
-  }, [prompts, onElectricityStart, onElectricityEnd]);
+    // Load topics immediately (no animation delay)
+    loadTopics();
+  }, [prompts]);
 
   // Select a prompt by index
   const selectPrompt = useCallback(

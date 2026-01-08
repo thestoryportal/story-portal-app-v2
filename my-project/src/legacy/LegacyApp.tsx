@@ -22,7 +22,6 @@ import { useSteamEffect } from './hooks/useSteamEffect'
 import {
   SteamWisps,
   WheelPanel,
-  ElectricityR3F,
   PortalRing,
   WarpMotionLines,
   AnimatedPanel,
@@ -79,9 +78,6 @@ export default function LegacyApp() {
   // Booking modal state
   const [bookingOpen, setBookingOpen] = useState(false)
 
-  // Electricity effect state
-  const [showElectricity, setShowElectricity] = useState(false)
-
   // Record button tooltip
   const [showRecordTooltip, setShowRecordTooltip] = useState(false)
 
@@ -94,8 +90,6 @@ export default function LegacyApp() {
   // Wheel selection hook
   const wheelSelection = useWheelSelection({
     testMode: TEST_MODE,
-    onElectricityStart: () => setShowElectricity(true),
-    onElectricityEnd: () => setShowElectricity(false),
   })
 
   const {
@@ -288,9 +282,6 @@ export default function LegacyApp() {
 
           {/* Portal Ring */}
           <PortalRing />
-
-          {/* Electricity Canvas */}
-          <ElectricityR3F visible={showElectricity} />
 
           {/* Reassembled Panel */}
           <ReassembledPanel
