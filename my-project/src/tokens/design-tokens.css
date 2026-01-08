@@ -1,0 +1,227 @@
+/**
+ * Story Portal Design Tokens
+ * ==========================
+ * Centralized CSS custom properties for the steampunk design system.
+ *
+ * Naming Convention: --sp-[category]-[name]-[variant]
+ * Source: docs/references/design-tokens-quick-ref.md
+ * Owner: Design System Manager
+ *
+ * Usage:
+ *   @import './tokens/design-tokens.css';
+ *   background: var(--sp-color-bg-primary);
+ */
+
+:root {
+  /* ========================================
+     COLORS — Backgrounds
+     ======================================== */
+  --sp-color-bg-primary: #0a0705;
+  --sp-color-bg-container: rgba(0, 0, 0, 0.8);
+  --sp-color-bg-backdrop: rgba(0, 0, 0, 0.7);
+  --sp-color-bg-panel: rgba(0, 0, 0, 0.1);
+  --sp-color-bg-prompt: rgba(139, 69, 19, 0.3);
+
+  /* ========================================
+     COLORS — Text
+     ======================================== */
+  --sp-color-text-primary: #f5deb3;
+  --sp-color-text-panel: #f4e4c8;
+  --sp-color-text-button: #e8dcc8;
+
+  /* ========================================
+     COLORS — Accents
+     ======================================== */
+  --sp-color-accent-core: #ffb836;
+  --sp-color-accent-mid: #ff9100;
+  --sp-color-border-bronze: #8b6f47;
+  --sp-color-border-bronze-alt: #a88545;
+
+  /* ========================================
+     COLORS — Text Gradients
+     ======================================== */
+  --sp-color-gradient-face-top: #f2dfc0;
+  --sp-color-gradient-face-mid: #e3bf7d;
+  --sp-color-gradient-face-bottom: #f18741;
+
+  /* ========================================
+     COLORS — Hamburger Gradient Stops
+     ======================================== */
+  --sp-color-hamburger-1: #4a3520;
+  --sp-color-hamburger-2: #6a4a28;
+  --sp-color-hamburger-3: #8a6535;
+  --sp-color-hamburger-4: #b8863c;
+  --sp-color-hamburger-5: #d4a045;
+  --sp-color-hamburger-6: #c89038;
+  --sp-color-hamburger-7: #a87030;
+
+  /* ========================================
+     TYPOGRAPHY — Font Families
+     ======================================== */
+  --sp-font-display: 'Carnivalee Freakshow', serif;
+  --sp-font-ui: 'Molly Sans', sans-serif;
+  --sp-font-icons: 'Material Symbols Outlined';
+
+  /* ========================================
+     TYPOGRAPHY — Font Sizes
+     ======================================== */
+  --sp-font-size-xs: 14px;
+  --sp-font-size-sm: 16px;
+  --sp-font-size-md: 18px;
+  --sp-font-size-lg: 20px;
+  --sp-font-size-xl: 22px;
+  --sp-font-size-2xl: 32px;
+
+  /* ========================================
+     TYPOGRAPHY — Line Heights
+     ======================================== */
+  --sp-line-height-body: 1.6;
+  --sp-line-height-tight: 1.2;
+
+  /* ========================================
+     TYPOGRAPHY — Letter Spacing
+     ======================================== */
+  --sp-letter-spacing-button: 0.5px;
+
+  /* ========================================
+     SPACING
+     ======================================== */
+  --sp-spacing-xs: 12px;
+  --sp-spacing-sm: 15px;
+  --sp-spacing-md: 16px;
+  --sp-spacing-lg: 20px;
+  --sp-spacing-xl: 24px;
+  --sp-spacing-2xl: 32px;
+  --sp-spacing-3xl: 40px;
+
+  /* ========================================
+     BORDER RADIUS
+     ======================================== */
+  --sp-radius-sm: 4px;
+  --sp-radius-md: 8px;
+  --sp-radius-lg: 12px;
+  --sp-radius-full: 50%;
+
+  /* ========================================
+     BORDERS
+     ======================================== */
+  --sp-border-standard: 3px solid var(--sp-color-border-bronze);
+  --sp-border-medium: 2px solid var(--sp-color-border-bronze);
+  --sp-border-subtle: 1px solid rgba(200, 160, 100, 0.12);
+  --sp-border-tooltip: 2px solid var(--sp-color-border-bronze-alt);
+
+  /* ========================================
+     SHADOWS — Box Shadows
+     ======================================== */
+  --sp-shadow-container: 0 2px 10px rgba(0, 0, 0, 0.3), inset 0 0 12px rgba(0, 0, 0, 0.6);
+
+  --sp-shadow-container-elevated: 0 15px 40px rgba(0, 0, 0, 0.5), inset 0 0 12px rgba(0, 0, 0, 0.6);
+
+  --sp-shadow-panel: inset 0 0 15px rgba(30, 20, 10, 0.35), 0 2px 8px rgba(139, 69, 19, 0.35);
+
+  /* ========================================
+     SHADOWS — Text Shadows
+     ======================================== */
+  --sp-text-shadow-panel: 0 1px 0 rgba(255, 240, 220, 0.4), 0 2px 4px rgba(0, 0, 0, 0.8);
+
+  /* ========================================
+     SHADOWS — Filters
+     ======================================== */
+  --sp-filter-button-drop: drop-shadow(-5px 6px 17px rgba(0, 0, 0, 0.6));
+  --sp-filter-backdrop-blur: blur(4px);
+
+  /* ========================================
+     ANIMATION — Durations
+     ======================================== */
+  --sp-duration-fast: 0.15s;
+  --sp-duration-quick: 0.25s;
+  --sp-duration-medium: 0.5s;
+  --sp-duration-gear: 0.75s;
+  --sp-duration-smoke: 1s;
+  --sp-duration-menu: 2.5s;
+  --sp-duration-atmospheric: 3.5s;
+
+  /* ========================================
+     ANIMATION — Easings
+     ======================================== */
+  --sp-easing-physics: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --sp-easing-standard: ease-in-out;
+  --sp-easing-out: ease-out;
+
+  /* ========================================
+     ANIMATION — Phase Durations (ms)
+     ======================================== */
+  --sp-phase-warp: 600ms;
+  --sp-phase-hold: 3000ms;
+  --sp-phase-disintegrate: 3000ms;
+  --sp-phase-reassemble: 1500ms;
+
+  /* ========================================
+     COMPONENT SIZES
+     ======================================== */
+  --sp-size-nav-button-w: 280px;
+  --sp-size-nav-button-h: 56px;
+  --sp-size-hamburger: 80px;
+  --sp-size-menu-panel-w: 250px;
+  --sp-size-menu-panel-h: 80px;
+  --sp-size-record-view-max: 600px;
+  --sp-size-stories-view-max: 800px;
+
+  /* ========================================
+     Z-INDEX STACK
+     ======================================== */
+  --sp-z-button-layers: 3;
+  --sp-z-hamburger: 1000;
+  --sp-z-smoke-linger: 1003;
+  --sp-z-menu-panels: 1004;
+  --sp-z-smoke-main: 1005;
+  --sp-z-smoke-wisps: 1006;
+  --sp-z-modal: 2000;
+  --sp-z-overlay: 9999;
+
+  /* ========================================
+     BREAKPOINTS (for reference in JS)
+     ======================================== */
+  --sp-breakpoint-sm: 480px;
+  --sp-breakpoint-md: 768px;
+  --sp-breakpoint-lg: 1024px;
+}
+
+/* ========================================
+   COMPOSITE PATTERNS (as classes)
+   ======================================== */
+
+/* Steampunk Container */
+.sp-container {
+  background: var(--sp-color-bg-container);
+  border: var(--sp-border-standard);
+  border-radius: var(--sp-radius-lg);
+  padding: var(--sp-spacing-3xl);
+  box-shadow: var(--sp-shadow-container);
+}
+
+/* Steampunk Button */
+.sp-button {
+  background: linear-gradient(180deg, #6a5a4a, #2a1a0a);
+  border: var(--sp-border-standard);
+  border-radius: var(--sp-radius-md);
+  padding: var(--sp-spacing-md) var(--sp-spacing-2xl);
+  font-family: var(--sp-font-ui);
+  font-size: var(--sp-font-size-md);
+  font-weight: bold;
+  color: var(--sp-color-text-button);
+  text-transform: uppercase;
+  letter-spacing: var(--sp-letter-spacing-button);
+  cursor: pointer;
+}
+
+/* Prompt Box */
+.sp-prompt-box {
+  background: var(--sp-color-bg-prompt);
+  border: var(--sp-border-medium);
+  border-radius: var(--sp-radius-md);
+  padding: var(--sp-spacing-lg);
+  font-size: var(--sp-font-size-lg);
+  font-weight: bold;
+  color: var(--sp-color-text-primary);
+}

@@ -1,0 +1,192 @@
+/**
+ * responsive.css - Media queries
+ *
+ * Responsive styles for:
+ * - Portrait orientation (various widths)
+ * - Landscape orientation (various heights)
+ * - Desktop breakpoints
+ */
+
+@media (min-width: 1280px) {
+  .spin-wheel-button {
+    display: block !important;
+  }
+}
+
+/* Portrait phones - very small */
+@media (orientation: portrait) and (max-width: 359px) {
+  .wheel-container { width: 88vw; height: 88vw; max-width: 315px; max-height: 315px; }
+  .portal-inner-shadow { width: 60vw; height: 60vw; max-width: 214px; max-height: 214px; }
+  .wheel-viewport { left: 19%; right: 19%; top: 10%; bottom: 10%; }
+  .wheel-depth-overlay { left: 19%; right: 19%; top: 10%; bottom: 10%; }
+  .wheel-inner-depth { left: 22%; right: 22%; top: 14%; bottom: 14%; }
+  .prompt-text { font-size: 16px; }
+  .selected-prompt-text { font-size: 20px; }
+  button { font-size: 15px; padding: 12px 40px; }
+}
+
+/* Portrait phones - small (360-389px) */
+@media (orientation: portrait) and (min-width: 360px) and (max-width: 389px) {
+  .wheel-container { width: 88vw; height: 88vw; max-width: 330px; max-height: 330px; }
+  .portal-inner-shadow { width: 60vw; height: 60vw; max-width: 224px; max-height: 224px; }
+  .wheel-viewport { left: 19%; right: 19%; top: 10%; bottom: 10%; }
+  .wheel-depth-overlay { left: 19%; right: 19%; top: 10%; bottom: 10%; }
+  .wheel-inner-depth { left: 22%; right: 22%; top: 14%; bottom: 14%; }
+  .prompt-text { font-size: 16px; }
+  .selected-prompt-text { font-size: 21px; }
+  button { font-size: 15px; padding: 13px 42px; }
+}
+
+/* Portrait phones - medium (390-411px) */
+@media (orientation: portrait) and (min-width: 390px) and (max-width: 411px) {
+  .wheel-container { width: 88vw; height: 88vw; max-width: 350px; max-height: 350px; }
+  .portal-inner-shadow { width: 60vw; height: 60vw; max-width: 238px; max-height: 238px; }
+  .wheel-viewport { left: 19%; right: 19%; top: 10%; bottom: 10%; }
+  .wheel-depth-overlay { left: 19%; right: 19%; top: 10%; bottom: 10%; }
+  .wheel-inner-depth { left: 22%; right: 22%; top: 14%; bottom: 14%; }
+  .prompt-text { font-size: 17px; }
+  .selected-prompt-text { font-size: 22px; }
+  button { font-size: 16px; padding: 14px 46px; }
+}
+
+/* Portrait phones - large (412-439px) */
+@media (orientation: portrait) and (min-width: 412px) and (max-width: 439px) {
+  .wheel-container { width: 88vw; height: 88vw; max-width: 365px; max-height: 365px; }
+  .portal-inner-shadow { width: 60vw; height: 60vw; max-width: 248px; max-height: 248px; }
+  .wheel-viewport { left: 18%; right: 18%; top: 9%; bottom: 9%; }
+  .wheel-depth-overlay { left: 18%; right: 18%; top: 9%; bottom: 9%; }
+  .wheel-inner-depth { left: 21%; right: 21%; top: 13%; bottom: 13%; }
+  .prompt-text { font-size: 17px; }
+  .selected-prompt-text { font-size: 23px; }
+  button { font-size: 16px; padding: 14px 48px; }
+}
+
+/* Portrait phones - extra large (440-539px) */
+@media (orientation: portrait) and (min-width: 440px) and (max-width: 539px) {
+  .wheel-container { width: 87vw; height: 87vw; max-width: 385px; max-height: 385px; }
+  .portal-inner-shadow { width: 59vw; height: 59vw; max-width: 262px; max-height: 262px; }
+  .wheel-viewport { left: 18%; right: 18%; top: 9%; bottom: 9%; }
+  .wheel-depth-overlay { left: 18%; right: 18%; top: 9%; bottom: 9%; }
+  .wheel-inner-depth { left: 21%; right: 21%; top: 13%; bottom: 13%; }
+  .prompt-text { font-size: 18px; }
+  .selected-prompt-text { font-size: 24px; }
+  button { font-size: 16px; padding: 14px 50px; }
+}
+
+/* Small tablets portrait (540-767px) */
+@media (orientation: portrait) and (min-width: 540px) and (max-width: 767px) {
+  .wheel-container { width: 87vw; height: 87vw; max-width: 480px; max-height: 480px; }
+  .portal-inner-shadow { width: 59vw; height: 59vw; max-width: 326px; max-height: 326px; }
+  .wheel-viewport { left: 18%; right: 18%; top: 9%; bottom: 9%; }
+  .wheel-depth-overlay { left: 18%; right: 18%; top: 9%; bottom: 9%; }
+  .wheel-inner-depth { left: 21%; right: 21%; top: 13%; bottom: 13%; }
+  .prompt-text { font-size: 19px; }
+  .selected-prompt-text { font-size: 26px; }
+  button { font-size: 21px; padding: 18px 62px; }
+}
+
+/* Tablets portrait (768-819px) */
+@media (orientation: portrait) and (min-width: 768px) and (max-width: 819px) {
+  .wheel-container { width: 84vw; height: 84vw; max-width: 650px; max-height: 650px; }
+  .portal-inner-shadow { width: 57vw; height: 57vw; max-width: 442px; max-height: 442px; }
+  .prompt-text { font-size: 21px; }
+  .selected-prompt-text { font-size: 28px; }
+  button { font-size: 26px; padding: 22px 82px; }
+}
+
+/* Tablets portrait (820-852px) - iPad Air */
+@media (orientation: portrait) and (min-width: 820px) and (max-width: 852px) {
+  .wheel-container { width: 84vw; height: 84vw; max-width: 710px; max-height: 710px; }
+  .portal-inner-shadow { width: 57vw; height: 57vw; max-width: 483px; max-height: 483px; }
+  .prompt-text { font-size: 22px; }
+  .selected-prompt-text { font-size: 29px; }
+  button { font-size: 27px; padding: 23px 86px; }
+}
+
+/* Zenbook Fold portrait (853-911px) */
+@media (orientation: portrait) and (min-width: 853px) and (max-width: 911px) {
+  .wheel-content { padding: 12px 16px 20px; }
+  .wheel-container { width: 82vw; height: 82vw; max-width: 720px; max-height: 720px; }
+  .portal-inner-shadow { width: 56vw; height: 56vw; max-width: 490px; max-height: 490px; }
+  .prompt-text { font-size: 23px; }
+  .selected-prompt-text { font-size: 30px; }
+  button { font-size: 26px; padding: 22px 84px; }
+}
+
+/* Large tablets portrait (912-1023px) - Surface Pro 7 */
+@media (orientation: portrait) and (min-width: 912px) and (max-width: 1023px) {
+  .wheel-content { padding: 12px 16px 20px; }
+  .wheel-container { width: 84vw; height: 84vw; max-width: 780px; max-height: 780px; }
+  .portal-inner-shadow { width: 57vw; height: 57vw; max-width: 530px; max-height: 530px; }
+  .prompt-text { font-size: 23px; }
+  .selected-prompt-text { font-size: 30px; }
+  button { font-size: 28px; padding: 24px 92px; }
+}
+
+/* Extra large tablets/small laptops portrait (1024-1279px) - iPad Pro */
+@media (orientation: portrait) and (min-width: 1024px) and (max-width: 1279px) {
+  .wheel-content { padding: 12px 16px 20px; }
+  .wheel-container { width: 82vw; height: 82vw; max-width: 840px; max-height: 840px; }
+  .portal-inner-shadow { width: 56vw; height: 56vw; max-width: 571px; max-height: 571px; }
+  .prompt-text { font-size: 24px; }
+  .selected-prompt-text { font-size: 31px; }
+  button { font-size: 30px; padding: 26px 100px; }
+}
+
+/* Desktop portrait (1280px+) */
+@media (orientation: portrait) and (min-width: 1280px) {
+  .wheel-content { padding: 16px 16px 24px; }
+  .wheel-container { width: 78vw; height: 78vw; max-width: 900px; max-height: 900px; }
+  .portal-inner-shadow { width: 53vw; height: 53vw; max-width: 612px; max-height: 612px; }
+  .prompt-text { font-size: 24px; }
+  .selected-prompt-text { font-size: 32px; }
+  button { font-size: 22px; padding: 20px 74px; }
+}
+
+/* Landscape - very short (max 599px height) - Nest Hub */
+@media (orientation: landscape) and (max-height: 599px) {
+  .wheel-content { padding: 8px 16px 8px; gap: 4px; }
+  .wheel-container { width: 70vh; height: 70vh; max-width: 70vh; }
+  .portal-inner-shadow { width: 48vh; height: 48vh; }
+  .wheel-viewport { left: 19%; right: 19%; top: 10%; bottom: 10%; }
+  .wheel-depth-overlay { left: 19%; right: 19%; top: 10%; bottom: 10%; }
+  .wheel-inner-depth { left: 22%; right: 22%; top: 14%; bottom: 14%; }
+  .prompt-text { font-size: 15px; }
+  .selected-prompt-text { font-size: 19px; }
+  .selected-prompt-container { min-height: 32px; max-height: 38px; }
+  button { font-size: 14px; padding: 10px 38px; }
+  .nav-buttons { margin-top: 3px; }
+}
+
+/* Landscape - short (600-767px height) */
+@media (orientation: landscape) and (min-height: 600px) and (max-height: 767px) {
+  .wheel-content { padding: 12px 16px 12px; gap: 6px; }
+  .wheel-container { width: 72vh; height: 72vh; max-width: 72vh; }
+  .portal-inner-shadow { width: 49vh; height: 49vh; }
+  .prompt-text { font-size: 17px; }
+  .selected-prompt-text { font-size: 22px; }
+  .selected-prompt-container { min-height: 38px; max-height: 46px; }
+  button { font-size: 16px; padding: 13px 46px; }
+  .nav-buttons { margin-top: 5px; }
+}
+
+/* Landscape - medium (768-1023px height) - Nest Hub Max */
+@media (orientation: landscape) and (min-height: 768px) and (max-height: 1023px) {
+  .wheel-content { padding: 16px 16px 16px; gap: 8px; }
+  .wheel-container { width: 68vh; height: 68vh; }
+  .portal-inner-shadow { width: 46vh; height: 46vh; }
+  .prompt-text { font-size: 19px; }
+  .selected-prompt-text { font-size: 25px; }
+  button { font-size: 19px; padding: 16px 54px; }
+}
+
+/* Landscape - tall (1024px+ height) */
+@media (orientation: landscape) and (min-height: 1024px) {
+  .wheel-content { padding: 20px 16px 20px; gap: 10px; }
+  .wheel-container { width: 66vh; height: 66vh; max-width: 750px; }
+  .portal-inner-shadow { width: 45vh; height: 45vh; max-width: 510px; }
+  .prompt-text { font-size: 21px; }
+  .selected-prompt-text { font-size: 28px; }
+  button { font-size: 20px; padding: 17px 60px; }
+}
+

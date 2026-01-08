@@ -1,0 +1,23 @@
+/**
+ * Legacy App Styles - Main Entry Point
+ *
+ * This file imports all CSS modules in the correct order.
+ * Import this file in LegacyApp.tsx instead of legacy.css.
+ */
+
+/* Fonts - Must be first for font-family declarations */
+@import './fonts.css';
+
+/* Base styles - Document level */
+@import './base.css';
+
+/* Component styles */
+@import './wheel.css';
+@import './buttons.css';
+@import './menu.css';
+
+/* Animations - Keyframe definitions */
+@import './animations.css';
+
+/* Responsive - Media queries (must be last for cascade) */
+@import './responsive.css';

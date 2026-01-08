@@ -1,0 +1,519 @@
+/**
+ * animations.css - Keyframe animations
+ *
+ * Animations for:
+ * - Fade effects (smoothFadeIn, leafFall)
+ * - Warp speed effect
+ * - Disintegration and particle effects
+ * - Menu panel tumble and sway
+ * - Smoke poof and steam effects
+ * - Electricity flash and pulse
+ * - Transporter sparkle
+ * - Scanline effect
+ */
+
+@keyframes smoothFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes leafFall {
+  0% {
+    transform: translate(-50%, -50%) translateY(0) translateX(0) rotate(0deg) scale(2.25);
+  }
+  12% {
+    transform: translate(-50%, -50%) translateY(calc(var(--descend-y) * 0.08)) translateX(15px) rotate(4deg) scale(1.9);
+  }
+  24% {
+    transform: translate(-50%, -50%) translateY(calc(var(--descend-y) * 0.22)) translateX(-10px) rotate(-3deg) scale(1.6);
+  }
+  38% {
+    transform: translate(-50%, -50%) translateY(calc(var(--descend-y) * 0.38)) translateX(12px) rotate(3deg) scale(1.42);
+  }
+  52% {
+    transform: translate(-50%, -50%) translateY(calc(var(--descend-y) * 0.55)) translateX(-8px) rotate(-2deg) scale(1.3);
+  }
+  66% {
+    transform: translate(-50%, -50%) translateY(calc(var(--descend-y) * 0.72)) translateX(6px) rotate(1.5deg) scale(1.22);
+  }
+  80% {
+    transform: translate(-50%, -50%) translateY(calc(var(--descend-y) * 0.88)) translateX(-3px) rotate(-0.8deg) scale(1.15);
+  }
+  92% {
+    transform: translate(-50%, -50%) translateY(calc(var(--descend-y) * 0.97)) translateX(1px) rotate(0.3deg) scale(1.11);
+  }
+  100% {
+    transform: translate(-50%, -50%) translateY(var(--descend-y)) translateX(0) rotate(0deg) scale(1.1);
+  }
+}
+
+/* Warp Speed Animation - Star Wars hyperspace jump effect */
+@keyframes warpSpeed {
+  0% {
+    transform: scale(1) translateZ(0);
+    filter: blur(0px) brightness(1);
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+  }
+  20% {
+    transform: scale(1.2, 0.85) translateZ(50px);
+    filter: blur(0px) brightness(1.2);
+  }
+  40% {
+    transform: scale(0.7, 1.5) translateZ(200px);
+    filter: blur(4px) brightness(1.5);
+  }
+  60% {
+    transform: scale(0.8, 1.3) translateZ(350px);
+    filter: blur(2px) brightness(1.3);
+  }
+  80% {
+    transform: scale(1.8, 2.0) translateZ(450px);
+    filter: blur(1px) brightness(1.1);
+  }
+  100% {
+    transform: scale(2.25) translateZ(500px);
+    filter: blur(0px) brightness(1);
+    opacity: 1;
+  }
+}
+
+/* Motion lines/streaks for warp effect */
+@keyframes warpStreak {
+  0% {
+    transform: scaleY(0.1) translateY(0);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: scaleY(8) translateY(-5px);
+    opacity: 0;
+  }
+}
+
+/* Disintegration glow before particles */
+@keyframes disintegrateGlow {
+  0% {
+    filter: brightness(1) blur(0px);
+    opacity: 1;
+  }
+  30% {
+    filter: brightness(2) blur(1px);
+    opacity: 1;
+  }
+  100% {
+    filter: brightness(3) blur(4px);
+    opacity: 0;
+  }
+}
+
+/* Individual particle animation */
+@keyframes particleFly {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--px), var(--py)) scale(0);
+    opacity: 0;
+  }
+}
+
+/* Star Trek transporter reassembly */
+@keyframes reassembleReveal {
+  0% {
+    clip-path: inset(100% 0 0 0);
+    filter: brightness(2) blur(3px);
+    opacity: 0.3;
+  }
+  20% {
+    opacity: 0.6;
+  }
+  50% {
+    clip-path: inset(50% 0 0 0);
+    filter: brightness(1.5) blur(2px);
+  }
+  80% {
+    clip-path: inset(10% 0 0 0);
+    filter: brightness(1.2) blur(1px);
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+    filter: brightness(1) blur(0px);
+    opacity: 1;
+  }
+}
+
+/* Menu panel tumble OUT - flips end over end, top edge forward toward viewer */
+@keyframes menuPanelTumbleOut {
+  0% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(0deg) scale(0.8);
+  }
+  25% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(-90deg) scale(0.9);
+  }
+  50% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(-180deg) scale(1.0);
+  }
+  75% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(-270deg) scale(1.05);
+  }
+  100% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(-360deg) scale(1.1);
+  }
+}
+
+/* Menu panel tumble BACK - flips end over end, top edge forward away from viewer */
+@keyframes menuPanelTumbleBack {
+  0% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(0deg) scale(1.1);
+  }
+  25% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(90deg) scale(1.05);
+  }
+  50% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(180deg) scale(1.0);
+  }
+  75% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(270deg) scale(0.9);
+  }
+  100% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(360deg) scale(0.8);
+  }
+}
+
+/* Smoke poof effect when menu opens/closes - main cloud */
+@keyframes smokePoof {
+  0% {
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 0.95;
+  }
+  15% {
+    transform: translate(-50%, -50%) scale(1.0);
+    opacity: 0.85;
+  }
+  35% {
+    transform: translate(-50%, -50%) scale(1.8);
+    opacity: 0.6;
+  }
+  60% {
+    transform: translate(-50%, -50%) scale(2.5);
+    opacity: 0.35;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(3.5);
+    opacity: 0;
+  }
+}
+
+/* Smoke wisps that drift upward */
+@keyframes smokeWisp1 {
+  0% {
+    transform: translate(-50%, -50%) scale(0.4) translateY(0);
+    opacity: 0.85;
+  }
+  60% {
+    transform: translate(-50%, -50%) scale(1.8) translateY(-120px) translateX(-60px);
+    opacity: 0.4;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.5) translateY(-200px) translateX(-100px);
+    opacity: 0;
+  }
+}
+
+@keyframes smokeWisp2 {
+  0% {
+    transform: translate(-50%, -50%) scale(0.4) translateY(0);
+    opacity: 0.85;
+  }
+  60% {
+    transform: translate(-50%, -50%) scale(1.7) translateY(-100px) translateX(70px);
+    opacity: 0.4;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.3) translateY(-180px) translateX(120px);
+    opacity: 0;
+  }
+}
+
+@keyframes smokeWisp3 {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5) translateY(0);
+    opacity: 0.8;
+  }
+  60% {
+    transform: translate(-50%, -50%) scale(1.6) translateY(-140px) translateX(20px);
+    opacity: 0.35;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.2) translateY(-220px) translateX(30px);
+    opacity: 0;
+  }
+}
+
+/* Lingering smoke that wafts slowly */
+@keyframes smokeLingerLeft {
+  0% {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0;
+  }
+  10% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 0.5;
+  }
+  30% {
+    transform: translate(-50%, -50%) scale(1.8) translateX(-80px) translateY(-30px);
+    opacity: 0.4;
+  }
+  60% {
+    transform: translate(-50%, -50%) scale(2.5) translateX(-150px) translateY(-60px);
+    opacity: 0.25;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(3.0) translateX(-250px) translateY(-100px);
+    opacity: 0;
+  }
+}
+
+@keyframes smokeLingerRight {
+  0% {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0;
+  }
+  10% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 0.5;
+  }
+  30% {
+    transform: translate(-50%, -50%) scale(1.8) translateX(90px) translateY(-20px);
+    opacity: 0.4;
+  }
+  60% {
+    transform: translate(-50%, -50%) scale(2.5) translateX(160px) translateY(-50px);
+    opacity: 0.25;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(3.0) translateX(270px) translateY(-90px);
+    opacity: 0;
+  }
+}
+
+@keyframes smokeLingerUp {
+  0% {
+    transform: translate(-50%, -50%) scale(1.0);
+    opacity: 0;
+  }
+  15% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0.45;
+  }
+  40% {
+    transform: translate(-50%, -50%) scale(2.2) translateY(-100px);
+    opacity: 0.35;
+  }
+  70% {
+    transform: translate(-50%, -50%) scale(3.0) translateY(-180px);
+    opacity: 0.2;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(4.0) translateY(-280px);
+    opacity: 0;
+  }
+}
+
+@keyframes smokeLingerDown {
+  0% {
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0;
+  }
+  15% {
+    transform: translate(-50%, -50%) scale(1.0);
+    opacity: 0.4;
+  }
+  40% {
+    transform: translate(-50%, -50%) scale(1.6) translateY(60px);
+    opacity: 0.3;
+  }
+  70% {
+    transform: translate(-50%, -50%) scale(2.2) translateY(120px);
+    opacity: 0.15;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.8) translateY(180px);
+    opacity: 0;
+  }
+}
+
+/* Persistent steam - wide streaming effect */
+@keyframes steamStream {
+  0% {
+    transform: translate(-50%, -50%) scaleX(0.5) scaleY(0.4);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.55;
+  }
+  35% {
+    transform: translate(-50%, -50%) scaleX(1.0) scaleY(0.9) translateY(-45px);
+    opacity: 0.4;
+  }
+  65% {
+    transform: translate(-50%, -50%) scaleX(1.4) scaleY(1.2) translateY(-85px);
+    opacity: 0.22;
+  }
+  100% {
+    transform: translate(-50%, -50%) scaleX(1.8) scaleY(1.5) translateY(-130px);
+    opacity: 0;
+  }
+}
+
+/* Portal electricity effect - simplified for dynamic bolts */
+@keyframes electricFlash {
+  0%, 100% { opacity: 0.7; }
+  10% { opacity: 1; }
+  25% { opacity: 0.8; }
+  40% { opacity: 0.95; }
+  55% { opacity: 0.75; }
+  70% { opacity: 1; }
+  85% { opacity: 0.85; }
+}
+
+@keyframes electricPulse {
+  0%, 100% { transform: scale(0.97); opacity: 0.7; }
+  50% { transform: scale(1.03); opacity: 1; }
+}
+
+@keyframes steamStreamDrift {
+  0% {
+    transform: translate(-50%, -50%) scaleX(0.45) scaleY(0.35);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.5;
+  }
+  35% {
+    transform: translate(-50%, -50%) scaleX(0.95) scaleY(0.85) translateY(-40px) translateX(8px);
+    opacity: 0.38;
+  }
+  65% {
+    transform: translate(-50%, -50%) scaleX(1.3) scaleY(1.1) translateY(-75px) translateX(15px);
+    opacity: 0.2;
+  }
+  100% {
+    transform: translate(-50%, -50%) scaleX(1.7) scaleY(1.4) translateY(-120px) translateX(22px);
+    opacity: 0;
+  }
+}
+
+@keyframes steamStreamDriftLeft {
+  0% {
+    transform: translate(-50%, -50%) scaleX(0.45) scaleY(0.35);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.5;
+  }
+  35% {
+    transform: translate(-50%, -50%) scaleX(0.95) scaleY(0.85) translateY(-40px) translateX(-8px);
+    opacity: 0.38;
+  }
+  65% {
+    transform: translate(-50%, -50%) scaleX(1.3) scaleY(1.1) translateY(-75px) translateX(-15px);
+    opacity: 0.2;
+  }
+  100% {
+    transform: translate(-50%, -50%) scaleX(1.7) scaleY(1.4) translateY(-120px) translateX(-22px);
+    opacity: 0;
+  }
+}
+
+/* Menu panel sway animation - gentle breeze effect */
+@keyframes menuPanelSway {
+  0% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(0deg);
+  }
+  8% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(-20deg);
+  }
+  20% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(15deg);
+  }
+  32% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(-11deg);
+  }
+  44% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(8deg);
+  }
+  56% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(-5deg);
+  }
+  68% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(3deg);
+  }
+  80% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(-1.5deg);
+  }
+  90% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(0.5deg);
+  }
+  100% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(0deg);
+  }
+}
+
+/* Clicked panel pushes in first */
+@keyframes menuPanelPush {
+  0% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(0deg) scale(1);
+  }
+  6% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(-30deg) scale(0.96);
+  }
+  16% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(20deg) scale(1);
+  }
+  28% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(-14deg);
+  }
+  40% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(10deg);
+  }
+  52% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(-6deg);
+  }
+  64% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(4deg);
+  }
+  76% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(-2deg);
+  }
+  88% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(1deg);
+  }
+  100% {
+    transform: translate(-50%, -50%) perspective(1000px) rotateX(0deg);
+  }
+}
+
+@keyframes transporterSparkle {
+  0%, 100% { opacity: 0; transform: scale(0.5); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+@keyframes scanlineMove {
+  0% { top: 0%; opacity: 1; }
+  100% { top: 100%; opacity: 0.3; }
+}
+
+
+/* === ALIGNMENT NUDGE: match monolithic vertical centering on primary pill buttons === */
+.image-button.new-topics-btn .button-content,
+.image-button.record-btn .button-content {
+  transform: translate(-50%, -50%) translateY(-2px);
+}
+

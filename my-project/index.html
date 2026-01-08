@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>my-project</title>
+    <!-- Material Symbols Icon Font -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  </head>
+  <body>
+    <!-- SVG Filter Definitions for Bronze Engraved Effects and Wheel Text Depth -->
+    <svg style="display: none;" width="0" height="0">
+      <defs>
+        <!-- Bronze Engraved Filter: Creates depth effect for buttons -->
+        <filter id="bronze-engraved-filter" x="-50%" y="-50%" width="200%" height="200%">
+          <!-- Deep dark shadow for carved depth -->
+          <feOffset in="SourceAlpha" dx="1" dy="1.5" result="offsetblur" />
+          <feGaussianBlur in="offsetblur" stdDeviation="1.5" result="offsetblur" />
+          <feFlood floodColor="#1a0f08" floodOpacity="0.95" result="offsetcolor" />
+          <feComposite in="offsetcolor" in2="offsetblur" operator="in" result="offsetblur" />
+
+          <!-- Secondary shadow for edge definition -->
+          <feOffset in="SourceAlpha" dx="0.5" dy="0.5" result="offsetblur2" />
+          <feGaussianBlur in="offsetblur2" stdDeviation="0.8" result="offsetblur2" />
+          <feFlood floodColor="#2a1810" floodOpacity="0.6" result="offsetcolor2" />
+          <feComposite in="offsetcolor2" in2="offsetblur2" operator="in" result="offsetblur2" />
+
+          <!-- Bright highlight for beveled edge catch -->
+          <feOffset in="SourceAlpha" dx="-1" dy="-1" result="offsetblur3" />
+          <feGaussianBlur in="offsetblur3" stdDeviation="1" result="offsetblur3" />
+          <feFlood floodColor="#fffef9" floodOpacity="0.65" result="offsetcolor3" />
+          <feComposite in="offsetcolor3" in2="offsetblur3" operator="in" result="offsetblur3" />
+
+          <!-- Merge all: deep shadow, edge shadow, bright highlight, then source -->
+          <feMerge>
+            <feMergeNode in="offsetblur" />
+            <feMergeNode in="offsetblur2" />
+            <feMergeNode in="offsetblur3" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+
+        <!-- Bronze Gradient for SVG fills -->
+        <linearGradient id="bronze-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" style="stop-color:#f5e6d3;stop-opacity:1" />
+          <stop offset="35%" style="stop-color:#d4af37;stop-opacity:1" />
+          <stop offset="65%" style="stop-color:#c4942e;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#8b6f47;stop-opacity:1" />
+        </linearGradient>
+
+        <!-- Bronze Gradient Pressed -->
+        <linearGradient id="bronze-gradient-pressed" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" style="stop-color:#d4c4a8;stop-opacity:1" />
+          <stop offset="35%" style="stop-color:#b8860b;stop-opacity:1" />
+          <stop offset="65%" style="stop-color:#a0752d;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#6b4423;stop-opacity:1" />
+        </linearGradient>
+
+        <!-- Carved Text Filter: Creates wood routing depth effect for wheel text -->
+        <filter id="carved-text-filter" x="-50%" y="-50%" width="200%" height="200%">
+          <!-- Inner shadow from top (depth of cut) -->
+          <feOffset in="SourceAlpha" dx="0" dy="2" result="offsetblur" />
+          <feGaussianBlur in="offsetblur" stdDeviation="1" result="offsetblur" />
+          <feFlood floodColor="rgba(30, 15, 5, 0.8)" result="offsetcolor" />
+          <feComposite in="offsetcolor" in2="offsetblur" operator="in" result="offsetblur" />
+
+          <!-- Side shadow (subtle depth from edges) -->
+          <feOffset in="SourceAlpha" dx="1" dy="1" result="offsetblur2" />
+          <feGaussianBlur in="offsetblur2" stdDeviation="0.5" result="offsetblur2" />
+          <feFlood floodColor="rgba(50, 30, 15, 0.5)" result="offsetcolor2" />
+          <feComposite in="offsetcolor2" in2="offsetblur2" operator="in" result="offsetblur2" />
+
+          <!-- Bottom edge highlight (light catching carved edge) -->
+          <feOffset in="SourceAlpha" dx="0" dy="-1" result="offsetblur3" />
+          <feGaussianBlur in="offsetblur3" stdDeviation="0.5" result="offsetblur3" />
+          <feFlood floodColor="rgba(255, 250, 240, 0.7)" result="offsetcolor3" />
+          <feComposite in="offsetcolor3" in2="offsetblur3" operator="in" result="offsetblur3" />
+
+          <!-- Merge all layers for final 3D carved effect -->
+          <feMerge>
+            <feMergeNode in="offsetblur" />
+            <feMergeNode in="offsetblur2" />
+            <feMergeNode in="offsetblur3" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+    </svg>
+
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

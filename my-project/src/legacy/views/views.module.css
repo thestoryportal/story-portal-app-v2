@@ -1,0 +1,39 @@
+/* Shared View Styles
+ * Uses design tokens from src/tokens/design-tokens.css
+ */
+
+/* Empty state container */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  text-align: center;
+}
+
+.emptyText {
+  color: var(--sp-color-text-secondary);
+  font-size: var(--sp-font-size-base);
+  font-style: italic;
+  margin: 0;
+}
+
+/* Story card grid (for future use) */
+.storyGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--sp-spacing-lg);
+}
+
+.storyCard {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--sp-color-border-bronze);
+  border-radius: var(--sp-radius-md);
+  padding: var(--sp-spacing-lg);
+  transition: transform var(--sp-duration-fast) var(--sp-easing-standard);
+}
+
+.storyCard:hover {
+  transform: translateY(-2px);
+}

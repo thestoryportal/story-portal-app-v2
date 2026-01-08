@@ -1,0 +1,19 @@
+/**
+ * base.css - Base document styles
+ *
+ * Global html/body styles including background and touch behavior.
+ */
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: fixed;
+  background: url("/assets/images/background.webp") center/cover fixed;
+  font-family: serif;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+

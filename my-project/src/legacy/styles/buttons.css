@@ -1,0 +1,291 @@
+/**
+ * buttons.css - Button styles
+ *
+ * Styles for:
+ * - Image buttons (primary/secondary)
+ * - Engraved button text
+ * - Engraved icons (material icons)
+ * - Record button tooltip
+ * - Spin wheel button
+ */
+
+.buttons-container {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  width: 100%;
+  max-width: 580px;
+  position: relative;
+}
+
+/* Image button base styles */
+.image-button {
+  width: clamp(130px, 22vw, 260px);
+  height: auto;
+  aspect-ratio: 601 / 263;
+  transition: transform 0.1s ease;
+}
+
+.image-button:active {
+  transform: none;
+}
+
+/* Engraved text style for bronze buttons */
+.engraved-button-text {
+  mix-blend-mode: hard-light;
+  font-family: 'Molly Sans', sans-serif;
+  font-weight: normal;
+  letter-spacing: 0.08em;
+  /* Multi-layered gradient mimicking natural brass patina */
+  background: 
+    /* Hot spot highlights */
+    radial-gradient(ellipse 150% 60% at 25% 15%, rgba(255,245,200,0.5) 0%, transparent 40%),
+    radial-gradient(ellipse 80% 40% at 75% 25%, rgba(248,235,170,0.35) 0%, transparent 35%),
+    radial-gradient(ellipse 60% 80% at 15% 70%, rgba(200,160,80,0.25) 0%, transparent 40%),
+    /* Darker patches */
+    radial-gradient(ellipse 100% 50% at 60% 85%, rgba(100,70,20,0.2) 0%, transparent 50%),
+    radial-gradient(ellipse 70% 60% at 85% 50%, rgba(120,85,30,0.15) 0%, transparent 45%),
+    /* Base fluctuating gradient - diagonal for natural feel */
+    linear-gradient(168deg, 
+      #faf0b0 0%,
+      #f0e498 3%,
+      #e8d888 6%,
+      #f2e090 9%,
+      #dcc878 12%,
+      #d4c068 16%,
+      #e0c870 19%,
+      #cbb458 23%,
+      #c4a850 27%,
+      #d0b058 30%,
+      #bca048 34%,
+      #b49440 38%,
+      #c4a448 41%,
+      #a88830 45%,
+      #b89038 48%,
+      #a08028 52%,
+      #ac8830 55%,
+      #987420 59%,
+      #a47c28 62%,
+      #8c6818 66%,
+      #987020 69%,
+      #846014 73%,
+      #906820 76%,
+      #7a5810 80%,
+      #886018 83%,
+      #704c0c 87%,
+      #7c5410 91%,
+      #684408 95%,
+      #5c3c04 100%
+    );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  /* Engraved depth effect via SVG filter */
+  filter: url(#bronze-engraved-filter);
+  /* Prevent text selection */
+  user-select: none;
+  -webkit-user-select: none;
+  transition: filter 0.1s ease;
+}
+
+/* Pressed state for engraved text */
+.engraved-button-text.pressed {
+  background: 
+    radial-gradient(ellipse 150% 60% at 25% 15%, rgba(220,210,160,0.4) 0%, transparent 40%),
+    radial-gradient(ellipse 80% 40% at 75% 25%, rgba(200,180,120,0.3) 0%, transparent 35%),
+    linear-gradient(168deg, 
+      #d8c880 0%, 
+      #c8b868 15%,
+      #b8a050 30%,
+      #a89040 45%,
+      #988030 60%,
+      #806818 75%,
+      #604808 100%
+    );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Engraved icon style for bronze buttons (SVG) */
+.engraved-icon {
+  mix-blend-mode: hard-light;
+  fill: url(#bronze-gradient);
+  stroke: none;
+  filter: url(#bronze-engraved-filter);
+  transition: filter 0.1s ease, fill 0.1s ease;
+}
+
+/* Pressed state for engraved icon */
+.engraved-icon.pressed {
+  fill: url(#bronze-gradient-pressed);
+}
+
+.engraved-icon.disabled {
+  fill: #d4af37;
+  opacity: 0.6;
+}
+
+/* Safe Material Symbols rendering (no clip/filter tricks) */
+.engraved-material-icon {
+  cursor: pointer;
+  pointer-events: none;
+  white-space: nowrap;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+
+  font-family: 'Material Symbols Outlined';
+  font-feature-settings: "liga" 1;
+  font-size: clamp(20px, 4.5vw, 36px);
+  line-height: 1;
+
+  /* EXACT monolithic patina/bronze gradient stack */
+  background:
+    radial-gradient(ellipse 150% 60% at 25% 15%, rgba(255,245,200,0.5) 0%, transparent 40%),
+    radial-gradient(ellipse 80% 40% at 75% 25%, rgba(248,235,170,0.35) 0%, transparent 35%),
+    radial-gradient(ellipse 60% 80% at 15% 70%, rgba(200,160,80,0.25) 0%, transparent 40%),
+    radial-gradient(ellipse 100% 50% at 60% 85%, rgba(100,70,20,0.2) 0%, transparent 50%),
+    radial-gradient(ellipse 70% 60% at 85% 50%, rgba(120,85,30,0.15) 0%, transparent 45%),
+    linear-gradient(168deg,
+      #faf0b0 0%,
+      #f0e498 3%,
+      #e8d888 6%,
+      #f2e090 9%,
+      #dcc878 12%,
+      #d4c068 16%,
+      #e0c870 19%,
+      #cbb458 23%,
+      #c4a850 27%,
+      #d0b058 30%,
+      #bca048 34%,
+      #b49440 38%,
+      #c4a448 41%,
+      #a88830 45%,
+      #b89038 48%,
+      #a08028 52%,
+      #ac8830 55%,
+      #987420 59%,
+      #a47c28 62%,
+      #8c6818 66%,
+      #987020 69%,
+      #846014 73%,
+      #906820 76%,
+      #7a5810 80%,
+      #886018 83%,
+      #704c0c 87%,
+      #7c5410 91%,
+      #684408 95%,
+      #5c3c04 100%
+    );
+
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+
+  filter: url(#bronze-engraved-filter);
+  font-variation-settings: 'FILL' 1, 'wght' 700, 'GRAD' 0, 'opsz' 24;
+
+  user-select: none;
+  -webkit-user-select: none;
+  transition: filter 0.1s ease;
+}
+
+/* Pressed state for Material Symbol icon */
+.engraved-material-icon.pressed {
+  background: 
+    radial-gradient(ellipse 150% 60% at 25% 15%, rgba(220,210,160,0.4) 0%, transparent 40%),
+    radial-gradient(ellipse 80% 40% at 75% 25%, rgba(200,180,120,0.3) 0%, transparent 35%),
+    linear-gradient(168deg, 
+      #d8c880 0%, 
+      #c8b868 15%,
+      #b8a050 30%,
+      #a89040 45%,
+      #988030 60%,
+      #806818 75%,
+      #604808 100%
+    );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Button content wrapper */
+.button-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) translateY(-2px);
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 1.5vw, 12px);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* Disabled state for engraved text */
+.engraved-button-text.disabled {
+  color: #8a7a5a;
+  opacity: 0.6;
+}
+
+/* Tooltip for disabled record button */
+.record-tooltip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #3d2a1a, #2a1a0a);
+  border: 2px solid #8B6F47;
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #f5deb3;
+  font-family: 'Molly Sans', sans-serif;
+  font-size: clamp(11px, 2.2vw, 14px);
+  white-space: nowrap;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+  z-index: 100;
+  animation: tooltipFadeIn 0.2s ease-out;
+}
+
+.record-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 8px solid transparent;
+  border-top-color: #8B6F47;
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* Hamburger Menu Animations */
+@keyframes gearSpinClockwise {
+  0% { transform: rotate(0deg); filter: blur(0px); }
+  15% { filter: blur(1.5px); }
+  50% { filter: blur(2px); }
+  85% { filter: blur(1px); }
+  100% { transform: rotate(360deg); filter: blur(0px); }
+}
+
+@keyframes gearSpinCounterClockwise {
+  0% { transform: rotate(0deg); filter: blur(0px); }
+  15% { filter: blur(1.5px); }
+  50% { filter: blur(2px); }
+  85% { filter: blur(1px); }
+  100% { transform: rotate(-360deg); filter: blur(0px); }
+}

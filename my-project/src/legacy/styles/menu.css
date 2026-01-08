@@ -1,0 +1,163 @@
+/**
+ * menu.css - Navigation and menu styles
+ *
+ * Styles for:
+ * - Nav buttons container
+ * - Hamburger menu button
+ * - Secondary buttons (How to Play, My Stories)
+ */
+
+.nav-buttons {
+  display: none;
+}
+
+/* Hamburger menu button - hidden by default */
+.hamburger-menu-button {
+  display: none !important;
+}
+
+/* Show nav buttons only on desktop */
+@media (min-width: 1280px) {
+  .nav-buttons {
+    display: flex;
+  }
+  
+  .hamburger-menu-button {
+    display: block !important;
+  }
+}
+
+/* Secondary button styling */
+.secondary-button {
+  width: 310px;
+  height: auto;
+  aspect-ratio: 639 / 147;
+}
+
+.secondary-button-img {
+  transition: filter 0.1s ease;
+}
+
+/* Secondary button text - backlit cut-out metal */
+.engraved-button-text.secondary {
+  /* Warm light showing through the cut-out */
+  background: linear-gradient(180deg,
+    #4a3520 0%,
+    #6a4a28 15%,
+    #8a6535 30%,
+    #b8863c 50%,
+    #d4a045 70%,
+    #c89038 85%,
+    #a87030 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow:
+    /* Cut edge depth - dark inner shadow at top (looking into the hole) */
+    inset 0 2px 4px rgba(0, 0, 0, 0.8),
+    /* Bright rim where light catches the cut edge */
+    0 -1px 0 rgba(30, 20, 10, 0.9),
+    0 1px 0 rgba(255, 200, 130, 0.8),
+    /* Backlight glow bleeding onto metal surface */
+    0 0 4px rgba(255, 180, 100, 0.9),
+    0 0 8px rgba(255, 160, 80, 0.7),
+    0 0 15px rgba(255, 140, 60, 0.5),
+    0 0 25px rgba(255, 120, 40, 0.35),
+    0 0 40px rgba(255, 100, 30, 0.25),
+    0 0 60px rgba(200, 80, 20, 0.15);
+  filter: none;
+}
+
+.engraved-button-text.secondary.pressed {
+  background: linear-gradient(180deg,
+    #3a2818 0%,
+    #5a3a20 30%,
+    #7a5530 60%,
+    #8a6538 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow:
+    0 -1px 0 rgba(30, 20, 10, 0.9),
+    0 1px 0 rgba(200, 150, 90, 0.6),
+    0 0 3px rgba(255, 160, 80, 0.6),
+    0 0 8px rgba(255, 120, 50, 0.4),
+    0 0 15px rgba(200, 80, 30, 0.25);
+}
+
+/* Secondary button icons - backlit cut-out metal */
+.engraved-material-icon.secondary {
+  /* Warm light showing through the cut-out */
+  background: linear-gradient(180deg,
+    #4a3520 0%,
+    #6a4a28 15%,
+    #8a6535 30%,
+    #b8863c 50%,
+    #d4a045 70%,
+    #c89038 85%,
+    #a87030 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow:
+    /* Cut edge depth - dark inner shadow at top (looking into the hole) */
+    inset 0 2px 4px rgba(0, 0, 0, 0.8),
+    /* Bright rim where light catches the cut edge */
+    0 -1px 0 rgba(30, 20, 10, 0.9),
+    0 1px 0 rgba(255, 200, 130, 0.8),
+    /* Backlight glow bleeding onto metal surface */
+    0 0 4px rgba(255, 180, 100, 0.9),
+    0 0 8px rgba(255, 160, 80, 0.7),
+    0 0 15px rgba(255, 140, 60, 0.5),
+    0 0 25px rgba(255, 120, 40, 0.35),
+    0 0 40px rgba(255, 100, 30, 0.25),
+    0 0 60px rgba(200, 80, 20, 0.15);
+  filter: none;
+}
+
+.engraved-material-icon.secondary.pressed {
+  background: linear-gradient(180deg,
+    #3a2818 0%,
+    #5a3a20 30%,
+    #7a5530 60%,
+    #8a6538 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow:
+    0 -1px 0 rgba(30, 20, 10, 0.9),
+    0 1px 0 rgba(200, 150, 90, 0.6),
+    0 0 3px rgba(255, 160, 80, 0.6),
+    0 0 8px rgba(255, 120, 50, 0.4),
+    0 0 15px rgba(200, 80, 30, 0.25);
+}
+
+/* Hide spin button on all mobile and tablets */
+.spin-wheel-button {
+  display: none !important;
+}
+
+/* Spin button mounting ring effect - smooth blend into background */
+.spin-wheel-button::before {
+  content: '';
+  position: absolute;
+  top: -15px;
+  left: -15px;
+  right: -15px;
+  bottom: -15px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, 
+    rgba(20,30,25,0.7) 0%, 
+    rgba(20,30,25,0.6) 30%,
+    rgba(20,30,25,0.4) 50%,
+    rgba(20,30,25,0.2) 70%,
+    rgba(20,30,25,0.05) 85%,
+    rgba(20,30,25,0) 100%
+  );
+  z-index: -1;
+  pointer-events: none;
+}
