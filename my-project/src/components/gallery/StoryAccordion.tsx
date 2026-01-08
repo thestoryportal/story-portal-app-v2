@@ -5,7 +5,7 @@
  * Shows full-size photo when expanded (only if photo exists)
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { StoryRecord } from '../../types';
 import { formatDuration } from '../../utils/formatting';
 import styles from './gallery.module.css';
@@ -24,55 +24,35 @@ export function StoryAccordion({
   onDelete,
 }: StoryAccordionProps): JSX.Element {
   const [isPlaying, setIsPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
-  // Create object URL for photo
-  const photoUrl = useMemo(() => {
-    if (story.photo) {
-      return URL.createObjectURL(story.photo.blob);
-    }
-    return null;
-  }, [story.photo]);
+  // Create object URLs for audio and photo on mount
+  useEffect(() => {
+    let audioObjectUrl: string | null = null;
+    let photoObjectUrl: string | null = null;
 
-  // Create object URL for audio
-  const audioUrl = useMemo(() => {
     if (story.audio_blob) {
-      return URL.createObjectURL(story.audio_blob);
+      audioObjectUrl = URL.createObjectURL(story.audio_blob);
+      setAudioUrl(audioObjectUrl);
     }
-    return null;
-  }, [story.audio_blob]);
 
-  // Initialize audio element
-  useEffect(() => {
-    if (audioUrl) {
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
-
-      // Handle audio ending
-      audio.addEventListener('ended', () => {
-        setIsPlaying(false);
-      });
-
-      return () => {
-        audio.pause();
-        audio.removeEventListener('ended', () => {
-          setIsPlaying(false);
-        });
-      };
+    if (story.photo?.blob) {
+      photoObjectUrl = URL.createObjectURL(story.photo.blob);
+      setPhotoUrl(photoObjectUrl);
     }
-  }, [audioUrl]);
 
-  // Cleanup URLs on unmount
-  useEffect(() => {
+    // Cleanup on unmount
     return () => {
-      if (photoUrl) {
-        URL.revokeObjectURL(photoUrl);
+      if (audioObjectUrl) {
+        URL.revokeObjectURL(audioObjectUrl);
       }
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
+      if (photoObjectUrl) {
+        URL.revokeObjectURL(photoObjectUrl);
       }
     };
-  }, [photoUrl, audioUrl]);
+  }, [story.audio_blob, story.photo?.blob]);
 
   const handleHeaderClick = useCallback(() => {
     // Only allow opening if photo exists
@@ -84,18 +64,30 @@ export function StoryAccordion({
   const handlePlayClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
 
-    if (!audioRef.current) return;
+    const audio = audioRef.current;
+    if (!audio) {
+      console.error('Audio element not found');
+      return;
+    }
 
     if (isPlaying) {
-      audioRef.current.pause();
+      audio.pause();
       setIsPlaying(false);
     } else {
-      audioRef.current.play().catch((err) => {
-        console.error('Failed to play audio:', err);
-      });
-      setIsPlaying(true);
+      audio.play()
+        .then(() => {
+          setIsPlaying(true);
+        })
+        .catch((err) => {
+          console.error('Failed to play audio:', err);
+          setIsPlaying(false);
+        });
     }
   }, [isPlaying]);
+
+  const handleAudioEnded = useCallback(() => {
+    setIsPlaying(false);
+  }, []);
 
   const handleDeleteClick = useCallback(
     (e: React.MouseEvent) => {
@@ -193,6 +185,17 @@ export function StoryAccordion({
             />
           </div>
         </div>
+      )}
+
+      {/* Hidden audio element for playback */}
+      {audioUrl && (
+        <audio
+          ref={audioRef}
+          src={audioUrl}
+          onEnded={handleAudioEnded}
+          preload="metadata"
+          style={{ display: 'none' }}
+        />
       )}
     </div>
   );
