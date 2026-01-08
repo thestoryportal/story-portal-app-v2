@@ -114,12 +114,13 @@ export function StoryAccordion({
 
   return (
     <div className={styles.accordion}>
-      <button
-        className={`${styles.accordionHeader} ${photoUrl && isOpen ? styles.open : ''}`}
+      <div
+        className={`${styles.accordionHeader} ${photoUrl && isOpen ? styles.open : ''} ${!photoUrl ? styles.noPhoto : ''}`}
         onClick={handleHeaderClick}
+        role="button"
+        tabIndex={photoUrl ? 0 : -1}
         aria-expanded={photoUrl ? isOpen : false}
         aria-controls={`accordion-content-${story.id}`}
-        disabled={!photoUrl}
       >
         {/* Arrow indicator */}
         <span className={styles.accordionArrow}>
@@ -169,7 +170,7 @@ export function StoryAccordion({
         >
           🗑
         </button>
-      </button>
+      </div>
 
       {/* Expanded content - full-size photo */}
       {photoUrl && (

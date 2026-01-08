@@ -139,9 +139,8 @@
   background: rgba(139, 111, 71, 0.12);
 }
 
-.accordionHeader:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
+.accordionHeader.noPhoto {
+  cursor: default;
 }
 
 .accordionHeader.open {
