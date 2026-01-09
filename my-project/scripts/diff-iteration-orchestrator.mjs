@@ -166,6 +166,7 @@ const ANIMATION_SOURCE_FILES = [
 
 // Configuration - NOTE: No skip-baseline option, always start fresh
 // frames: Set to 12 to match actual reference APNG frame count (avoids mismatch with captured frames)
+// useUltraAnalysis: Enable enhanced analysis with semantic segmentation, motion fingerprinting, LPIPS, etc.
 const CONFIG = {
   maxIterations: 7,
   target: 95,
@@ -175,6 +176,7 @@ const CONFIG = {
   cropSize: 465,
   frameDelay: 50,
   waitTime: 2000,
+  useUltraAnalysis: false,  // Use diff-analyze-ultra.mjs instead of diff-analyze-comprehensive.mjs
 }
 
 // Parse arguments
@@ -191,6 +193,8 @@ function parseArgs() {
       CONFIG.port = parseInt(arg.split('=')[1], 10)
     } else if (arg.startsWith('--frames=')) {
       CONFIG.frames = parseInt(arg.split('=')[1], 10)
+    } else if (arg === '--ultra') {
+      CONFIG.useUltraAnalysis = true
     }
   }
   return CONFIG
@@ -714,10 +718,11 @@ async function main() {
   setupInterruptHandler()
 
   console.log('╔════════════════════════════════════════════════════════════════╗')
-  console.log('║         DIFF ITERATION ORCHESTRATOR v4.2                       ║')
+  console.log('║         DIFF ITERATION ORCHESTRATOR v4.3                       ║')
   console.log('║         With Score History & Regression Detection              ║')
   console.log('╠════════════════════════════════════════════════════════════════╣')
   console.log(`║  Max Iterations: ${String(config.maxIterations).padEnd(3)} │ Target: ${config.target}%                        ║`)
+  console.log(`║  Analysis Mode: ${config.useUltraAnalysis ? 'ULTRA-ENHANCED' : 'COMPREHENSIVE'}                                 ║`)
   console.log('║  Press Ctrl+C anytime to pause and provide feedback            ║')
   console.log('╠════════════════════════════════════════════════════════════════╣')
   console.log('║  Phase 0: Baseline Analyst → Generate spec from reference      ║')
@@ -757,7 +762,9 @@ async function main() {
 
   const baselineAnalystScript = path.join(__dirname, 'baseline-analyst-agent.mjs')
   const captureScript = path.join(__dirname, 'diff-capture-agent.mjs')
-  const analyzeScript = path.join(__dirname, 'diff-analyze-comprehensive.mjs')
+  const analyzeScript = config.useUltraAnalysis
+    ? path.join(__dirname, 'diff-analyze-ultra.mjs')
+    : path.join(__dirname, 'diff-analyze-comprehensive.mjs')
   const baselineSpecPath = path.resolve(PROJECT_ROOT, BASELINE_SPEC_PATH)
 
   // ═══════════════════════════════════════════════════════════════════
@@ -900,13 +907,17 @@ async function main() {
       `--wait=${config.waitTime}`,
     ])
 
-    // Run comprehensive analysis (includes single-frame and sequence analysis)
-    await runScript(analyzeScript, [
+    // Run analysis (comprehensive or ultra-enhanced)
+    const analyzeArgs = [
       `--live=${liveDir}`,
       `--reference=${referenceDir}`,
       `--output=${iterOutputDir}`,
       `--target=${config.target}`,
-    ])
+    ]
+    if (config.useUltraAnalysis) {
+      analyzeArgs.push(`--iteration=${iterNum}`)
+    }
+    await runScript(analyzeScript, analyzeArgs)
 
     // Read analysis results (raw data, no interpretation)
     let analysisReport = null
@@ -914,11 +925,20 @@ async function main() {
     let targetMet = false
 
     try {
-      const reportPath = path.join(iterOutputDir, 'comprehensive-analysis.json')
+      const reportPath = config.useUltraAnalysis
+        ? path.join(iterOutputDir, 'ultra-analysis.json')
+        : path.join(iterOutputDir, 'comprehensive-analysis.json')
       const reportData = await fs.readFile(reportPath, 'utf-8')
       analysisReport = JSON.parse(reportData)
-      score = analysisReport.summary?.overallScore || 0
-      targetMet = analysisReport.summary?.targetMet || false
+
+      // Handle both ultra and comprehensive report formats
+      if (config.useUltraAnalysis) {
+        score = analysisReport.scores?.overall || 0
+        targetMet = analysisReport.scores?.targetMet || false
+      } else {
+        score = analysisReport.summary?.overallScore || 0
+        targetMet = analysisReport.summary?.targetMet || false
+      }
     } catch (err) {
       console.warn(`  Could not read analysis report: ${err.message}`)
     }
@@ -1103,23 +1123,36 @@ async function main() {
         `--wait=${config.waitTime}`,
       ])
 
-      await runScript(analyzeScript, [
+      const analyzeArgs = [
         `--live=${liveDir}`,
         `--reference=${referenceDir}`,
         `--output=${iterOutputDir}`,
         `--target=${config.target}`,
-      ])
+      ]
+      if (config.useUltraAnalysis) {
+        analyzeArgs.push(`--iteration=${iterNum}`)
+      }
+      await runScript(analyzeScript, analyzeArgs)
 
       let analysisReport = null
       let score = 0
       let targetMet = false
 
       try {
-        const reportPath = path.join(iterOutputDir, 'comprehensive-analysis.json')
+        const reportPath = config.useUltraAnalysis
+          ? path.join(iterOutputDir, 'ultra-analysis.json')
+          : path.join(iterOutputDir, 'comprehensive-analysis.json')
         const reportData = await fs.readFile(reportPath, 'utf-8')
         analysisReport = JSON.parse(reportData)
-        score = analysisReport.summary?.overallScore || 0
-        targetMet = analysisReport.summary?.targetMet || false
+
+        // Handle both ultra and comprehensive report formats
+        if (config.useUltraAnalysis) {
+          score = analysisReport.scores?.overall || 0
+          targetMet = analysisReport.scores?.targetMet || false
+        } else {
+          score = analysisReport.summary?.overallScore || 0
+          targetMet = analysisReport.summary?.targetMet || false
+        }
       } catch (err) {
         console.warn(`  Could not read analysis report: ${err.message}`)
       }

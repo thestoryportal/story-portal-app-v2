@@ -274,29 +274,53 @@ With all enhancements:
 
 ## Integration with Existing Workflow
 
-The ultra-enhanced analysis can be used as a drop-in replacement:
+### Standalone Usage
 
-```javascript
-// Old way (diff-analyze-comprehensive.mjs)
+The ultra-enhanced analysis can be used as a standalone replacement:
+
+```bash
+# Traditional comprehensive analysis
 node scripts/diff-analyze-comprehensive.mjs --live=... --reference=... --output=...
 
-// New way (diff-analyze-ultra.mjs)
+# Ultra-enhanced analysis with all enhancements
 node scripts/diff-analyze-ultra.mjs --live=... --reference=... --output=... --iteration=N
 ```
 
-Or integrate into orchestrator:
+### Orchestrator Integration (RECOMMENDED)
 
-```javascript
-// In diff-iteration-orchestrator.mjs
-const analyzeScript = path.join(__dirname, 'diff-analyze-ultra.mjs')
-await runScript(analyzeScript, [
-  `--live=${liveDir}`,
-  `--reference=${referenceDir}`,
-  `--output=${iterOutputDir}`,
-  `--iteration=${iterNum}`,
-  `--target=${config.target}`
-])
+The orchestrator now supports ultra-enhanced analysis via the `--ultra` flag:
+
+```bash
+# Run with comprehensive analysis (default, backward compatible)
+node scripts/diff-iteration-orchestrator.mjs
+
+# Run with ultra-enhanced analysis (semantic + motion + LPIPS + layers + phases)
+node scripts/diff-iteration-orchestrator.mjs --ultra
+
+# Combine with other options
+node scripts/diff-iteration-orchestrator.mjs --ultra --max-iterations=5 --target=95
 ```
+
+**What the `--ultra` flag enables:**
+- Semantic segmentation (bolt/glow/hotspot analysis)
+- Progressive refinement phases (STRUCTURAL → COLOR → TEMPORAL → POLISH)
+- Motion fingerprinting (flicker rate, rhythm, turbulence)
+- Layer decomposition (independent layer matching)
+- Pattern library integration (cross-project learning)
+- Phase-weighted scoring (focus on what matters per phase)
+- Enhanced visualizations (6 types including semantic diff)
+
+**When to use ultra mode:**
+- Complex animations with multiple semantic elements
+- Cases where comprehensive analysis gives low scores but visual result looks good
+- When you want detailed, actionable feedback beyond pixel differences
+- Projects that would benefit from pattern library learning
+
+**Implementation details:**
+- The orchestrator automatically selects `diff-analyze-ultra.mjs` when `--ultra` is enabled
+- Report format differs between modes but orchestrator handles both transparently
+- Ultra mode generates `ultra-analysis.json` instead of `comprehensive-analysis.json`
+- All score extraction and target checking works identically in both modes
 
 ## Module Dependencies
 
