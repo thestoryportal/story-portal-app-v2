@@ -170,26 +170,33 @@ const bootstrap = library.bootstrap(similar[0].pattern.id)
 // Returns: { suggestedParams, colorPalette, expectedIterations, confidence }
 ```
 
-### 8. ✅ Real-Time Preview Loop (`realtime-preview-server.mjs`)
+### 8. ✅ Real-Time Preview Loop (`realtime-preview-ws.mjs`)
 
-**What**: WebSocket-based real-time preview and tuning interface (framework/stub).
+**What**: WebSocket-based real-time preview and tuning interface with full bidirectional communication.
 
 **Features**:
 - Interactive web UI with parameter sliders
 - Live frame comparison (Reference | Live | Diff)
-- Real-time score display
-- Instant visual feedback (when fully implemented)
+- Real-time score display with WebSocket updates
+- Instant visual feedback via WebSocket
 - Commit/revert/auto-tune buttons
+- Debounced analysis triggering (1s delay)
+- Auto-reconnect on disconnect
+- Full parameter synchronization
 
-**Impact**: Sub-second feedback loop instead of 5-minute iterations (when fully implemented).
+**Impact**: Sub-second feedback loop instead of 5-minute iterations.
 
 **Usage**:
 ```bash
-node scripts/realtime-preview-server.mjs --port=3001
+node scripts/realtime-preview-ws.mjs --port=3001
 # Open http://localhost:3001 in browser
+# Adjust sliders to see real-time updates
 ```
 
-**Note**: This is a framework/stub. Full WebSocket and HMR integration pending.
+**WebSocket Protocol**:
+- Client → Server: `{ type: 'param_update', params: { boltLength: 150 } }`
+- Server → Client: `{ type: 'score_update', score: 87.5 }`
+- Server → Client: `{ type: 'analysis_complete', results: {...} }`
 
 ### 9. ✅ Ultra-Enhanced Analysis (`diff-analyze-ultra.mjs`)
 
@@ -213,20 +220,45 @@ node scripts/diff-analyze-ultra.mjs \
   --target=95
 ```
 
-## Pending Enhancements
-
-### 10. ⧗ Perceptual Quality Metrics (LPIPS)
-
-**Status**: Not yet implemented (requires TensorFlow.js or Python subprocess)
+### 10. ✅ Perceptual Quality Metrics (LPIPS) (`lpips-calculator.py`, `lpips-bridge.mjs`)
 
 **What**: Learned Perceptual Image Patch Similarity - uses neural network to assess "does this look right?"
 
+**Implementation**: Python subprocess calling PyTorch LPIPS (Option B - most accurate)
+
+**Features**:
+- PyTorch-based LPIPS calculator with AlexNet backbone
+- Node.js bridge for seamless integration
+- GPU acceleration support
+- Sequence analysis for multiple frame pairs
+- Dependency checking and graceful degradation
+
 **Impact**: Better correlation with human perception than SSIM. Two animations with identical SSIM can feel completely different.
 
-**Implementation Plan**:
-- Option A: Integrate TensorFlow.js for client-side LPIPS
-- Option B: Python subprocess calling PyTorch LPIPS
-- Option C: Pre-computed LPIPS embeddings via API
+**Usage**:
+```javascript
+import { calculateLPIPS, calculateLPIPSSequence, isLPIPSAvailable } from './lpips-bridge.mjs'
+
+// Check availability
+const available = await isLPIPSAvailable()
+
+// Single frame comparison
+const result = await calculateLPIPS('reference.png', 'live.png', { useGPU: false })
+// Returns: { lpips_distance: 0.1234, similarity_percent: 87.66, perceptual_quality: 'GOOD' }
+
+// Sequence analysis
+const framePairs = [
+  { ref: 'ref_0000.png', live: 'live_0000.png' },
+  { ref: 'ref_0001.png', live: 'live_0001.png' }
+]
+const seqResult = await calculateLPIPSSequence(framePairs)
+// Returns: { avgLPIPSDistance, avgSimilarity, perceptualQuality, results }
+```
+
+**Prerequisites**:
+```bash
+pip install torch torchvision lpips pillow
+```
 
 ## Expected Results
 
