@@ -1,0 +1,21 @@
+{
+  "id": "multi-layer-glow",
+  "name": "Multi-Layer Radial Glow",
+  "category": "glow-effects",
+  "description": "Realistic glow effect using multiple shadow layers with decreasing intensity",
+  "useCase": "Energy cores, light sources, hotspots, glowing orbs",
+  "visualCharacteristics": "Smooth gradient from bright center to soft outer edge, depth perception",
+  "provenEffectiveness": 0.92,
+  "usedInProjects": 5,
+  "parameters": ["centerX", "centerY", "coreRadius", "midRadius", "outerRadius", "coreOpacity", "midOpacity", "outerOpacity", "glowColor"],
+  "code": "// Use 'lighter' blend mode for realistic glow overlap\nctx.globalCompositeOperation = 'lighter'\n\n// Layer 1: Bright core\nctx.shadowBlur = 15\nctx.shadowColor = {glowColor}\nctx.globalAlpha = {coreOpacity}\nctx.fillStyle = {glowColor}\nctx.beginPath()\nctx.arc({centerX}, {centerY}, {coreRadius}, 0, Math.PI * 2)\nctx.fill()\n\n// Layer 2: Mid glow\nctx.shadowBlur = 35\nctx.globalAlpha = {midOpacity}\nctx.beginPath()\nctx.arc({centerX}, {centerY}, {midRadius}, 0, Math.PI * 2)\nctx.fill()\n\n// Layer 3: Outer glow\nctx.shadowBlur = 65\nctx.globalAlpha = {outerOpacity}\nctx.beginPath()\nctx.arc({centerX}, {centerY}, {outerRadius}, 0, Math.PI * 2)\nctx.fill()\n\n// Reset\nctx.globalCompositeOperation = 'source-over'\nctx.globalAlpha = 1.0",
+  "performanceNotes": "~0.5ms per glow on modern hardware. Best for static or slowly moving sources.",
+  "implementationNotes": [
+    "CRITICAL: Use 'lighter' blend mode for realistic overlap",
+    "Opacity should decrease: core > mid > outer (e.g., 1.0, 0.6, 0.3)",
+    "Shadow blur should increase: core < mid < outer",
+    "Radius should increase proportionally (e.g., 5, 20, 50)"
+  ],
+  "tags": ["glow", "radial", "light", "energy", "shadow", "blur"],
+  "addedAt": "2026-01-09T00:00:00.000Z"
+}

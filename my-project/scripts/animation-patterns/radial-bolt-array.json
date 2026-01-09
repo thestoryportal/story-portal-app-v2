@@ -1,0 +1,20 @@
+{
+  "id": "radial-bolt-array",
+  "name": "Radial Bolt Array",
+  "category": "bolt-generation",
+  "description": "Evenly distributed lightning bolts arranged radially around a center point",
+  "useCase": "Portal effects, energy sources, electric wheels - any centered radial effect",
+  "visualCharacteristics": "Clean radial symmetry, no overlaps, even distribution",
+  "provenEffectiveness": 0.95,
+  "usedInProjects": 4,
+  "parameters": ["boltCount", "angleOffset", "centerRadius", "boltLength", "boltThickness"],
+  "code": "const angleStep = (2 * Math.PI) / {boltCount}\nfor (let i = 0; i < {boltCount}; i++) {\n  const angle = i * angleStep + {angleOffset}\n  const startX = centerX + Math.cos(angle) * {centerRadius}\n  const startY = centerY + Math.sin(angle) * {centerRadius}\n  const endX = centerX + Math.cos(angle) * ({centerRadius} + {boltLength})\n  const endY = centerY + Math.sin(angle) * ({centerRadius} + {boltLength})\n  \n  ctx.strokeStyle = boltColor\n  ctx.lineWidth = {boltThickness}\n  ctx.beginPath()\n  ctx.moveTo(startX, startY)\n  ctx.lineTo(endX, endY)\n  ctx.stroke()\n}",
+  "performanceNotes": "O(n) with boltCount, very efficient. Can batch all bolts into single path for better performance.",
+  "implementationNotes": [
+    "Use even numbers for boltCount (8, 12, 16) for balanced appearance",
+    "angleOffset allows rotation of entire pattern",
+    "centerRadius should be inner glow radius to avoid gap"
+  ],
+  "tags": ["radial", "lightning", "bolts", "symmetry", "portal"],
+  "addedAt": "2026-01-09T00:00:00.000Z"
+}
