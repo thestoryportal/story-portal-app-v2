@@ -21,7 +21,7 @@ import { OptimizerApiError } from '../types/api.js';
 
 /** Local LLM configuration */
 export interface LocalLLMConfig {
-  /** Model name (e.g., 'llama3.2', 'mistral', 'codellama') */
+  /** Model name (e.g., 'llama3.2:1b', 'mistral', 'codellama') */
   model?: string;
   /** Base URL for the LLM server */
   baseUrl?: string;
@@ -33,7 +33,7 @@ export interface LocalLLMConfig {
 
 /** Default configuration */
 const DEFAULT_CONFIG: Required<LocalLLMConfig> = {
-  model: 'llama3.2',
+  model: 'llama3.2:1b',
   baseUrl: 'http://localhost:11434',
   timeout: 60000,
   temperature: 0.3,

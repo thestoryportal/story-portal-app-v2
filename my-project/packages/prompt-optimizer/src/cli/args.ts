@@ -110,7 +110,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     .option('-f, --feedback <rating>', 'Rate last optimization (good/bad)')
     .option('--mock', 'Use mock API for testing (no API key required)')
     .option('--local', 'Use local LLM via Ollama (no API key required)')
-    .option('--local-model <model>', 'Local LLM model name (default: llama3.2)')
+    .option('--local-model <model>', 'Local LLM model name (default: llama3.2:1b)')
     .option('--local-url <url>', 'Local LLM server URL (default: http://localhost:11434)')
     // Action handler to capture the positional argument
     .action((prompt, options) => {
