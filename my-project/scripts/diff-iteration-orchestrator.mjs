@@ -207,9 +207,8 @@ const BASELINE_SPEC_PATH = 'docs/specs/REFERENCE-BASELINE-SPEC-v2.md'
 
 // Animation source files the expert can modify
 const ANIMATION_SOURCE_FILES = [
-  'src/legacy/components/electricity/*.ts',
-  'src/legacy/components/electricity/*.tsx',
-  'src/legacy/hooks/useElectricity*.ts',
+  'src/components/electricity/ElectricityAnimation.tsx',
+  'src/legacy/components/ElectricityR3F.tsx',
 ]
 
 // Configuration - NOTE: No skip-baseline option, always start fresh
