@@ -43,9 +43,585 @@ const MOCK_RESPONSES = {
   },
 };
 
+/** Common spelling corrections - programming and general terms */
+const SPELLING_CORRECTIONS: Record<string, string> = {
+  // Programming terms
+  'fucntion': 'function',
+  'funtion': 'function',
+  'funciton': 'function',
+  'fucniton': 'function',
+  'functon': 'function',
+  'fuction': 'function',
+  'compoennt': 'component',
+  'componet': 'component',
+  'compnent': 'component',
+  'componant': 'component',
+  'compenent': 'component',
+  'compoent': 'component',
+  'vairable': 'variable',
+  'varialbe': 'variable',
+  'variabel': 'variable',
+  'varaible': 'variable',
+  'vaiable': 'variable',
+  'wirte': 'write',
+  'wrtie': 'write',
+  'wriet': 'write',
+  'wtire': 'write',
+  'reutrn': 'return',
+  'retrun': 'return',
+  'retrn': 'return',
+  'retunr': 'return',
+  'improt': 'import',
+  'imoprt': 'import',
+  'ipmort': 'import',
+  'exoprt': 'export',
+  'exprot': 'export',
+  'exort': 'export',
+  'clas': 'class',
+  'calss': 'class',
+  'clss': 'class',
+  'interfce': 'interface',
+  'inteface': 'interface',
+  'iterface': 'interface',
+  'arary': 'array',
+  'arry': 'array',
+  'arrya': 'array',
+  'stirng': 'string',
+  'strng': 'string',
+  'sring': 'string',
+  'strnig': 'string',
+  'nubmer': 'number',
+  'numbr': 'number',
+  'numebr': 'number',
+  'boolen': 'boolean',
+  'booelean': 'boolean',
+  'bolean': 'boolean',
+  'obejct': 'object',
+  'objcet': 'object',
+  'ojbect': 'object',
+  'null': 'null',
+  'nul': 'null',
+  'undifined': 'undefined',
+  'undefiend': 'undefined',
+  'udnefined': 'undefined',
+  'consle': 'console',
+  'consloe': 'console',
+  'cosole': 'console',
+  'debuger': 'debugger',
+  'degugger': 'debugger',
+  'asnync': 'async',
+  'aysnc': 'async',
+  'asycn': 'async',
+  'awiat': 'await',
+  'awayt': 'await',
+  'awit': 'await',
+  'promies': 'promise',
+  'pormise': 'promise',
+  'pormsie': 'promise',
+  'databse': 'database',
+  'datbase': 'database',
+  'databaes': 'database',
+  'qurey': 'query',
+  'qeury': 'query',
+  'quert': 'query',
+  'resopnse': 'response',
+  'reponse': 'response',
+  'respone': 'response',
+  'reqeust': 'request',
+  'reuqest': 'request',
+  'requets': 'request',
+  'parasm': 'params',
+  'parms': 'params',
+  'paramters': 'parameters',
+  'parametrs': 'parameters',
+  'paremeter': 'parameter',
+  'templete': 'template',
+  'tempalte': 'template',
+  'templat': 'template',
+  'modle': 'model',
+  'mdoel': 'model',
+  'modl': 'model',
+  'schem': 'schema',
+  'shcema': 'schema',
+  'schmea': 'schema',
+  'endpint': 'endpoint',
+  'ednpoint': 'endpoint',
+  'enpoint': 'endpoint',
+  'midelware': 'middleware',
+  'middlware': 'middleware',
+  'midleware': 'middleware',
+  'authetication': 'authentication',
+  'authenticaiton': 'authentication',
+  'athentication': 'authentication',
+  'atuhentication': 'authentication',
+  'authoriation': 'authorization',
+  'authorizaiton': 'authorization',
+  'validaton': 'validation',
+  'valdiation': 'validation',
+  'vaidation': 'validation',
+  'configration': 'configuration',
+  'configuraiton': 'configuration',
+  'confg': 'config',
+  'ocnfig': 'config',
+  'initalize': 'initialize',
+  'intiialize': 'initialize',
+  'initailize': 'initialize',
+  // React specific
+  'reat': 'react',
+  'raect': 'react',
+  'recat': 'react',
+  'porps': 'props',
+  'prpos': 'props',
+  'pops': 'props',
+  'satte': 'state',
+  'staet': 'state',
+  'stae': 'state',
+  'rendrer': 'renderer',
+  'renderr': 'render',
+  'redner': 'render',
+  'hoks': 'hooks',
+  'hokos': 'hooks',
+  'useStae': 'useState',
+  'usestate': 'useState',
+  'useEffct': 'useEffect',
+  'useeffect': 'useEffect',
+  'useMemo': 'useMemo',
+  'usememo': 'useMemo',
+  'useCallbakc': 'useCallback',
+  'usecallback': 'useCallback',
+  'useRef': 'useRef',
+  'useref': 'useRef',
+  'useConext': 'useContext',
+  'usecontext': 'useContext',
+  // Common words
+  'teh': 'the',
+  'hte': 'the',
+  'adn': 'and',
+  'nad': 'and',
+  'taht': 'that',
+  'thta': 'that',
+  'wiht': 'with',
+  'wtih': 'with',
+  'whit': 'with',
+  'fo': 'of',
+  'ot': 'to',
+  'si': 'is',
+  'ti': 'it',
+  'nto': 'not',
+  'ont': 'not',
+  'cna': 'can',
+  'coudl': 'could',
+  'woudl': 'would',
+  'shoudl': 'should',
+  'jsut': 'just',
+  'jstu': 'just',
+  'waht': 'what',
+  'whta': 'what',
+  'hwat': 'what',
+  'hwo': 'how',
+  'woh': 'who',
+  'hwy': 'why',
+  'wehn': 'when',
+  'wher': 'where',
+  'wheer': 'where',
+  'htis': 'this',
+  'tihs': 'this',
+  'thsi': 'this',
+  'fiel': 'file',
+  'flie': 'file',
+  'floder': 'folder',
+  'fodler': 'folder',
+  'cerate': 'create',
+  'craete': 'create',
+  'creat': 'create',
+  'delte': 'delete',
+  'deleet': 'delete',
+  'deleete': 'delete',
+  'upate': 'update',
+  'udpate': 'update',
+  'upadte': 'update',
+  'serach': 'search',
+  'saerch': 'search',
+  'seach': 'search',
+  'buton': 'button',
+  'buttn': 'button',
+  'buttno': 'button',
+  'mehtod': 'method',
+  'metohd': 'method',
+  'mehod': 'method',
+  'errro': 'error',
+  'erorr': 'error',
+  'erro': 'error',
+  'mesage': 'message',
+  'messge': 'message',
+  'messgae': 'message',
+  'plase': 'please',
+  'pleae': 'please',
+  'palese': 'please',
+  'pls': 'please',
+  'hlep': 'help',
+  'hep': 'help',
+  'halp': 'help',
+  'expalin': 'explain',
+  'explian': 'explain',
+  'explani': 'explain',
+  'implment': 'implement',
+  'impelment': 'implement',
+  'implmenet': 'implement',
+  'refator': 'refactor',
+  'refacor': 'refactor',
+  'refatcor': 'refactor',
+  'optmize': 'optimize',
+  'optimze': 'optimize',
+  'optmise': 'optimize',
+  'debg': 'debug',
+  'degub': 'debug',
+  'dubug': 'debug',
+  'isue': 'issue',
+  'isseu': 'issue',
+  'isssue': 'issue',
+  'prolbem': 'problem',
+  'probelm': 'problem',
+  'porblem': 'problem',
+  'soltuion': 'solution',
+  'soluton': 'solution',
+  'soltuin': 'solution',
+  'examlpe': 'example',
+  'exmaple': 'example',
+  'exampel': 'example',
+  'docuemnt': 'document',
+  'documnet': 'document',
+  'documetn': 'document',
+  'applicaiton': 'application',
+  'applcation': 'application',
+  'aplication': 'application',
+  'infomation': 'information',
+  'informaiton': 'information',
+  'infromation': 'information',
+  'difefrent': 'different',
+  'differnt': 'different',
+  'diferent': 'different',
+  'beacuse': 'because',
+  'becuase': 'because',
+  'becasue': 'because',
+  'probaly': 'probably',
+  'probalby': 'probably',
+  'porbably': 'probably',
+  'specifc': 'specific',
+  'specfic': 'specific',
+  'sepcifc': 'specific',
+  // More common typos
+  'knwo': 'know',
+  'konw': 'know',
+  'kwno': 'know',
+  'knwon': 'known',
+  'unkown': 'unknown',
+  'unknwon': 'unknown',
+  'recieve': 'receive',
+  'recieved': 'received',
+  'occured': 'occurred',
+  'occuring': 'occurring',
+  'seperate': 'separate',
+  'definately': 'definitely',
+  'defintely': 'definitely',
+  'definetly': 'definitely',
+  'basicly': 'basically',
+  'basicaly': 'basically',
+  'esentially': 'essentially',
+  'essentialy': 'essentially',
+  'necesary': 'necessary',
+  'neccessary': 'necessary',
+  'succesful': 'successful',
+  'successfull': 'successful',
+  'succesfully': 'successfully',
+  'immediatly': 'immediately',
+  'immedialtey': 'immediately',
+  'probem': 'problem',
+  'porbelm': 'problem',
+  'alot': 'a lot',
+  'somthing': 'something',
+  'somethign': 'something',
+  'anythign': 'anything',
+  'everthing': 'everything',
+  'everythign': 'everything',
+  'nothign': 'nothing',
+  'actualy': 'actually',
+  'acutally': 'actually',
+  'accross': 'across',
+  'untill': 'until',
+  'supprot': 'support',
+  'suport': 'support',
+  'langauge': 'language',
+  'languaeg': 'language',
+  'beggining': 'beginning',
+  'begining': 'beginning',
+  'enviroment': 'environment',
+  'enviornment': 'environment',
+  'developement': 'development',
+  'devlopment': 'development',
+  'managment': 'management',
+  'managemnt': 'management',
+  'perfomance': 'performance',
+  'performace': 'performance',
+  'dependancy': 'dependency',
+  'dependecies': 'dependencies',
+  'dependancies': 'dependencies',
+  'repositroy': 'repository',
+  'repostiory': 'repository',
+  'directroy': 'directory',
+  'direcotry': 'directory',
+  'librray': 'library',
+  'libary': 'library',
+  'framwork': 'framework',
+  'framewrok': 'framework',
+  'syntaxt': 'syntax',
+  'sytax': 'syntax',
+  'arguemnt': 'argument',
+  'arguement': 'argument',
+  'arugment': 'argument',
+  'properyt': 'property',
+  'proprety': 'property',
+  'attribtue': 'attribute',
+  'atribute': 'attribute',
+  'elemnt': 'element',
+  'elment': 'element',
+  'containter': 'container',
+  'contaienr': 'container',
+  'exectue': 'execute',
+  'excute': 'execute',
+  'excecute': 'execute',
+  'proccess': 'process',
+  'porcess': 'process',
+  'acces': 'access',
+  'acccess': 'access',
+  'conneciton': 'connection',
+  'conection': 'connection',
+  'sesison': 'session',
+  'sesson': 'session',
+  'broswer': 'browser',
+  'brwoser': 'browser',
+  'reuslt': 'result',
+  'resutl': 'result',
+  'outptu': 'output',
+  'ouptut': 'output',
+  'inpute': 'input',
+  'ipnut': 'input',
+};
+
+/**
+ * Apply spelling corrections to text.
+ */
+function applySpellingCorrections(text: string): { corrected: string; corrections: Array<{ from: string; to: string }> } {
+  const corrections: Array<{ from: string; to: string }> = [];
+  let corrected = text;
+
+  // Split into words while preserving punctuation and spacing
+  const wordPattern = /\b([a-zA-Z]+)\b/g;
+  let match;
+
+  while ((match = wordPattern.exec(text)) !== null) {
+    const word = match[1];
+    const lowerWord = word.toLowerCase();
+
+    if (SPELLING_CORRECTIONS[lowerWord]) {
+      const correction = SPELLING_CORRECTIONS[lowerWord];
+      // Preserve original case pattern
+      let fixedWord = correction;
+      if (word[0] === word[0].toUpperCase()) {
+        fixedWord = correction.charAt(0).toUpperCase() + correction.slice(1);
+      }
+      if (word === word.toUpperCase()) {
+        fixedWord = correction.toUpperCase();
+      }
+
+      if (word !== fixedWord) {
+        corrections.push({ from: word, to: fixedWord });
+        // Replace in the corrected string
+        corrected = corrected.replace(new RegExp(`\\b${word}\\b`), fixedWord);
+      }
+    }
+  }
+
+  return { corrected, corrections };
+}
+
+/**
+ * Apply grammar and punctuation fixes.
+ */
+function applyGrammarFixes(text: string): { corrected: string; fixes: string[] } {
+  let corrected = text;
+  const fixes: string[] = [];
+
+  // Capitalize first letter of sentence
+  if (corrected.length > 0 && corrected[0] !== corrected[0].toUpperCase()) {
+    corrected = corrected.charAt(0).toUpperCase() + corrected.slice(1);
+    fixes.push('Capitalized first letter');
+  }
+
+  // Fix multiple spaces
+  if (/\s{2,}/.test(corrected)) {
+    corrected = corrected.replace(/\s{2,}/g, ' ');
+    fixes.push('Fixed multiple spaces');
+  }
+
+  // Fix "i" to "I" when standalone
+  if (/\bi\b/.test(corrected)) {
+    corrected = corrected.replace(/\bi\b/g, 'I');
+    fixes.push('Capitalized "I"');
+  }
+
+  // Fix missing space after punctuation
+  if (/[.!?,][a-zA-Z]/.test(corrected)) {
+    corrected = corrected.replace(/([.!?,])([a-zA-Z])/g, '$1 $2');
+    fixes.push('Added space after punctuation');
+  }
+
+  // Fix "dont" -> "don't", "cant" -> "can't", etc.
+  const contractionFixes: Record<string, string> = {
+    'dont': "don't",
+    'cant': "can't",
+    'wont': "won't",
+    'isnt': "isn't",
+    'arent': "aren't",
+    'wasnt': "wasn't",
+    'werent': "weren't",
+    'hasnt': "hasn't",
+    'havent': "haven't",
+    'hadnt': "hadn't",
+    'doesnt': "doesn't",
+    'didnt': "didn't",
+    'couldnt': "couldn't",
+    'wouldnt': "wouldn't",
+    'shouldnt': "shouldn't",
+    'im': "I'm",
+    'ive': "I've",
+    'id': "I'd",
+    'ill': "I'll",
+    'youre': "you're",
+    'youve': "you've",
+    'youd': "you'd",
+    'youll': "you'll",
+    'hes': "he's",
+    'shes': "she's",
+    'its': "it's", // Be careful - "its" is also valid possessive
+    'theyre': "they're",
+    'theyve': "they've",
+    'theyd': "they'd",
+    'theyll': "they'll",
+    'weve': "we've",
+    'wed': "we'd",
+    'well': "we'll", // Careful - "well" is also a word
+    'whats': "what's",
+    'thats': "that's",
+    'heres': "here's",
+    'theres': "there's",
+    'wheres': "where's",
+    'hows': "how's",
+    'lets': "let's",
+  };
+
+  for (const [wrong, right] of Object.entries(contractionFixes)) {
+    const regex = new RegExp(`\\b${wrong}\\b`, 'gi');
+    if (regex.test(corrected)) {
+      // Skip "well" and "its" as they have valid uses
+      if (wrong === 'well' || wrong === 'its') continue;
+      corrected = corrected.replace(regex, right);
+      fixes.push(`Fixed "${wrong}" to "${right}"`);
+    }
+  }
+
+  // Trim whitespace
+  if (corrected !== corrected.trim()) {
+    corrected = corrected.trim();
+    fixes.push('Trimmed whitespace');
+  }
+
+  return { corrected, fixes };
+}
+
+/**
+ * Add clarity improvements for Claude Code context.
+ */
+function addClarityImprovements(text: string): { improved: string; improvements: string[] } {
+  let improved = text;
+  const improvements: string[] = [];
+
+  // Add "Please" if starting with imperative verbs without politeness
+  const imperativeStarts = /^(help|show|explain|create|make|write|fix|debug|refactor|implement|add|remove|delete|update|find|search|list|get|set|run|test|build|deploy)\b/i;
+  if (imperativeStarts.test(improved) && !/^please\b/i.test(improved)) {
+    improved = 'Please ' + improved.charAt(0).toLowerCase() + improved.slice(1);
+    improvements.push('Added polite prefix');
+  }
+
+  // Expand common abbreviations
+  const abbreviations: Record<string, string> = {
+    'pls': 'please',
+    'plz': 'please',
+    'thx': 'thanks',
+    'ty': 'thank you',
+    'ur': 'your',
+    'u': 'you',
+    'r': 'are',
+    'b4': 'before',
+    'w/': 'with',
+    'w/o': 'without',
+    'bc': 'because',
+    'rn': 'right now',
+    'rly': 'really',
+    'rlly': 'really',
+    'sry': 'sorry',
+    'srry': 'sorry',
+    'cuz': 'because',
+    'tho': 'though',
+    'thru': 'through',
+    'msg': 'message',
+    'msgs': 'messages',
+    'func': 'function',
+    'funcs': 'functions',
+    'var': 'variable',
+    'vars': 'variables',
+    'param': 'parameter',
+    'params': 'parameters',
+    'arg': 'argument',
+    'args': 'arguments',
+    'btn': 'button',
+    'btns': 'buttons',
+    'img': 'image',
+    'imgs': 'images',
+    'db': 'database',
+    'dev': 'development',
+    'prod': 'production',
+    'env': 'environment',
+    'repo': 'repository',
+    'repos': 'repositories',
+    'dir': 'directory',
+    'dirs': 'directories',
+    'config': 'configuration',
+    'configs': 'configurations',
+    'deps': 'dependencies',
+    'idk': "I don't know",
+    'tbh': 'to be honest',
+    'imo': 'in my opinion',
+    'fyi': 'for your information',
+    'asap': 'as soon as possible',
+    'afaik': 'as far as I know',
+    'atm': 'at the moment',
+  };
+
+  for (const [abbr, full] of Object.entries(abbreviations)) {
+    const regex = new RegExp(`\\b${abbr}\\b`, 'gi');
+    if (regex.test(improved)) {
+      improved = improved.replace(regex, full);
+      improvements.push(`Expanded "${abbr}" to "${full}"`);
+    }
+  }
+
+  return { improved, improvements };
+}
+
 /**
  * Generate a mock optimized prompt based on the input.
- * Makes the optimization realistic enough to pass local verification.
+ * Performs rule-based spelling correction, grammar fixes, and clarity improvements.
  */
 function generateMockOptimization(original: string): {
   optimized: string;
@@ -58,22 +634,71 @@ function generateMockOptimization(original: string): {
   tip: string;
   latencyMs: number;
 } {
-  // Create an optimized version that preserves the original but adds minimal clarification
-  // Keep most words intact for high similarity score
-  let optimized = original;
   const changes: Array<{ type: 'CLARIFY'; originalSegment: string; newSegment: string; reason: string }> = [];
+  let optimized = original;
 
-  // Simple transformation: replace "help me" with "Please help me" if present
-  if (/^help\s+me/i.test(original)) {
-    optimized = original.replace(/^help\s+me/i, 'Please help me');
-    changes.push({ type: 'CLARIFY' as const, originalSegment: 'help me', newSegment: 'Please help me', reason: 'Added polite prefix' });
-  } else if (/^help\b/i.test(original)) {
-    optimized = original.replace(/^help\b/i, 'Please help');
-    changes.push({ type: 'CLARIFY' as const, originalSegment: 'help', newSegment: 'Please help', reason: 'Added polite prefix' });
-  } else {
-    // Add context request suffix
-    optimized = original + ' Please provide specific details.';
-    changes.push({ type: 'CLARIFY' as const, originalSegment: '', newSegment: 'Please provide specific details.', reason: 'Added context request' });
+  // Step 1: Apply spelling corrections
+  const { corrected: afterSpelling, corrections } = applySpellingCorrections(optimized);
+  if (corrections.length > 0) {
+    for (const c of corrections) {
+      changes.push({
+        type: 'CLARIFY' as const,
+        originalSegment: c.from,
+        newSegment: c.to,
+        reason: 'Fixed spelling',
+      });
+    }
+    optimized = afterSpelling;
+  }
+
+  // Step 2: Apply grammar fixes
+  const { corrected: afterGrammar, fixes } = applyGrammarFixes(optimized);
+  if (fixes.length > 0) {
+    changes.push({
+      type: 'CLARIFY' as const,
+      originalSegment: optimized,
+      newSegment: afterGrammar,
+      reason: fixes.join(', '),
+    });
+    optimized = afterGrammar;
+  }
+
+  // Step 3: Add clarity improvements
+  const { improved: afterClarity, improvements } = addClarityImprovements(optimized);
+  if (improvements.length > 0) {
+    changes.push({
+      type: 'CLARIFY' as const,
+      originalSegment: optimized,
+      newSegment: afterClarity,
+      reason: improvements.join(', '),
+    });
+    optimized = afterClarity;
+  }
+
+  // Calculate confidence based on changes made
+  const confidence = changes.length > 0 ? 0.85 + (0.05 * Math.min(changes.length, 3)) : 0.75;
+
+  // Generate explanation
+  const explanationParts: string[] = [];
+  if (corrections.length > 0) {
+    explanationParts.push(`Fixed ${corrections.length} spelling error${corrections.length > 1 ? 's' : ''}`);
+  }
+  if (fixes.length > 0) {
+    explanationParts.push('Applied grammar corrections');
+  }
+  if (improvements.length > 0) {
+    explanationParts.push('Improved clarity');
+  }
+  const explanation = explanationParts.length > 0
+    ? explanationParts.join(', ')
+    : 'No changes needed';
+
+  // Generate tip based on what was corrected
+  let tip = 'Your prompt looks good!';
+  if (corrections.length > 0) {
+    tip = 'Consider using a spell checker or typing more carefully.';
+  } else if (improvements.length > 0) {
+    tip = 'Using polite language and full words helps Claude understand your intent better.';
   }
 
   return {
@@ -81,11 +706,11 @@ function generateMockOptimization(original: string): {
     changes,
     preservedElements: original.split(' ').filter(w => w.length > 3),
     passesUsed: 1,
-    confidence: 0.88,
+    confidence,
     intentSimilarity: 0.95,
-    explanation: 'Added clarity to the request',
-    tip: 'Be more specific in your requests',
-    latencyMs: 100,
+    explanation,
+    tip,
+    latencyMs: 10, // Fast since it's rule-based
   };
 }
 
@@ -312,15 +937,39 @@ export class AnthropicClient implements OptimizerApiClient {
 
   /**
    * Parse JSON from response text.
+   * Handles markdown code blocks and multi-line strings.
    */
   private parseJsonResponse<T>(text: string): T {
     // Extract JSON from markdown code blocks if present
     const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    const jsonText = jsonMatch ? jsonMatch[1] : text;
+    let jsonText = jsonMatch ? jsonMatch[1] : text;
 
+    // Try direct parse first
     try {
       return JSON.parse(jsonText.trim()) as T;
     } catch {
+      // If that fails, try to fix common issues
+    }
+
+    // Try to extract just the JSON object (in case of surrounding text)
+    const objectMatch = jsonText.match(/\{[\s\S]*\}/);
+    if (objectMatch) {
+      jsonText = objectMatch[0];
+    }
+
+    // Fix unescaped newlines inside string values
+    // This handles cases where the model returns multi-line strings without escaping
+    jsonText = jsonText.replace(
+      /"([^"]*(?:\\.[^"]*)*)"/g,
+      (match) => {
+        // Escape unescaped newlines inside string values
+        return match.replace(/(?<!\\)\n/g, '\\n');
+      }
+    );
+
+    try {
+      return JSON.parse(jsonText.trim()) as T;
+    } catch (e) {
       throw new OptimizerApiError(
         `Failed to parse JSON response: ${text.substring(0, 100)}...`,
         undefined,

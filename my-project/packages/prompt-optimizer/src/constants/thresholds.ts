@@ -20,11 +20,11 @@ export const VERIFICATION_THRESHOLDS = {
   /** High confidence - auto-send */
   HIGH: 0.90,
   /** Medium confidence - auto-send with logging */
-  MEDIUM: 0.85,
+  MEDIUM: 0.80,
   /** Low confidence - request user confirmation */
-  LOW: 0.70,
-  /** Rejected - fallback to CLARIFY */
-  REJECTED: 0.70,
+  LOW: 0.60,
+  /** Rejected - fallback to CLARIFY (very low to allow adding context) */
+  REJECTED: 0.50,
 } as const;
 
 /** Element preservation thresholds */

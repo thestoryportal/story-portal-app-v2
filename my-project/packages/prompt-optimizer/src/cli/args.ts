@@ -38,6 +38,8 @@ export interface ParsedArgs {
   explain: boolean;
   /** Quiet mode */
   quiet: boolean;
+  /** JSON output for machine parsing */
+  json: boolean;
 
   // Other
   /** Show statistics */
@@ -105,6 +107,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     // Display
     .option('-e, --explain', 'Show detailed optimization explanation')
     .option('-q, --quiet', 'Minimal output')
+    .option('--json', 'Output as JSON for machine parsing')
     // Other
     .option('-s, --stats', 'Show session optimization statistics')
     .option('-f, --feedback <rating>', 'Rate last optimization (good/bad)')
@@ -202,6 +205,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     showOriginal: (opts.showOriginal as boolean) ?? false,
     explain: (opts.explain as boolean) ?? false,
     quiet: (opts.quiet as boolean) ?? false,
+    json: (opts.json as boolean) ?? false,
     stats: (opts.stats as boolean) ?? false,
     feedback,
     mock: (opts.mock as boolean) ?? false,

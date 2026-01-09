@@ -95,6 +95,7 @@ export class IntentVerifier {
 
   /**
    * Calculate ratio of preserved elements.
+   * Uses fuzzy matching to handle paraphrased elements.
    */
   private calculatePreservedRatio(request: VerificationRequest): number {
     if (request.preservedElements.length === 0) {
@@ -103,14 +104,41 @@ export class IntentVerifier {
 
     let preserved = 0;
     const optimizedLower = request.optimized.toLowerCase();
+    const optimizedNormalized = optimizedLower.replace(/\s+/g, ' ');
 
     for (const element of request.preservedElements) {
       // Normalize whitespace for comparison
       const normalized = element.toLowerCase().replace(/\s+/g, ' ').trim();
-      const optimizedNormalized = optimizedLower.replace(/\s+/g, ' ');
 
+      // First try exact substring match
       if (optimizedNormalized.includes(normalized)) {
         preserved++;
+        continue;
+      }
+
+      // Extract key words from the element (skip common words)
+      const stopWords = new Set([
+        'the', 'a', 'an', 'to', 'of', 'in', 'for', 'on', 'with', 'that',
+        'this', 'is', 'are', 'was', 'be', 'and', 'or', 'core', 'request',
+        'main', 'original', 'key', 'important', 'essential', 'primary'
+      ]);
+      const keyWords = normalized
+        .split(/\s+/)
+        .filter(w => w.length > 2 && !stopWords.has(w));
+
+      // Check if most key words appear in the optimized text
+      if (keyWords.length > 0) {
+        const matchedWords = keyWords.filter(word => {
+          // Check for exact match or fuzzy match
+          if (optimizedNormalized.includes(word)) return true;
+          // Check for fuzzy match with any word in optimized
+          const optimizedWords = optimizedNormalized.split(/\s+/);
+          return optimizedWords.some(optWord => this.isFuzzyMatch(word, optWord));
+        });
+        // Consider preserved if >60% of key words found
+        if (matchedWords.length / keyWords.length >= 0.6) {
+          preserved++;
+        }
       }
     }
 
@@ -226,19 +254,37 @@ export class IntentVerifier {
 
   /**
    * Calculate local similarity score using simple heuristics.
+   * Uses fuzzy matching to handle spelling corrections.
    */
   private calculateLocalSimilarity(request: VerificationRequest): number {
     const original = request.original.toLowerCase();
     const optimized = request.optimized.toLowerCase();
 
-    // Calculate word overlap (Jaccard similarity)
-    const originalWords = new Set(original.split(/\s+/).filter((w) => w.length > 2));
-    const optimizedWords = new Set(optimized.split(/\s+/).filter((w) => w.length > 2));
+    // Calculate word overlap with fuzzy matching (to handle spelling corrections)
+    const originalWords = original.split(/\s+/).filter((w) => w.length > 2);
+    const optimizedWords = optimized.split(/\s+/).filter((w) => w.length > 2);
 
-    const intersection = new Set([...originalWords].filter((w) => optimizedWords.has(w)));
-    const union = new Set([...originalWords, ...optimizedWords]);
+    // Count fuzzy matches (words that are similar enough - edit distance <= 2)
+    let matchedCount = 0;
+    const matchedOptimized = new Set<number>();
 
-    const jaccardSimilarity = union.size > 0 ? intersection.size / union.size : 0;
+    for (const origWord of originalWords) {
+      for (let i = 0; i < optimizedWords.length; i++) {
+        if (matchedOptimized.has(i)) continue;
+        const optWord = optimizedWords[i];
+
+        // Exact match or fuzzy match (edit distance <= 2)
+        if (origWord === optWord || this.isFuzzyMatch(origWord, optWord)) {
+          matchedCount++;
+          matchedOptimized.add(i);
+          break;
+        }
+      }
+    }
+
+    // Calculate fuzzy Jaccard-like similarity
+    const maxWords = Math.max(originalWords.length, optimizedWords.length);
+    const fuzzySimilarity = maxWords > 0 ? matchedCount / maxWords : 1;
 
     // Calculate key phrase preservation
     const keyPhrases = this.extractKeyPhrases(request.original);
@@ -251,7 +297,63 @@ export class IntentVerifier {
     const phraseScore = keyPhrases.length > 0 ? phrasesPreserved / keyPhrases.length : 1;
 
     // Combine scores with weights
-    return jaccardSimilarity * 0.4 + phraseScore * 0.6;
+    return fuzzySimilarity * 0.4 + phraseScore * 0.6;
+  }
+
+  /**
+   * Check if two words are fuzzy matches (likely spelling correction).
+   * Uses a simple edit distance approximation.
+   */
+  private isFuzzyMatch(word1: string, word2: string): boolean {
+    // Quick checks
+    if (word1 === word2) return true;
+    if (Math.abs(word1.length - word2.length) > 2) return false;
+
+    // Check if one is a substring of the other (off by 1-2 chars)
+    if (word1.includes(word2) || word2.includes(word1)) return true;
+
+    // Simple edit distance check (Levenshtein distance <= 2)
+    const distance = this.editDistance(word1, word2);
+    return distance <= 2;
+  }
+
+  /**
+   * Calculate edit distance between two strings.
+   * Limited to max distance of 3 for performance.
+   */
+  private editDistance(a: string, b: string): number {
+    if (a.length === 0) return b.length;
+    if (b.length === 0) return a.length;
+
+    // Early termination if difference is too large
+    if (Math.abs(a.length - b.length) > 3) return 4;
+
+    const matrix: number[][] = [];
+
+    // Initialize matrix
+    for (let i = 0; i <= a.length; i++) {
+      matrix[i] = [i];
+    }
+    for (let j = 0; j <= b.length; j++) {
+      matrix[0][j] = j;
+    }
+
+    // Fill matrix
+    for (let i = 1; i <= a.length; i++) {
+      for (let j = 1; j <= b.length; j++) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j] + 1,      // deletion
+          matrix[i][j - 1] + 1,      // insertion
+          matrix[i - 1][j - 1] + cost // substitution
+        );
+      }
+
+      // Early termination if row minimum exceeds threshold
+      if (Math.min(...matrix[i]) > 3) return 4;
+    }
+
+    return matrix[a.length][b.length];
   }
 
   /**

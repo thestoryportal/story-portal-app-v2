@@ -14,6 +14,33 @@ import {
 } from '../output.js';
 
 /**
+ * Determine mode from environment variable and CLI flags.
+ * CLI flags take precedence over environment variable.
+ */
+function resolveMode(args: ParsedArgs): { useMock: boolean; useLocal: boolean } {
+  // CLI flags take precedence
+  if (args.mock) {
+    return { useMock: true, useLocal: false };
+  }
+  if (args.local) {
+    return { useMock: false, useLocal: true };
+  }
+
+  // Check environment variable
+  const envMode = process.env.PROMPT_OPTIMIZER_MODE?.toLowerCase();
+  switch (envMode) {
+    case 'mock':
+      return { useMock: true, useLocal: false };
+    case 'local':
+      return { useMock: false, useLocal: true };
+    case 'api':
+    default:
+      // Default to API mode (neither mock nor local)
+      return { useMock: false, useLocal: false };
+  }
+}
+
+/**
  * Execute the optimize command.
  */
 export async function executeOptimize(args: ParsedArgs): Promise<void> {
@@ -28,21 +55,24 @@ export async function executeOptimize(args: ParsedArgs): Promise<void> {
     spinner: 'dots',
   });
 
-  if (!args.quiet) {
+  // Don't show spinner for JSON output
+  if (!args.quiet && !args.json) {
     spinner.start();
   }
 
   try {
-    // Create optimizer with appropriate configuration
+    // Resolve mode from env var and CLI flags
+    const { useMock, useLocal } = resolveMode(args);
+
     // Only include local config options that are actually set
-    const localConfig = args.local ? {
+    const localConfig = useLocal ? {
       ...(args.localModel && { model: args.localModel }),
       ...(args.localUrl && { baseUrl: args.localUrl }),
     } : undefined;
 
     const optimizer = createOptimizer({
-      useMock: args.mock,
-      useLocal: args.local,
+      useMock,
+      useLocal,
       localConfig,
     });
 
@@ -53,8 +83,22 @@ export async function executeOptimize(args: ParsedArgs): Promise<void> {
       skip: args.noOptimize,
     });
 
-    if (!args.quiet) {
+    if (!args.quiet && !args.json) {
       spinner.stop();
+    }
+
+    // JSON output mode - clean machine-readable output
+    if (args.json) {
+      const jsonOutput = {
+        original: args.prompt,
+        optimized: result.prompt,
+        wasOptimized: result.wasOptimized,
+        category: result.category,
+        domain: result.domain,
+        confidence: result.confidence,
+      };
+      console.log(JSON.stringify(jsonOutput));
+      return;
     }
 
     // Handle output based on mode
