@@ -6,10 +6,22 @@
 import type {
   OptimizerConfig,
   AssembledContext,
+  OptimizerApiClient,
 } from '../types/index.js';
 import { Pipeline, type PipelineResult, type PipelineOptions } from './pipeline.js';
 import { AnthropicClient } from '../api/anthropic-client.js';
+import { LocalLLMClient, type LocalLLMConfig } from '../api/local-llm-client.js';
 import { DEFAULT_CONFIG } from '../constants/index.js';
+
+/** Extended config options for optimizer creation */
+export interface OptimizerCreateOptions extends Partial<OptimizerConfig> {
+  /** Use mock API for testing */
+  useMock?: boolean;
+  /** Use local LLM (Ollama) */
+  useLocal?: boolean;
+  /** Local LLM configuration */
+  localConfig?: LocalLLMConfig;
+}
 
 /** Optimizer result exposed to users */
 export interface OptimizeResult {
@@ -66,16 +78,25 @@ export class PromptOptimizer {
   private pipeline: Pipeline;
   private config: OptimizerConfig;
 
-  constructor(config: Partial<OptimizerConfig> & { useMock?: boolean } = {}) {
-    const { useMock, ...restConfig } = config;
+  constructor(config: OptimizerCreateOptions = {}) {
+    const { useMock, useLocal, localConfig, ...restConfig } = config;
     this.config = { ...DEFAULT_CONFIG, ...restConfig };
 
-    const apiClient = new AnthropicClient({
-      apiKey: this.config.api.anthropicApiKey,
-      timeout: this.config.api.timeout,
-      retries: this.config.api.retries,
-      useMock: useMock ?? process.env.NODE_ENV === 'test',
-    });
+    // Create appropriate API client based on configuration
+    let apiClient: OptimizerApiClient;
+
+    if (useLocal) {
+      // Use local LLM (Ollama)
+      apiClient = new LocalLLMClient(localConfig);
+    } else {
+      // Use Anthropic API (or mock)
+      apiClient = new AnthropicClient({
+        apiKey: this.config.api.anthropicApiKey,
+        timeout: this.config.api.timeout,
+        retries: this.config.api.retries,
+        useMock: useMock ?? process.env.NODE_ENV === 'test',
+      });
+    }
 
     this.pipeline = new Pipeline(apiClient);
   }

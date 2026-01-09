@@ -33,9 +33,17 @@ export async function executeOptimize(args: ParsedArgs): Promise<void> {
   }
 
   try {
-    // Create optimizer with mock flag if specified
+    // Create optimizer with appropriate configuration
+    // Only include local config options that are actually set
+    const localConfig = args.local ? {
+      ...(args.localModel && { model: args.localModel }),
+      ...(args.localUrl && { baseUrl: args.localUrl }),
+    } : undefined;
+
     const optimizer = createOptimizer({
       useMock: args.mock,
+      useLocal: args.local,
+      localConfig,
     });
 
     // Run optimization

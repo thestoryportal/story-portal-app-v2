@@ -46,6 +46,12 @@ export interface ParsedArgs {
   feedback?: 'good' | 'bad';
   /** Use mock API (for testing) */
   mock: boolean;
+  /** Use local LLM (Ollama) */
+  local: boolean;
+  /** Local LLM model name */
+  localModel?: string;
+  /** Local LLM server URL */
+  localUrl?: string;
 
   // Config subcommand
   /** Config action */
@@ -103,6 +109,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
     .option('-s, --stats', 'Show session optimization statistics')
     .option('-f, --feedback <rating>', 'Rate last optimization (good/bad)')
     .option('--mock', 'Use mock API for testing (no API key required)')
+    .option('--local', 'Use local LLM via Ollama (no API key required)')
+    .option('--local-model <model>', 'Local LLM model name (default: llama3.2)')
+    .option('--local-url <url>', 'Local LLM server URL (default: http://localhost:11434)')
     // Action handler to capture the positional argument
     .action((prompt, options) => {
       result.prompt = prompt;
@@ -196,6 +205,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
     stats: (opts.stats as boolean) ?? false,
     feedback,
     mock: (opts.mock as boolean) ?? false,
+    local: (opts.local as boolean) ?? false,
+    localModel: opts.localModel as string | undefined,
+    localUrl: opts.localUrl as string | undefined,
     configAction: result.configAction,
     configKey: result.configKey,
     configValue: result.configValue,
