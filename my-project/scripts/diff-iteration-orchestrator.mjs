@@ -1,11 +1,31 @@
 #!/usr/bin/env node
 /**
- * Diff Iteration Orchestrator v4.2
+ * Diff Iteration Orchestrator v5.3 - PHASE 1 + PHASE 2 + PHASE 3 + PHASE 4 AGENT ENHANCEMENTS
  *
- * Full-stack animation comparison workflow with comprehensive agent separation.
+ * Full-stack animation comparison workflow with all agent enhancements integrated.
  * ALWAYS starts fresh from baseline - no skip option.
  *
- * v4.2 IMPROVEMENTS:
+ * v5.3 PHASE 4 REINFORCEMENT LEARNING (ENABLED BY DEFAULT):
+ *   - RL Feedback Loop: Records state-action-reward tuples from every iteration
+ *   - Learning Extraction: Identifies positive/negative patterns, optimal parameter ranges, successful sequences
+ *   - Prompt Injection: Shares proven learnings ("Increasing boltCount by 2-4 improves score +8.3")
+ *   - Reward Signal: Score delta + bonuses (target: +50, critical fix: +10, wrong direction: -5)
+ *
+ * v5.2 PHASE 3 ADVANCED MULTI-AGENT CAPABILITIES (EXPERIMENTAL):
+ *   - Multi-Agent Specialist Framework: 4 domain specialists (Bolt, Glow, Color, Timing) with conflict resolution
+ *   - Quick Preview: Fast <1s visual feedback for rapid iteration testing (3 frames vs full 12-20)
+ *
+ * v5.1 PHASE 2 LEARNING & MEMORY:
+ *   - Parameter Impact Database: Records parameter→visual→score mappings with gradient estimation
+ *   - Animation Pattern Library: Suggests proven code patterns with effectiveness tracking
+ *   - Animation Knowledge Base: On-demand FAQs, best practices, and project history
+ *
+ * v5.0 PHASE 1 ENHANCEMENTS:
+ *   - Visual-to-Code Translator: Converts visual feedback to concrete parameter changes
+ *   - Animation Domain Knowledge: Rich animation principles injected into prompts
+ *   - Hierarchical Diff Analysis: Multi-resolution MACRO→REGIONAL→FEATURE→PIXEL
+ *
+ * v4.2 FEATURES:
  *   - Score history tracking for regression detection
  *   - Animation Expert sees previous scores and trend
  *   - Automatic regression warnings when score decreases
@@ -58,10 +78,38 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import readline from 'readline'
 
+// Phase 1 Agent Enhancements
+import { translateFeedback, buildParameterRecommendations } from './visual-to-code-translator.mjs'
+import { formatForPrompt as formatDomainKnowledge } from './animation-domain-prompts.mjs'
+import { analyzeHierarchical } from './hierarchical-diff-analysis.mjs'
+
+// Phase 2 Learning & Memory Systems
+import { ParameterImpactDB } from './parameter-impact-database.mjs'
+import { AnimationPatternLibrary } from './animation-pattern-library.mjs'
+import { AnimationKnowledgeBase } from './animation-knowledge-base.mjs'
+
+// Phase 3 Advanced Multi-Agent Capabilities
+import { MultiAgentCoordinator } from './multi-agent-coordinator.mjs'
+import { runQuickPreview } from './quick-preview.mjs'
+
+// Phase 4 Reinforcement Learning
+import { RLFeedbackLoop } from './rl-feedback-loop.mjs'
+
 // Global state for interrupt handling
 let isInterrupted = false
 let currentIterationNum = 0
 let rl = null
+
+// Phase 2 Learning & Memory System Instances
+let impactDB = null
+let patternLibrary = null
+let knowledgeBase = null
+
+// Phase 3 Multi-Agent System Instance
+let multiAgentCoordinator = null
+
+// Phase 4 Reinforcement Learning Instance
+let rlFeedbackLoop = null
 
 // Create readline interface for user input
 function createReadline() {
@@ -167,6 +215,8 @@ const ANIMATION_SOURCE_FILES = [
 // Configuration - NOTE: No skip-baseline option, always start fresh
 // frames: Set to 12 to match actual reference APNG frame count (avoids mismatch with captured frames)
 // useUltraAnalysis: Enable enhanced analysis with semantic segmentation, motion fingerprinting, LPIPS, etc.
+// usePhase1Enhancements: Enable Phase 1 agent enhancements (Visual-to-Code, Domain Knowledge, Hierarchical Analysis)
+// usePhase2Enhancements: Enable Phase 2 learning & memory systems (Impact DB, Pattern Library, Knowledge Base)
 const CONFIG = {
   maxIterations: 7,
   target: 95,
@@ -177,6 +227,11 @@ const CONFIG = {
   frameDelay: 50,
   waitTime: 2000,
   useUltraAnalysis: false,  // Use diff-analyze-ultra.mjs instead of diff-analyze-comprehensive.mjs
+  usePhase1Enhancements: true,  // Enable Phase 1 agent enhancements
+  usePhase2Enhancements: true,  // Enable Phase 2 learning & memory systems
+  usePhase3MultiAgent: false,  // Enable Phase 3 multi-agent specialist framework (experimental)
+  usePhase3QuickPreview: false,  // Enable Phase 3 quick preview (fast iteration testing)
+  usePhase4RL: true,  // Enable Phase 4 reinforcement learning feedback loop
 }
 
 // Parse arguments
@@ -195,6 +250,26 @@ function parseArgs() {
       CONFIG.frames = parseInt(arg.split('=')[1], 10)
     } else if (arg === '--ultra') {
       CONFIG.useUltraAnalysis = true
+    } else if (arg === '--phase1' || arg === '--enhancements') {
+      CONFIG.usePhase1Enhancements = true
+    } else if (arg === '--no-phase1' || arg === '--no-enhancements') {
+      CONFIG.usePhase1Enhancements = false
+    } else if (arg === '--phase2' || arg === '--learning') {
+      CONFIG.usePhase2Enhancements = true
+    } else if (arg === '--no-phase2' || arg === '--no-learning') {
+      CONFIG.usePhase2Enhancements = false
+    } else if (arg === '--phase3' || arg === '--multi-agent') {
+      CONFIG.usePhase3MultiAgent = true
+    } else if (arg === '--no-phase3' || arg === '--no-multi-agent') {
+      CONFIG.usePhase3MultiAgent = false
+    } else if (arg === '--quick-preview' || arg === '--preview') {
+      CONFIG.usePhase3QuickPreview = true
+    } else if (arg === '--no-quick-preview' || arg === '--no-preview') {
+      CONFIG.usePhase3QuickPreview = false
+    } else if (arg === '--phase4' || arg === '--rl') {
+      CONFIG.usePhase4RL = true
+    } else if (arg === '--no-phase4' || arg === '--no-rl') {
+      CONFIG.usePhase4RL = false
     }
   }
   return CONFIG
@@ -225,11 +300,401 @@ function runScript(scriptPath, args = []) {
   })
 }
 
+// Initialize Phase 2 Learning & Memory Systems
+async function initializePhase2Systems(outputDir) {
+  if (!CONFIG.usePhase2Enhancements) {
+    return false
+  }
+
+  console.log('\n[Phase 2 Systems] Initializing learning & memory systems...')
+
+  try {
+    // Initialize Parameter Impact Database
+    const impactDBPath = path.join(outputDir, 'parameter-impact-db.json')
+    impactDB = new ParameterImpactDB(impactDBPath)
+    await impactDB.load()
+    console.log(`  ✓ Parameter Impact DB loaded (${impactDB.data.observations.length} observations)`)
+
+    // Initialize Animation Pattern Library
+    const patternLibraryPath = path.join(__dirname, 'animation-patterns')
+    patternLibrary = new AnimationPatternLibrary(patternLibraryPath)
+    await patternLibrary.load()
+    console.log(`  ✓ Animation Pattern Library loaded (${patternLibrary.patterns.length} patterns)`)
+
+    // Initialize Animation Knowledge Base
+    const knowledgeBasePath = path.join(outputDir, 'animation-knowledge.json')
+    knowledgeBase = new AnimationKnowledgeBase(knowledgeBasePath)
+    await knowledgeBase.load()
+    console.log(`  ✓ Animation Knowledge Base loaded (${knowledgeBase.knowledge.faqs.length} FAQs)`)
+
+    console.log('  ✓ Phase 2 systems ready\n')
+    return true
+  } catch (err) {
+    console.error(`  ✗ Phase 2 initialization error: ${err.message}`)
+    console.warn('  Continuing without Phase 2 enhancements...\n')
+    return false
+  }
+}
+
+// Record observation to Parameter Impact Database
+async function recordParameterObservation(iterNum, parametersBefore, parametersAfter, scoreBefore, scoreAfter, visualEffect) {
+  if (!CONFIG.usePhase2Enhancements || !impactDB) {
+    return
+  }
+
+  try {
+    for (const [param, valueBefore] of Object.entries(parametersBefore)) {
+      const valueAfter = parametersAfter[param]
+      if (valueAfter !== undefined && valueBefore !== valueAfter) {
+        await impactDB.recordObservation({
+          parameter: param,
+          oldValue: valueBefore,
+          newValue: valueAfter,
+          scoreBefore: scoreBefore,
+          scoreAfter: scoreAfter,
+          visualEffect: visualEffect || 'Unknown effect',
+          iteration: iterNum,
+          timestamp: new Date().toISOString()
+        })
+        console.log(`  ✓ Recorded observation: ${param} ${valueBefore} → ${valueAfter} (score: ${scoreBefore} → ${scoreAfter})`)
+      }
+    }
+  } catch (err) {
+    console.warn(`  ⚠ Failed to record observation: ${err.message}`)
+  }
+}
+
+// Run Phase 2 Enhancements (Pattern Library, Knowledge Base, Impact DB queries)
+async function runPhase2Enhancements(iterNum, expertAnalysis, diffFeedback, outputDir) {
+  if (!CONFIG.usePhase2Enhancements) {
+    return null
+  }
+
+  console.log('\n[Phase 2 Enhancements] Running learning & memory queries...')
+
+  const phase2Data = {}
+
+  try {
+    // 1. Search Knowledge Base for relevant information
+    if (knowledgeBase && (expertAnalysis || diffFeedback)) {
+      const searchQuery = [
+        expertAnalysis || '',
+        JSON.stringify(diffFeedback || {})
+      ].join(' ').slice(0, 200) // First 200 chars as search query
+
+      const knowledgeResults = knowledgeBase.search(searchQuery, 3)
+      if (knowledgeResults.length > 0) {
+        phase2Data.knowledgeBaseResults = knowledgeResults
+        phase2Data.knowledgeFormatted = knowledgeBase.formatResults(knowledgeResults)
+        console.log(`  ✓ Knowledge Base: Found ${knowledgeResults.length} relevant items`)
+      }
+    }
+
+    // 2. Search Pattern Library for relevant patterns
+    if (patternLibrary && (expertAnalysis || diffFeedback)) {
+      const searchQuery = [
+        expertAnalysis || '',
+        JSON.stringify(diffFeedback || {})
+      ].join(' ')
+
+      // Extract key terms for pattern search
+      const keyTerms = ['glow', 'bolt', 'radial', 'color', 'brightness']
+        .filter(term => searchQuery.toLowerCase().includes(term))
+        .join(' ')
+
+      if (keyTerms) {
+        const patterns = patternLibrary.search(keyTerms).slice(0, 3)
+        if (patterns.length > 0) {
+          phase2Data.suggestedPatterns = patterns
+          console.log(`  ✓ Pattern Library: Found ${patterns.length} relevant patterns`)
+        }
+      }
+    }
+
+    // 3. Query Impact Database for expected outcomes (if available)
+    // This will be integrated into Visual-to-Code translator in buildParameterRecommendations
+    if (impactDB) {
+      phase2Data.impactDBAvailable = true
+      phase2Data.impactDBStats = {
+        observations: impactDB.data.observations.length,
+        parameters: Object.keys(impactDB.data.parameters).length
+      }
+      console.log(`  ✓ Impact DB: ${impactDB.data.observations.length} observations available`)
+    }
+
+    console.log('  ✓ Phase 2 enhancements complete\n')
+    return phase2Data
+  } catch (err) {
+    console.error(`  ✗ Phase 2 enhancements error: ${err.message}`)
+    return null
+  }
+}
+
+// Initialize Phase 3 Multi-Agent System
+async function initializePhase3Systems() {
+  if (!CONFIG.usePhase3MultiAgent) {
+    return false
+  }
+
+  console.log('\n[Phase 3 Systems] Initializing multi-agent coordinator...')
+
+  try {
+    // Initialize Multi-Agent Coordinator
+    multiAgentCoordinator = new MultiAgentCoordinator()
+    console.log('  ✓ Multi-Agent Coordinator initialized (4 specialists ready)')
+
+    console.log('  ✓ Phase 3 systems ready\n')
+    return true
+  } catch (err) {
+    console.error(`  ✗ Phase 3 initialization error: ${err.message}`)
+    console.warn('  Continuing without Phase 3 multi-agent framework...\n')
+    return false
+  }
+}
+
+// Run Phase 3 Multi-Agent Enhancements
+async function runPhase3Enhancements(iterNum, expertAnalysis, diffFeedback, outputDir) {
+  if (!CONFIG.usePhase3MultiAgent || !multiAgentCoordinator) {
+    return null
+  }
+
+  console.log('\n[Phase 3 Enhancements] Running multi-agent specialist analysis...')
+
+  const phase3Data = {}
+
+  try {
+    // Analyze feedback and route to specialists
+    const feedback = [
+      expertAnalysis || '',
+      JSON.stringify(diffFeedback || {})
+    ].join(' ')
+
+    const categorized = multiAgentCoordinator.analyzeFeedback(feedback)
+
+    // Count total issues across all specialists
+    const totalIssues = Object.values(categorized).reduce((sum, issues) => sum + issues.length, 0)
+
+    if (totalIssues > 0) {
+      console.log(`  ✓ Categorized feedback: ${totalIssues} issues across ${Object.keys(categorized).filter(k => categorized[k].length > 0).length} specialist domains`)
+
+      // Get recommendations from all relevant specialists
+      const recommendations = await multiAgentCoordinator.getRecommendations(feedback, null)
+
+      if (recommendations && recommendations.length > 0) {
+        phase3Data.specialistRecommendations = recommendations
+        phase3Data.categorizedIssues = categorized
+        console.log(`  ✓ Specialists provided ${recommendations.length} merged recommendations`)
+      } else {
+        console.log('  ℹ No specialist recommendations generated')
+      }
+    } else {
+      console.log('  ℹ No issues detected for specialist routing')
+    }
+
+    console.log('  ✓ Phase 3 enhancements complete\n')
+    return phase3Data
+  } catch (err) {
+    console.error(`  ✗ Phase 3 enhancements error: ${err.message}`)
+    return null
+  }
+}
+
+// Run Quick Preview (Phase 3)
+async function runQuickPreviewCheck() {
+  if (!CONFIG.usePhase3QuickPreview) {
+    return null
+  }
+
+  console.log('\n[Quick Preview] Running fast preview check...')
+
+  try {
+    const result = await runQuickPreview()
+
+    if (result.success) {
+      console.log(`  ✓ Quick preview complete: ${result.score}/100 in ${result.elapsed}s`)
+      return result
+    } else {
+      console.warn(`  ⚠ Quick preview failed: ${result.error}`)
+      return null
+    }
+  } catch (err) {
+    console.warn(`  ⚠ Quick preview error: ${err.message}`)
+    return null
+  }
+}
+
+// Initialize Phase 4 Reinforcement Learning System
+async function initializePhase4Systems(outputDir) {
+  if (!CONFIG.usePhase4RL) {
+    return false
+  }
+
+  console.log('\n[Phase 4 Systems] Initializing reinforcement learning feedback loop...')
+
+  try {
+    // Initialize RL Feedback Loop
+    const rlDBPath = path.join(outputDir, 'rl-feedback.json')
+    rlFeedbackLoop = new RLFeedbackLoop(rlDBPath)
+    await rlFeedbackLoop.load()
+    console.log(`  ✓ RL Feedback Loop loaded (${rlFeedbackLoop.data.experiences.length} experiences, ${rlFeedbackLoop.data.learnings.length} learnings)`)
+
+    console.log('  ✓ Phase 4 systems ready\n')
+    return true
+  } catch (err) {
+    console.error(`  ✗ Phase 4 initialization error: ${err.message}`)
+    console.warn('  Continuing without Phase 4 RL feedback loop...\n')
+    return false
+  }
+}
+
+// Get RL Insights for Prompts (Phase 4)
+async function getRLInsights(currentState = {}) {
+  if (!CONFIG.usePhase4RL || !rlFeedbackLoop) {
+    return null
+  }
+
+  try {
+    // Get formatted lessons for prompt injection
+    const insights = rlFeedbackLoop.formatLessonsForPrompt(currentState)
+
+    // Also return raw data for structured use
+    const rlData = {
+      insights: insights,
+      totalExperiences: rlFeedbackLoop.data.statistics.totalExperiences,
+      avgReward: rlFeedbackLoop.data.statistics.avgReward,
+      bestAction: rlFeedbackLoop.data.statistics.bestAction,
+      worstAction: rlFeedbackLoop.data.statistics.worstAction,
+      learnings: rlFeedbackLoop.data.learnings
+    }
+
+    return rlData
+  } catch (err) {
+    console.warn(`  ⚠ Failed to get RL insights: ${err.message}`)
+    return null
+  }
+}
+
+// Record RL Experience After Iteration (Phase 4)
+async function recordRLExperience(iterNum, scoreBefore, scoreAfter, actionDescription, targetReached = false, criticalIssueFixed = false) {
+  if (!CONFIG.usePhase4RL || !rlFeedbackLoop) {
+    return
+  }
+
+  try {
+    console.log('\n[Phase 4 RL] Recording experience...')
+
+    await rlFeedbackLoop.recordExperience({
+      iteration: iterNum,
+      state: { iteration: iterNum }, // Simplified state (could be enhanced with actual parameters)
+      action: {
+        description: actionDescription || `Iteration ${iterNum} changes`,
+        iteration: iterNum
+      },
+      scoreBefore: scoreBefore || 0,
+      scoreAfter: scoreAfter || 0,
+      targetReached: targetReached,
+      criticalIssueFixed: criticalIssueFixed
+    })
+
+    const scoreDelta = (scoreAfter || 0) - (scoreBefore || 0)
+    const reward = rlFeedbackLoop.data.experiences[rlFeedbackLoop.data.experiences.length - 1]?.reward || 0
+
+    console.log(`  ✓ Experience recorded: Score ${scoreBefore} → ${scoreAfter} (Δ${scoreDelta >= 0 ? '+' : ''}${scoreDelta.toFixed(1)}, Reward: ${reward >= 0 ? '+' : ''}${reward.toFixed(1)})`)
+    console.log(`  ✓ Total experiences: ${rlFeedbackLoop.data.experiences.length}, Learnings: ${rlFeedbackLoop.data.learnings.length}`)
+  } catch (err) {
+    console.warn(`  ⚠ Failed to record RL experience: ${err.message}`)
+  }
+}
+
+// Run Phase 1 Enhancements (Visual-to-Code, Domain Knowledge, Hierarchical Analysis)
+async function runPhase1Enhancements(iterNum, expertAnalysis, diffFeedback, outputDir, currentScore) {
+  if (!CONFIG.usePhase1Enhancements) {
+    return null
+  }
+
+  console.log('\n[Phase 1 Enhancements] Running Visual-to-Code + Hierarchical Analysis...')
+
+  const phase1Data = {}
+
+  try {
+    // 1. Load Animation Domain Knowledge
+    phase1Data.domainKnowledge = formatDomainKnowledge('animation-expert')
+    console.log('  ✓ Domain knowledge loaded')
+
+    // 2. Run Hierarchical Diff Analysis (if we have reference and live frames)
+    const liveDir = path.join(outputDir, '../capture-output/live')
+    const referenceDir = path.join(outputDir, '../capture-output/reference')
+
+    try {
+      const liveFiles = (await fs.readdir(liveDir)).filter(f => f.startsWith('frame_') && f.endsWith('.png')).sort()
+      const refFiles = (await fs.readdir(referenceDir)).filter(f => f.startsWith('frame_') && f.endsWith('.png')).sort()
+
+      if (liveFiles.length > 0 && refFiles.length > 0) {
+        // Run hierarchical analysis on best matching frame
+        const refPath = path.join(referenceDir, refFiles[0])
+        const livePath = path.join(liveDir, liveFiles[0])
+
+        const hierarchicalResult = await analyzeHierarchical(refPath, livePath, {
+          currentScore: currentScore || 0,
+          outputDir: outputDir
+        })
+
+        phase1Data.hierarchicalAnalysis = hierarchicalResult
+        console.log(`  ✓ Hierarchical analysis complete (${hierarchicalResult.allIssues?.length || 0} issues identified)`)
+
+        // Save hierarchical analysis
+        await fs.writeFile(
+          path.join(outputDir, 'hierarchical-analysis.json'),
+          JSON.stringify(hierarchicalResult, null, 2)
+        )
+      }
+    } catch (err) {
+      console.warn(`  ⚠ Hierarchical analysis skipped: ${err.message}`)
+    }
+
+    // 3. Run Visual-to-Code Translation
+    if (expertAnalysis || diffFeedback) {
+      try {
+        const combinedFeedback = [
+          expertAnalysis || '',
+          JSON.stringify(diffFeedback || {})
+        ].join('\n\n')
+
+        // Build parameter recommendations
+        const recommendations = await buildParameterRecommendations({
+          visualAnalysis: combinedFeedback,
+          semanticAnalysis: phase1Data.hierarchicalAnalysis,
+          codeFiles: ANIMATION_SOURCE_FILES,
+          impactDatabase: impactDB // Phase 2: Impact Database integration
+        })
+
+        phase1Data.parameterRecommendations = recommendations.recommendations
+        phase1Data.priority = recommendations.priority
+        console.log(`  ✓ Visual-to-Code translation complete (${recommendations.recommendations?.length || 0} recommendations)`)
+
+        // Save recommendations
+        await fs.writeFile(
+          path.join(outputDir, 'parameter-recommendations.json'),
+          JSON.stringify(recommendations, null, 2)
+        )
+      } catch (err) {
+        console.warn(`  ⚠ Visual-to-Code translation failed: ${err.message}`)
+      }
+    }
+
+    console.log('  ✓ Phase 1 enhancements complete\n')
+    return phase1Data
+  } catch (err) {
+    console.error(`  ✗ Phase 1 enhancements error: ${err.message}`)
+    return null
+  }
+}
+
 // Run Animation Expert sub-agent with retry logic
-async function runAnimationExpert(iterNum, baselineSpecPath, referenceDir, diffFeedback, expertAnalysis, outputDir, isFirstIteration, scoreHistory = [], frameCount = 12) {
+async function runAnimationExpert(iterNum, baselineSpecPath, referenceDir, diffFeedback, expertAnalysis, outputDir, isFirstIteration, scoreHistory = [], frameCount = 12, phase1Data = null, phase2Data = null, phase3Data = null, phase4Data = null) {
   console.log('\n[Animation Expert] Starting AI analysis and code modification...')
 
-  const prompt = buildAnimationExpertPrompt(iterNum, baselineSpecPath, referenceDir, diffFeedback, expertAnalysis, isFirstIteration, scoreHistory, frameCount)
+  const prompt = buildAnimationExpertPrompt(iterNum, baselineSpecPath, referenceDir, diffFeedback, expertAnalysis, isFirstIteration, scoreHistory, frameCount, phase1Data, phase2Data, phase3Data, phase4Data)
   const promptFile = path.join(outputDir, `iteration-${iterNum}-expert-prompt.md`)
   await fs.writeFile(promptFile, prompt)
 
@@ -484,7 +949,154 @@ Begin by reading the diff images and heat maps, then provide your detailed analy
 }
 
 // Build prompt for Animation Expert
-function buildAnimationExpertPrompt(iterNum, baselineSpecPath, referenceDir, diffFeedback, expertAnalysis, isFirstIteration, scoreHistory = [], frameCount = 12) {
+function buildAnimationExpertPrompt(iterNum, baselineSpecPath, referenceDir, diffFeedback, expertAnalysis, isFirstIteration, scoreHistory = [], frameCount = 12, phase1Data = null, phase2Data = null, phase3Data = null, phase4Data = null) {
+  // Build Phase 4 enhancements section (RL Insights - Most important, goes first!)
+  let phase4Section = ''
+  if (phase4Data && CONFIG.usePhase4RL && phase4Data.insights) {
+    phase4Section = `
+## 🧠 PHASE 4 REINFORCEMENT LEARNING INSIGHTS
+
+${phase4Data.insights}
+
+${phase4Data.totalExperiences > 0 ? `
+### Experience Statistics
+
+- Total Experiences: ${phase4Data.totalExperiences}
+- Average Reward: ${phase4Data.avgReward >= 0 ? '+' : ''}${phase4Data.avgReward.toFixed(1)}
+${phase4Data.bestAction ? `
+### Best Action Ever Taken
+
+\`\`\`json
+${JSON.stringify(phase4Data.bestAction, null, 2)}
+\`\`\`
+` : ''}
+${phase4Data.worstAction ? `
+### Worst Action to Avoid
+
+\`\`\`json
+${JSON.stringify(phase4Data.worstAction, null, 2)}
+\`\`\`
+` : ''}
+
+**Use these learnings to inform your decisions. Repeat what worked, avoid what failed.**
+` : 'This is the first iteration - no historical data available yet. Your actions will be recorded to build experience.'}
+`
+  }
+
+  // Build Phase 3 enhancements section
+  let phase3Section = ''
+  if (phase3Data && CONFIG.usePhase3MultiAgent && phase3Data.specialistRecommendations && phase3Data.specialistRecommendations.length > 0) {
+    phase3Section = `
+## 🤖 PHASE 3 MULTI-AGENT SPECIALIST RECOMMENDATIONS
+
+Multiple domain specialists have analyzed the feedback and provided targeted recommendations:
+
+${phase3Data.categorizedIssues ? `
+### Issues by Specialist Domain
+
+${Object.entries(phase3Data.categorizedIssues).filter(([_, issues]) => issues.length > 0).map(([specialist, issues]) => `
+**${specialist.toUpperCase()} Specialist** (${issues.length} issue${issues.length > 1 ? 's' : ''})
+${issues.map(issue => `- ${issue.type} (${issue.severity} severity)`).join('\n')}
+`).join('\n')}
+` : ''}
+
+### Merged Specialist Recommendations
+
+After conflict resolution and confidence analysis, here are the final recommendations:
+
+${phase3Data.specialistRecommendations.map((rec, i) => `
+**${i + 1}. ${rec.parameter}** (from ${rec.specialist || 'specialist'})
+- Suggested Value: ${rec.suggestedValue}
+- Confidence: ${(rec.confidence * 100).toFixed(0)}%
+- Reasoning: ${rec.reasoning}
+${rec.note ? `- Note: ${rec.note}` : ''}
+`).join('\n')}
+
+These recommendations have been merged from multiple specialists and conflicts have been resolved based on confidence scores.
+`
+  }
+
+  // Build Phase 2 enhancements section
+  let phase2Section = ''
+  if (phase2Data && CONFIG.usePhase2Enhancements) {
+    phase2Section = `
+## 📚 PHASE 2 LEARNING & MEMORY SYSTEMS
+
+${phase2Data.knowledgeFormatted ? `
+### Knowledge Base Results
+
+${phase2Data.knowledgeFormatted}
+` : ''}
+
+${phase2Data.suggestedPatterns && phase2Data.suggestedPatterns.length > 0 ? `
+### Suggested Code Patterns
+
+Based on the issues identified, these proven patterns may help:
+
+${phase2Data.suggestedPatterns.map((pattern, i) => `
+**${i + 1}. ${pattern.name}**
+- Category: ${pattern.category}
+- Effectiveness: ${(pattern.provenEffectiveness * 100).toFixed(0)}% (used in ${pattern.usedInProjects} projects)
+- Use Case: ${pattern.useCase}
+- Visual: ${pattern.visualCharacteristics}
+
+Key Implementation Notes:
+${pattern.implementationNotes?.map(note => `- ${note}`).join('\n') || 'See pattern library for details'}
+
+Pattern ID: \`${pattern.id}\` (available in animation-patterns directory)
+`).join('\n')}
+` : ''}
+
+${phase2Data.impactDBStats ? `
+### Historical Learning Data Available
+
+The Parameter Impact Database has ${phase2Data.impactDBStats.observations} recorded observations across ${phase2Data.impactDBStats.parameters} parameters. Expected score impacts are included in the Visual-to-Code recommendations above based on historical data.
+` : ''}
+`
+  }
+
+  // Build Phase 1 enhancements section
+  let phase1Section = ''
+  if (phase1Data && CONFIG.usePhase1Enhancements) {
+    phase1Section = `
+## 🚀 PHASE 1 AGENT ENHANCEMENTS
+
+${phase1Data.domainKnowledge || ''}
+
+${phase1Data.parameterRecommendations ? `
+### Visual-to-Code Translation Results
+
+The Visual-to-Code Translator has analyzed the feedback and identified these specific parameter changes:
+
+${phase1Data.parameterRecommendations.map((rec, i) => `
+**${i + 1}. ${rec.parameter}**
+- Current Value: ${rec.currentValue}
+- Suggested Value: ${rec.suggestedValue}
+- Confidence: ${(rec.confidence * 100).toFixed(0)}%
+- Reasoning: ${rec.reasoning}
+${rec.expectedScoreImpact ? `- Expected Score Impact: +${rec.expectedScoreImpact.toFixed(1)}` : ''}
+`).join('\n')}
+
+**Priority Order:** ${phase1Data.priority?.join(' → ') || 'N/A'}
+` : ''}
+
+${phase1Data.hierarchicalAnalysis ? `
+### Hierarchical Diff Analysis
+
+Multi-resolution analysis (MACRO → REGIONAL → FEATURE → PIXEL):
+
+**All Issues by Priority:**
+${phase1Data.hierarchicalAnalysis.allIssues?.slice(0, 10).map((issue, i) => `
+${i + 1}. [${issue.severity}] ${issue.issue}
+   - Level: ${issue.level}
+   - Estimated Impact: +${issue.estimatedImpact?.toFixed(1) || '?'} points
+`).join('\n')}
+
+**Focus Recommendation:** ${phase1Data.hierarchicalAnalysis.recommendation || 'Address highest severity issues first'}
+` : ''}
+`
+  }
+
   // Build score history section
   let scoreHistorySection = ''
   if (scoreHistory.length > 0) {
@@ -523,6 +1135,10 @@ Something that worked before may have been lost. Review what changed.
 
 You are an Animation Expert sub-agent specializing in electricity/lightning visual effects.
 Your job is to implement and refine the electricity animation to match the reference.
+${phase4Section}
+${phase3Section}
+${phase2Section}
+${phase1Section}
 ${scoreHistorySection}
 
 ## 🎯 CRITICAL RULES
@@ -718,16 +1334,21 @@ async function main() {
   setupInterruptHandler()
 
   console.log('╔════════════════════════════════════════════════════════════════╗')
-  console.log('║         DIFF ITERATION ORCHESTRATOR v4.3                       ║')
-  console.log('║         With Score History & Regression Detection              ║')
+  console.log('║         DIFF ITERATION ORCHESTRATOR v5.3                       ║')
+  console.log('║      With Phase 1 + Phase 2 + Phase 3 + Phase 4 Enhancements   ║')
   console.log('╠════════════════════════════════════════════════════════════════╣')
   console.log(`║  Max Iterations: ${String(config.maxIterations).padEnd(3)} │ Target: ${config.target}%                        ║`)
   console.log(`║  Analysis Mode: ${config.useUltraAnalysis ? 'ULTRA-ENHANCED' : 'COMPREHENSIVE'}                                 ║`)
+  console.log(`║  Phase 1 Enhancements: ${config.usePhase1Enhancements ? 'ENABLED' : 'DISABLED'}                                ║`)
+  console.log(`║  Phase 2 Learning: ${config.usePhase2Enhancements ? 'ENABLED' : 'DISABLED'}                                    ║`)
+  console.log(`║  Phase 3 Multi-Agent: ${config.usePhase3MultiAgent ? 'ENABLED' : 'DISABLED'}                                   ║`)
+  console.log(`║  Phase 3 Quick Preview: ${config.usePhase3QuickPreview ? 'ENABLED' : 'DISABLED'}                               ║`)
+  console.log(`║  Phase 4 RL Feedback: ${config.usePhase4RL ? 'ENABLED' : 'DISABLED'}                                    ║`)
   console.log('║  Press Ctrl+C anytime to pause and provide feedback            ║')
   console.log('╠════════════════════════════════════════════════════════════════╣')
   console.log('║  Phase 0: Baseline Analyst → Generate spec from reference      ║')
   console.log('║  Phase 1: Animation Expert → First impl (spec + ref frames)    ║')
-  console.log('║  Loop:    Diff Tools → Expert Analyst → Animation Expert       ║')
+  console.log('║  Loop:    Diff Tools → [Phase 1+2+3+4] → Expert → Anim. Expert ║')
   console.log('╚════════════════════════════════════════════════════════════════╝')
   console.log()
 
@@ -759,6 +1380,15 @@ async function main() {
   await fs.mkdir(captureDir, { recursive: true })
 
   let state = await loadState(outputDir)
+
+  // Initialize Phase 2 Learning & Memory Systems
+  await initializePhase2Systems(outputDir)
+
+  // Initialize Phase 3 Multi-Agent System
+  await initializePhase3Systems()
+
+  // Initialize Phase 4 Reinforcement Learning System
+  await initializePhase4Systems(outputDir)
 
   const baselineAnalystScript = path.join(__dirname, 'baseline-analyst-agent.mjs')
   const captureScript = path.join(__dirname, 'diff-capture-agent.mjs')
@@ -837,6 +1467,34 @@ async function main() {
 
     const iterStartTime = Date.now()
 
+    // Run Phase 1 Enhancements (for first iteration, only domain knowledge is loaded)
+    const phase1Data = await runPhase1Enhancements(
+      iterNum,
+      null,                 // No expert analysis yet
+      null,                 // No diff feedback yet
+      iterOutputDir,
+      0                     // No score yet
+    )
+
+    // Run Phase 2 Enhancements (for first iteration, only loads systems)
+    const phase2Data = await runPhase2Enhancements(
+      iterNum,
+      null,                 // No expert analysis yet
+      null,                 // No diff feedback yet
+      iterOutputDir
+    )
+
+    // Run Phase 3 Enhancements (multi-agent specialist analysis)
+    const phase3Data = await runPhase3Enhancements(
+      iterNum,
+      null,                 // No expert analysis yet
+      null,                 // No diff feedback yet
+      iterOutputDir
+    )
+
+    // Get Phase 4 RL Insights
+    const phase4Data = await getRLInsights({ iteration: iterNum })
+
     // Run Animation Expert with baseline spec AND reference frames (no diff feedback yet)
     const expertResult = await runAnimationExpert(
       iterNum,
@@ -847,7 +1505,11 @@ async function main() {
       iterOutputDir,
       true,                 // isFirstIteration
       [],                   // No score history yet
-      state.referenceFrameCount || 12  // Actual frame count
+      state.referenceFrameCount || 12,  // Actual frame count
+      phase1Data,           // Phase 1 enhancements data
+      phase2Data,           // Phase 2 learning & memory data
+      phase3Data,           // Phase 3 multi-agent specialist data
+      phase4Data            // Phase 4 RL insights
     )
 
     const iterDuration = ((Date.now() - iterStartTime) / 1000).toFixed(1)
@@ -1000,6 +1662,34 @@ async function main() {
       .filter(h => h.score !== undefined)
       .map(h => h.score)
 
+    // Run Phase 1 Enhancements
+    const phase1Data = await runPhase1Enhancements(
+      iterNum,
+      expertAnalysis,
+      analysisReport?.summary || null,
+      iterOutputDir,
+      score
+    )
+
+    // Run Phase 2 Enhancements
+    const phase2Data = await runPhase2Enhancements(
+      iterNum,
+      expertAnalysis,
+      analysisReport?.summary || null,
+      iterOutputDir
+    )
+
+    // Run Phase 3 Enhancements (multi-agent specialist analysis)
+    const phase3Data = await runPhase3Enhancements(
+      iterNum,
+      expertAnalysis,
+      analysisReport?.summary || null,
+      iterOutputDir
+    )
+
+    // Get Phase 4 RL Insights
+    const phase4Data = await getRLInsights({ iteration: iterNum, score: score })
+
     const expertResult = await runAnimationExpert(
       iterNum,
       baselineSpecPath,
@@ -1009,7 +1699,11 @@ async function main() {
       iterOutputDir,
       false,                               // Not first iteration
       scoreHistory,                        // Score history for regression detection
-      state.referenceFrameCount || 12     // Actual frame count
+      state.referenceFrameCount || 12,    // Actual frame count
+      phase1Data,                          // Phase 1 enhancements data
+      phase2Data,                          // Phase 2 learning & memory data
+      phase3Data,                          // Phase 3 multi-agent specialist data
+      phase4Data                           // Phase 4 RL insights
     )
 
     const iterDuration = ((Date.now() - iterStartTime) / 1000).toFixed(1)
@@ -1025,6 +1719,17 @@ async function main() {
       outputDir: iterOutputDir,
     })
     await saveState(outputDir, state)
+
+    // Record RL experience (Phase 4)
+    const scoreBefore = scoreHistory.length > 0 ? scoreHistory[scoreHistory.length - 1] : 0
+    await recordRLExperience(
+      iterNum,
+      scoreBefore,
+      score,
+      `Iteration ${iterNum} changes`,
+      targetMet,
+      false // criticalIssueFixed - could be enhanced with detection logic
+    )
 
     console.log('\n───────────────────────────────────────────────────────────────')
     console.log(`  Iteration ${iterNum} Complete`)
@@ -1189,10 +1894,42 @@ async function main() {
         .filter(h => h.score !== undefined)
         .map(h => h.score)
 
+      // Run Phase 1 Enhancements
+      const phase1Data = await runPhase1Enhancements(
+        iterNum,
+        expertAnalysis,
+        analysisReport?.summary || null,
+        iterOutputDir,
+        score
+      )
+
+      // Run Phase 2 Enhancements
+      const phase2Data = await runPhase2Enhancements(
+        iterNum,
+        expertAnalysis,
+        analysisReport?.summary || null,
+        iterOutputDir
+      )
+
+      // Run Phase 3 Enhancements (multi-agent specialist analysis)
+      const phase3Data = await runPhase3Enhancements(
+        iterNum,
+        expertAnalysis,
+        analysisReport?.summary || null,
+        iterOutputDir
+      )
+
+      // Get Phase 4 RL Insights
+      const phase4Data = await getRLInsights({ iteration: iterNum, score: score })
+
       const expertResult = await runAnimationExpert(
         iterNum, baselineSpecPath, referenceDir,
         analysisReport?.summary || null, expertAnalysis, iterOutputDir, false, scoreHistory,
-        state.referenceFrameCount || 12
+        state.referenceFrameCount || 12,
+        phase1Data,
+        phase2Data,
+        phase3Data,
+        phase4Data
       )
 
       const iterDuration = ((Date.now() - iterStartTime) / 1000).toFixed(1)
@@ -1202,6 +1939,17 @@ async function main() {
         timestamp: new Date().toISOString(), outputDir: iterOutputDir,
       })
       await saveState(outputDir, state)
+
+      // Record RL experience (Phase 4)
+      const scoreBefore = scoreHistory.length > 0 ? scoreHistory[scoreHistory.length - 1] : 0
+      await recordRLExperience(
+        iterNum,
+        scoreBefore,
+        score,
+        `Iteration ${iterNum} changes`,
+        targetMet,
+        false
+      )
 
       console.log(`\n  Iteration ${iterNum} Complete. Score: ${score}/100`)
 
