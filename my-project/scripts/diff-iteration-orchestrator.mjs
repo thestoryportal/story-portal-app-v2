@@ -714,7 +714,7 @@ async function runAnimationExpert(iterNum, baselineSpecPath, referenceDir, diffF
           cwd: PROJECT_ROOT,
           encoding: 'utf-8',
           maxBuffer: 10 * 1024 * 1024,
-          timeout: 300000,
+          timeout: 600000, // 10 minutes (increased from 5 for Phase 1+2+4 enhancements)
         }
       )
 
@@ -758,7 +758,7 @@ async function runExpertDiffAnalyst(iterNum, analysisReport, outputDir) {
           cwd: PROJECT_ROOT,
           encoding: 'utf-8',
           maxBuffer: 10 * 1024 * 1024,
-          timeout: 180000,
+          timeout: 300000, // 5 minutes (increased from 3 for larger analysis prompts)
         }
       )
 
