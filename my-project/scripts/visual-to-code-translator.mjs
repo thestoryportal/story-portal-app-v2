@@ -17,6 +17,7 @@
 
 import fs from 'fs/promises'
 import path from 'path'
+import { glob } from 'glob'
 
 /**
  * Translation Rules Database
@@ -287,7 +288,19 @@ async function extractCurrentParameters(codeFiles) {
     coreBrightness: /(?:const|let|var)?\s*(?:brightness|coreBrightness)\s*[=:]\s*(\d+)/
   }
 
-  for (const file of codeFiles) {
+  // Expand glob patterns to actual file paths
+  const expandedFiles = []
+  for (const filePattern of codeFiles) {
+    try {
+      const matches = await glob(filePattern, { nodir: true })
+      expandedFiles.push(...matches)
+    } catch (err) {
+      // If glob fails, try as literal path
+      expandedFiles.push(filePattern)
+    }
+  }
+
+  for (const file of expandedFiles) {
     try {
       const content = await fs.readFile(file, 'utf-8')
 
