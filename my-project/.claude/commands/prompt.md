@@ -106,9 +106,87 @@ Use AskUserQuestion:
 - question: "What would you like to do?"
 - options:
   1. label: "Use optimized", description: "Respond to the optimized prompt"
-  2. label: "Iterate", description: "Re-optimize with different settings"
+  2. label: "Iterate", description: "Answer clarifying questions to improve confidence"
   3. label: "Use original", description: "Respond to original prompt instead"
   4. label: "Cancel", description: "Don't process either prompt"
+
+---
+
+## If "Iterate" selected (Clarifying Questions Flow)
+
+**DO NOT restart workflow selection. Keep the same workflow type. Ask clarifying questions to improve confidence.**
+
+### Step I1: Identify Missing Information
+Based on the workflow type, identify what's missing or ambiguous:
+
+**Bug Report missing sections:**
+- Expected behavior: "What should happen when you click submit?"
+- Actual behavior: "What exactly happens instead?"
+- Repro steps: "What are the exact steps to reproduce this?"
+- Environment: "What browser/OS/version are you using?"
+
+**Specification missing sections:**
+- Goal: "What is the primary outcome you want to achieve?"
+- Requirements: "What are the must-have requirements?"
+- Context: "How does this integrate with existing systems?"
+
+**Feedback missing sections:**
+- What to change: "What specific aspect needs to change?"
+- Direction: "How should it be different?"
+
+**Architecture missing sections:**
+- Constraints: "What are the technical/business constraints?"
+- Goals: "What qualities matter most (speed, scale, simplicity)?"
+- Trade-offs: "What are you willing to compromise on?"
+
+**Exploration missing sections:**
+- Scope: "How deep should the exploration go?"
+- Familiarity: "What do you already know about this topic?"
+
+### Step I2: Ask Clarifying Questions
+Use AskUserQuestion for EACH missing/ambiguous item. Example for Bug Report:
+
+Question 1:
+- header: "Clarify"
+- question: "What behavior did you EXPECT when clicking submit?"
+- options:
+  1. label: "Form submits once", description: "Single submission, success message"
+  2. label: "Validation then submit", description: "Validate fields, then submit"
+  3. label: "Loading state then submit", description: "Show spinner, then complete"
+
+Question 2:
+- header: "Clarify"
+- question: "What ACTUALLY happens?"
+- options:
+  1. label: "Nothing on first clicks", description: "Button unresponsive initially"
+  2. label: "Multiple submissions", description: "Duplicates created in database"
+  3. label: "Error shown", description: "Console or UI error appears"
+
+(User can also type custom answers in "Other" field)
+
+### Step I3: Rebuild and Re-optimize
+1. Incorporate user's answers into the prompt
+2. Re-run optimizer with SAME workflow flag:
+```bash
+node "$CLAUDE_PROJECT_DIR/packages/prompt-optimizer/dist/cli/index.js" --json --auto --level 3 --workflow [SAME_MODE] "ENHANCED_PROMPT"
+```
+
+### Step I4: Show New Results
+Display:
+- **Iteration:** 2 (or 3, 4...)
+- **Original:** [user's initial input]
+- **Clarifications added:** [list what was added]
+- **New optimized:** [result]
+- **Confidence:** [X]% (should be higher now)
+
+### Step I5: Action Menu (Again)
+Return to Step 5 Final Action menu. User can:
+- "Use optimized" - if confidence is acceptable
+- "Iterate" - continue clarifying (loop back to I1)
+- "Use original" - abandon optimization
+- "Cancel" - stop entirely
+
+---
 
 ## If "Status" selected:
 
