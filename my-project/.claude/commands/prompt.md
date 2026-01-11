@@ -48,50 +48,66 @@ Confirm: "Auto-optimize DISABLED. Use /prompt for manual optimization or ! prefi
 
 ## If "Manual optimize" selected:
 
-1. Ask: "What prompt would you like to optimize?"
+**IMPORTANT: You MUST use the AskUserQuestion tool for EACH step below. Do NOT just ask questions in text.**
 
-2. Use AskUserQuestion for workflow mode:
-   - header: "Workflow"
-   - question: "What type of prompt is this?"
-   - options:
-     1. "Auto-detect (Recommended)" - Let optimizer detect intent from content
-     2. "Specification" - New feature/project needing goal, requirements, context
-     3. "Feedback" - Revision direction for existing work
-     4. "Bug Report" - Issue with expected/actual behavior, repro steps
+### Step 1: Workflow Selection
+IMMEDIATELY use AskUserQuestion tool with these EXACT parameters:
+- header: "Workflow"
+- question: "What type of prompt are you optimizing?"
+- options:
+  1. label: "Auto-detect", description: "Let optimizer detect intent from content (Recommended)"
+  2. label: "Specification", description: "New feature/project - adds goal, requirements, context sections"
+  3. label: "Feedback", description: "Revision direction - adds what-to-change, direction sections"
+  4. label: "Bug Report", description: "Issue description - adds expected/actual behavior, repro steps"
 
-   If user selects "Other", show second set:
-   - header: "Workflow"
-   - question: "Additional workflow types:"
-   - options:
-     1. "Quick Task" - Simple action, minimal optimization
-     2. "Architecture" - Design decision with constraints/trade-offs
-     3. "Exploration" - Research/understanding with scope/depth
+If user selects "Other", use AskUserQuestion again:
+- header: "Workflow"
+- question: "Additional workflow types:"
+- options:
+  1. label: "Quick Task", description: "Simple action with minimal optimization"
+  2. label: "Architecture", description: "Design decision - adds constraints, goals, trade-offs"
+  3. label: "Exploration", description: "Research/understanding - adds scope, depth sections"
 
-3. Use AskUserQuestion for config:
-   - header: "Config"
-   - question: "Optimization settings:"
-   - options:
-     1. "Defaults (API, Level 3)" - Recommended
-     2. "Custom" - Choose mode and level
+### Step 2: Get the Prompt
+After workflow is selected, use AskUserQuestion:
+- header: "Prompt"
+- question: "Enter the prompt you want to optimize:"
+- options:
+  1. label: "Type below", description: "Enter your prompt in the text field"
 
-4. Run optimizer with workflow flag:
-   - Auto-detect: node "$CLAUDE_PROJECT_DIR/packages/prompt-optimizer/dist/cli/index.js" --json --auto --level 3 "PROMPT"
-   - Specification: add --workflow spec
-   - Feedback: add --workflow feedback
-   - Bug Report: add --workflow bug
-   - Quick Task: add --workflow quick
-   - Architecture: add --workflow arch
-   - Exploration: add --workflow explore
+The user will type their prompt in the "Other" text field.
 
-5. Show before/after with confidence and workflow mode applied
+### Step 3: Run Optimizer
+Run the optimizer with the appropriate workflow flag:
+```bash
+node "$CLAUDE_PROJECT_DIR/packages/prompt-optimizer/dist/cli/index.js" --json --auto --level 3 [WORKFLOW_FLAG] "USER_PROMPT"
+```
 
-6. Use AskUserQuestion for action:
-   - header: "Action"
-   - question: "What would you like to do?"
-   - options:
-     1. "Use this" - Respond to optimized version
-     2. "Iterate" - Re-optimize to improve confidence
-     3. "Cancel" - Use original prompt
+Workflow flags:
+- Auto-detect: (no flag)
+- Specification: --workflow spec
+- Feedback: --workflow feedback
+- Bug Report: --workflow bug
+- Quick Task: --workflow quick
+- Architecture: --workflow arch
+- Exploration: --workflow explore
+
+### Step 4: Show Results
+Display:
+- Original prompt
+- Optimized prompt
+- Workflow mode applied
+- Confidence percentage
+
+### Step 5: Action Selection
+Use AskUserQuestion:
+- header: "Action"
+- question: "What would you like to do with the optimized prompt?"
+- options:
+  1. label: "Use this", description: "Respond to the optimized version"
+  2. label: "Iterate", description: "Re-optimize to improve confidence"
+  3. label: "Use original", description: "Keep original prompt instead"
+  4. label: "Cancel", description: "Don't process either prompt"
 
 ## If "Status" selected:
 
