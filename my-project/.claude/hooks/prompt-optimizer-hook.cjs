@@ -342,7 +342,7 @@ After user answers ALL clarifying questions:
 1. Rebuild the prompt incorporating their answers
 2. Re-run optimizer with SAME workflow:
    \`\`\`bash
-   node "$CLAUDE_PROJECT_DIR/packages/prompt-optimizer/dist/cli/index.js" --json --auto --level 3${workflowMode ? ` --workflow ${workflowMode}` : ''} "ENHANCED_PROMPT"
+   node packages/prompt-optimizer/dist/cli/index.js --json --auto --level 3${workflowMode ? ` --workflow ${workflowMode}` : ''} "ENHANCED_PROMPT"
    \`\`\`
 3. Show iteration results:
    - **Iteration:** [N]
