@@ -38,10 +38,31 @@ import {
 } from './components'
 
 // Views
-import { RecordView, StoriesView, AboutView } from './views'
+import { AboutView } from './views'
+import { GalleryView } from '../components/views/GalleryView'
+import { RecordingView } from '../components/views/RecordingView'
 
-// Booking
+// Effects - ElectricityOrtho replaces deprecated Canvas 2D (see .claude/guardrails.md)
+import { ElectricityOrtho } from '../components/electricity/ortho'
+
+// Menu Modals
+import {
+  OurStoryModal,
+  OurWorkModal,
+  InquiryModal,
+  PrivacyTermsModal,
+} from '../components/menu-modals'
+
+// Booking (deprecated - kept for NavButtons compatibility)
 import { BookingModal } from '../components/form'
+
+// Menu Modal Types
+type MenuModalId = 'our-story' | 'our-work' | 'booking' | 'privacy-terms' | null
+const MENU_MODAL_ORDER: Exclude<MenuModalId, null>[] = ['our-story', 'our-work', 'booking', 'privacy-terms']
+
+// Constants and utilities
+import type { Prompt, StoryRecord } from '../types/story'
+import { saveStory } from '../utils/storage'
 
 // Configuration flags
 const TEST_MODE = false
@@ -72,14 +93,21 @@ function generateButtonShadowStyle(config: typeof BUTTON_SHADOW_CONFIG) {
 
 export default function LegacyApp() {
   // View state
-  const [view, setView] = useState<'wheel' | 'record' | 'stories' | 'about'>('wheel')
-  const [selectedPromptForRecording, setSelectedPromptForRecording] = useState<string | null>(null)
+  const [view, setView] = useState<'wheel' | 'record' | 'about'>('wheel')
+  const [galleryOpen, setGalleryOpen] = useState(false)
+  const [selectedPromptForRecording, setSelectedPromptForRecording] = useState<Prompt | null>(null)
 
-  // Booking modal state
+  // Booking modal state (deprecated - kept for NavButtons compatibility)
   const [bookingOpen, setBookingOpen] = useState(false)
+
+  // Menu modal state
+  const [activeMenuModal, setActiveMenuModal] = useState<MenuModalId>(null)
 
   // Record button tooltip
   const [showRecordTooltip, setShowRecordTooltip] = useState(false)
+
+  // Electricity animation state
+  const [electricityActive, setElectricityActive] = useState(false)
 
   // Reassemble sparkles state (managed locally since useWheelSelection doesn't export it yet)
   const [reassembleSparkles] = useState<Sparkle[]>([])
@@ -137,10 +165,51 @@ export default function LegacyApp() {
   // Steam effect hook
   const { steamWisps } = useSteamEffect()
 
+  // Menu modal navigation
+  const navigateMenuModal = useCallback((direction: 'next' | 'prev') => {
+    if (!activeMenuModal) return
+    const currentIndex = MENU_MODAL_ORDER.indexOf(activeMenuModal)
+    const newIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1
+    if (newIndex >= 0 && newIndex < MENU_MODAL_ORDER.length) {
+      setActiveMenuModal(MENU_MODAL_ORDER[newIndex])
+    }
+  }, [activeMenuModal])
+
+  // Handle menu panel click - trigger sway animation, then open modal
+  const handleMenuItemClick = useCallback((id: number, _label: string) => {
+    // Trigger sway animation (existing behavior)
+    handlePanelClick(id)
+
+    // Open modal after sway animation completes (menu stays open)
+    setTimeout(() => {
+      const modalMap: Record<number, MenuModalId> = {
+        1: 'our-story',
+        2: 'our-work',
+        3: 'booking',
+        4: 'privacy-terms',
+      }
+      setActiveMenuModal(modalMap[id] || null)
+    }, 700)
+  }, [handlePanelClick])
+
+  // Close menu modal
+  const closeMenuModal = useCallback(() => {
+    setActiveMenuModal(null)
+  }, [])
+
   // Record button handlers
   const handleRecordClick = useCallback(() => {
     if (selectedPrompt) {
-      setSelectedPromptForRecording(selectedPrompt)
+      // Create a Prompt object from the selected text
+      const promptObj: Prompt = {
+        id: `prompt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        text: selectedPrompt,
+        category: 'Story',
+        declaration_risk: 'medium',
+        facilitation_hint: 'Share your story in your own words.',
+        created_at: new Date().toISOString(),
+      }
+      setSelectedPromptForRecording(promptObj)
       setView('record')
     }
   }, [selectedPrompt])
@@ -148,6 +217,32 @@ export default function LegacyApp() {
   const handleDisabledRecordClick = useCallback(() => {
     setShowRecordTooltip(true)
     setTimeout(() => setShowRecordTooltip(false), 3000)
+  }, [])
+
+  // Handle New Topics with electricity animation
+  const handleNewTopicsClick = useCallback(() => {
+    setElectricityActive(true)
+    loadNewTopics()
+  }, [loadNewTopics])
+
+  // Handle electricity animation complete
+  const handleElectricityComplete = useCallback(() => {
+    setElectricityActive(false)
+  }, [])
+
+  // Save story handler
+  const handleSaveStory = useCallback(async (story: StoryRecord) => {
+    try {
+      await saveStory(story)
+      console.log('Story saved successfully:', story.id)
+
+      // Return to wheel view
+      setSelectedPromptForRecording(null)
+      setView('wheel')
+    } catch (error) {
+      console.error('Failed to save story:', error)
+      // Error is already displayed in RecordingView
+    }
   }, [])
 
   // Mouse/touch handlers for wheel
@@ -233,14 +328,17 @@ export default function LegacyApp() {
   )
 
   // Render based on view
-  if (view === 'record') {
+  if (view === 'record' && selectedPromptForRecording) {
     return (
-      <RecordView selectedPrompt={selectedPromptForRecording} onBack={() => setView('wheel')} />
+      <RecordingView
+        prompt={selectedPromptForRecording}
+        onSaveStory={handleSaveStory}
+        onCancel={() => {
+          setSelectedPromptForRecording(null)
+          setView('wheel')
+        }}
+      />
     )
-  }
-
-  if (view === 'stories') {
-    return <StoriesView onBack={() => setView('wheel')} />
   }
 
   if (view === 'about') {
@@ -282,6 +380,13 @@ export default function LegacyApp() {
 
           {/* Portal Ring */}
           <PortalRing />
+
+          {/* Electricity Animation (triggers on New Topics) - Ortho R3F */}
+          <ElectricityOrtho
+            isActive={electricityActive}
+            onComplete={handleElectricityComplete}
+            onPhaseChange={(phase) => console.log('[Electricity]', phase)}
+          />
 
           {/* Reassembled Panel */}
           <ReassembledPanel
@@ -331,7 +436,7 @@ export default function LegacyApp() {
         {/* Buttons Container */}
         <div className="buttons-container">
           <SpinButton onSpin={buttonSpin} />
-          <NewTopicsButton onLoadNewTopics={loadNewTopics} />
+          <NewTopicsButton onLoadNewTopics={handleNewTopicsClick} />
           <RecordButton
             hasSelectedPrompt={!!selectedPrompt}
             onRecord={handleRecordClick}
@@ -357,7 +462,7 @@ export default function LegacyApp() {
           hasBeenOpened={menuHasBeenOpened}
           swayingFromPanel={swayingFromPanel}
           swayAnimKey={swayAnimKey}
-          onPanelClick={handlePanelClick}
+          onPanelClick={handleMenuItemClick}
         />
 
         {/* Smoke Effect */}
@@ -370,7 +475,7 @@ export default function LegacyApp() {
         <NavButtons
           onHowToPlay={() => setView('about')}
           onBook={() => setBookingOpen(true)}
-          onMyStories={() => setView('stories')}
+          onMyStories={() => setGalleryOpen(true)}
           buttonShadowStyle={buttonShadowStyle}
         />
 
@@ -381,6 +486,61 @@ export default function LegacyApp() {
           onSuccess={(booking) => {
             console.log('Booking confirmed:', booking)
           }}
+        />
+
+        {/* Gallery Modal Overlay */}
+        {galleryOpen && (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0, 0, 0, 0.3)',
+              backdropFilter: 'blur(6px)',
+              zIndex: 2000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 'var(--sp-spacing-lg)',
+              overflow: 'auto',
+            }}
+            onClick={() => setGalleryOpen(false)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                maxWidth: '90vw',
+                maxHeight: '90vh',
+                width: '100%',
+                borderRadius: '12px',
+              }}
+            >
+              <GalleryView onBack={() => setGalleryOpen(false)} />
+            </div>
+          </div>
+        )}
+
+        {/* Menu Modals - overlay on top of menu (menu stays open) */}
+        <OurStoryModal
+          isOpen={activeMenuModal === 'our-story'}
+          onClose={closeMenuModal}
+          onNext={() => navigateMenuModal('next')}
+        />
+        <OurWorkModal
+          isOpen={activeMenuModal === 'our-work'}
+          onClose={closeMenuModal}
+          onNext={() => navigateMenuModal('next')}
+          onPrev={() => navigateMenuModal('prev')}
+        />
+        <InquiryModal
+          isOpen={activeMenuModal === 'booking'}
+          onClose={closeMenuModal}
+          onNext={() => navigateMenuModal('next')}
+          onPrev={() => navigateMenuModal('prev')}
+        />
+        <PrivacyTermsModal
+          isOpen={activeMenuModal === 'privacy-terms'}
+          onClose={closeMenuModal}
+          onPrev={() => navigateMenuModal('prev')}
         />
       </div>
     </div>
