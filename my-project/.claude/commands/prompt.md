@@ -36,13 +36,13 @@ First, use AskUserQuestion for config:
 
 If "Custom": show Mode (API/Local/Mock) and Level (1/2/3) selections.
 
-Then run: touch "$CLAUDE_PROJECT_DIR/.claude/.optimizer-auto-enabled"
+Then run: touch .claude/hooks/.optimizer-auto-enabled
 
 Confirm: "Auto-optimize ENABLED with [settings]. All prompts will be optimized (85%+ auto-sends, lower asks approval)."
 
 ## If "Auto OFF" selected:
 
-Run: rm -f "$CLAUDE_PROJECT_DIR/.claude/.optimizer-auto-enabled"
+Run: rm -f .claude/hooks/.optimizer-auto-enabled
 
 Confirm: "Auto-optimize DISABLED. Use /prompt for manual optimization or ! prefix for one-off."
 
@@ -82,7 +82,7 @@ User enters their prompt in the "Other" text input field.
 ### Step 3: Run Optimizer
 Execute with selected workflow:
 ```bash
-node "$CLAUDE_PROJECT_DIR/packages/prompt-optimizer/dist/cli/index.js" --json --auto --level 3 [FLAGS] "PROMPT"
+node packages/prompt-optimizer/dist/cli/index.js --json --auto --level 3 [FLAGS] "PROMPT"
 ```
 
 Flags by workflow:
@@ -168,7 +168,7 @@ Question 2:
 1. Incorporate user's answers into the prompt
 2. Re-run optimizer with SAME workflow flag:
 ```bash
-node "$CLAUDE_PROJECT_DIR/packages/prompt-optimizer/dist/cli/index.js" --json --auto --level 3 --workflow [SAME_MODE] "ENHANCED_PROMPT"
+node packages/prompt-optimizer/dist/cli/index.js --json --auto --level 3 --workflow [SAME_MODE] "ENHANCED_PROMPT"
 ```
 
 ### Step I4: Show New Results
@@ -190,6 +190,6 @@ Return to Step 5 Final Action menu. User can:
 
 ## If "Status" selected:
 
-Run: test -f "$CLAUDE_PROJECT_DIR/.claude/.optimizer-auto-enabled" && echo "enabled" || echo "disabled"
+Run: test -f .claude/hooks/.optimizer-auto-enabled && echo "enabled" || echo "disabled"
 
 Report current state to user.
