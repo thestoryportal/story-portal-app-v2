@@ -2,6 +2,12 @@
 #
 # Install Prompt Optimizer for Claude Code
 #
+# Features:
+# - Automatic prompt optimization with spelling/grammar fixes
+# - Workflow-specific optimizations (Specification, Bug Report, Feedback, etc.)
+# - Iterative clarifying questions for low-confidence results
+# - Prefix triggers for quick workflow selection
+#
 # Usage:
 #   ./install-prompt-optimizer.sh /path/to/target/project
 #   ./install-prompt-optimizer.sh  # installs to current directory
@@ -17,9 +23,9 @@ SOURCE_PROJECT="$(dirname "$SCRIPT_DIR")"
 TARGET_PROJECT="${1:-.}"
 TARGET_PROJECT="$(cd "$TARGET_PROJECT" && pwd)"
 
-echo "=================================="
-echo "Prompt Optimizer Installer"
-echo "=================================="
+echo "=============================================="
+echo "  Prompt Optimizer Installer for Claude Code"
+echo "=============================================="
 echo ""
 echo "Source: $SOURCE_PROJECT"
 echo "Target: $TARGET_PROJECT"
@@ -33,6 +39,11 @@ fi
 
 if [ ! -d "$SOURCE_PROJECT/packages/prompt-optimizer" ]; then
     echo "Error: Source package not found at $SOURCE_PROJECT/packages/prompt-optimizer"
+    exit 1
+fi
+
+if [ ! -f "$SOURCE_PROJECT/.claude/commands/prompt.md" ]; then
+    echo "Error: Command file not found at $SOURCE_PROJECT/.claude/commands/prompt.md"
     exit 1
 fi
 
@@ -64,11 +75,10 @@ echo "Configuring settings.json..."
 
 if [ -f "$SETTINGS_FILE" ]; then
     # Check if hooks already configured
-    if grep -q "UserPromptSubmit" "$SETTINGS_FILE"; then
-        echo "  Warning: UserPromptSubmit hook already configured in settings.json"
-        echo "  Please manually verify the hook configuration"
+    if grep -q "prompt-optimizer-hook" "$SETTINGS_FILE"; then
+        echo "  Hook already configured in settings.json"
     else
-        # Add hooks to existing settings (simple approach - may need manual adjustment for complex configs)
+        # Add hooks to existing settings
         echo "  Adding hook to existing settings.json..."
         # Create backup
         cp "$SETTINGS_FILE" "$SETTINGS_FILE.backup.$(date +%s)"
@@ -79,7 +89,7 @@ const fs = require('fs');
 const settings = JSON.parse(fs.readFileSync('$SETTINGS_FILE', 'utf8'));
 settings.hooks = settings.hooks || {};
 settings.hooks.UserPromptSubmit = settings.hooks.UserPromptSubmit || [];
-if (!settings.hooks.UserPromptSubmit.includes('node .claude/hooks/prompt-optimizer-hook.cjs')) {
+if (!settings.hooks.UserPromptSubmit.some(h => h.includes('prompt-optimizer-hook'))) {
     settings.hooks.UserPromptSubmit.push('node .claude/hooks/prompt-optimizer-hook.cjs');
 }
 fs.writeFileSync('$SETTINGS_FILE', JSON.stringify(settings, null, 2));
@@ -117,9 +127,9 @@ fi
 cd "$TARGET_PROJECT"
 
 echo ""
-echo "=================================="
-echo "Installation Complete!"
-echo "=================================="
+echo "=============================================="
+echo "  Installation Complete!"
+echo "=============================================="
 echo ""
 echo "Files installed:"
 echo "  - .claude/hooks/prompt-optimizer-hook.cjs"
@@ -127,15 +137,62 @@ echo "  - .claude/commands/prompt.md"
 echo "  - .claude/settings.json (updated)"
 echo "  - packages/prompt-optimizer/"
 echo ""
-echo "Usage:"
-echo "  /prompt          - Open optimizer menu (manual mode, toggle auto, check status)"
-echo "  !your prompt     - One-off optimization (prefix any prompt with !)"
+echo "----------------------------------------------"
+echo "  USAGE"
+echo "----------------------------------------------"
 echo ""
-echo "Modes (set via PROMPT_OPTIMIZER_MODE env var):"
-echo "  api   - Anthropic API (default, fast, ~\$0.001/prompt)"
-echo "  local - Ollama local LLM (free, slow ~60-90s)"
-echo "  mock  - Rule-based only (instant, basic)"
+echo "  /prompt              Open optimizer menu"
+echo "                       - Auto ON/OFF toggle"
+echo "                       - Manual optimize with workflow selection"
+echo "                       - Check status"
 echo ""
-echo "For API mode, ensure ANTHROPIC_API_KEY is set:"
-echo "  export ANTHROPIC_API_KEY=your-key-here"
+echo "  !your prompt         One-off optimization (generic)"
+echo ""
+echo "----------------------------------------------"
+echo "  WORKFLOW MODES (prefix triggers)"
+echo "----------------------------------------------"
+echo ""
+echo "  !spec <prompt>       Specification mode"
+echo "                       Adds: goal, requirements, context sections"
+echo "                       Use for: new features, projects"
+echo ""
+echo "  !feedback <prompt>   Feedback mode"
+echo "                       Adds: what-to-change, direction sections"
+echo "                       Use for: revision requests, iterations"
+echo ""
+echo "  !bug <prompt>        Bug Report mode"
+echo "                       Adds: expected/actual behavior, repro steps"
+echo "                       Use for: issue descriptions, debugging"
+echo ""
+echo "  !quick <prompt>      Quick Task mode"
+echo "                       Minimal optimization"
+echo "                       Use for: simple actions, one-liners"
+echo ""
+echo "  !arch <prompt>       Architecture mode"
+echo "                       Adds: constraints, goals, trade-offs"
+echo "                       Use for: design decisions, system planning"
+echo ""
+echo "  !explore <prompt>    Exploration mode"
+echo "                       Adds: scope, depth, familiarity"
+echo "                       Use for: research, learning, understanding"
+echo ""
+echo "----------------------------------------------"
+echo "  CONFIGURATION"
+echo "----------------------------------------------"
+echo ""
+echo "  Modes (via PROMPT_OPTIMIZER_MODE env var):"
+echo "    api   - Anthropic API (default, fast ~500ms)"
+echo "    local - Ollama local LLM (free, slow ~60-90s)"
+echo "    mock  - Rule-based only (instant, basic)"
+echo ""
+echo "  For API mode, set your key:"
+echo "    export ANTHROPIC_API_KEY=your-key-here"
+echo ""
+echo "----------------------------------------------"
+echo "  CONFIDENCE BEHAVIOR"
+echo "----------------------------------------------"
+echo ""
+echo "  >= 85%  Auto-sends optimized prompt"
+echo "  < 85%   Asks clarifying questions, then re-optimizes"
+echo "          (workflow-specific questions based on mode)"
 echo ""
