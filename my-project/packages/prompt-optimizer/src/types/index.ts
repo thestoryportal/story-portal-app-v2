@@ -114,3 +114,16 @@ export type {
   MetricsExport,
   MetricsQuery,
 } from './metrics.js';
+
+// Workflow types
+export type {
+  WorkflowMode,
+  WorkflowModeSource,
+  WorkflowModeDetection,
+  SectionRequirement,
+  WorkflowModeConfig,
+  StructuralChange,
+  WorkflowModeTransformResult,
+  WorkflowModeMenuOption,
+} from './workflow.js';
+export { WORKFLOW_PREFIXES, WORKFLOW_MODE_MENU } from './workflow.js';

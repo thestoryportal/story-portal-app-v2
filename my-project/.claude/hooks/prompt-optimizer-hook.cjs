@@ -7,6 +7,7 @@
  * - Improve clarity and specificity
  * - Optimize for Claude Code linguistics
  * - Expand or condense as needed
+ * - Apply workflow-specific optimizations (!spec, !bug, !feedback, etc.)
  */
 
 const { spawn } = require('child_process');
@@ -14,6 +15,29 @@ const path = require('path');
 const fs = require('fs');
 
 const OPTIMIZER_PATH = path.resolve(__dirname, '../../packages/prompt-optimizer/dist/cli/index.js');
+
+// Workflow mode prefixes - maps prefix to CLI flag value
+const WORKFLOW_PREFIXES = {
+  '!spec': 'spec',
+  '!specification': 'spec',
+  '!feedback': 'feedback',
+  '!bug': 'bug',
+  '!quick': 'quick',
+  '!arch': 'arch',
+  '!architecture': 'arch',
+  '!explore': 'explore',
+  '!exploration': 'explore',
+};
+
+// Workflow mode descriptions for context output
+const WORKFLOW_DESCRIPTIONS = {
+  spec: 'Specification mode - optimizing for new feature/project specs with goal, requirements, and context sections',
+  feedback: 'Feedback mode - optimizing for revision direction with what-to-change and direction sections',
+  bug: 'Bug Report mode - optimizing for issue description with expected/actual behavior and repro steps',
+  quick: 'Quick Task mode - minimal optimization for simple actions',
+  arch: 'Architecture mode - optimizing for design decisions with constraints, goals, and trade-offs',
+  explore: 'Exploration mode - optimizing for research/understanding with scope and depth',
+};
 
 // Configuration via environment variable PROMPT_OPTIMIZER_MODE
 // Options:
@@ -69,9 +93,22 @@ async function main() {
   let prompt = inputData.prompt || '';
   let forceOptimize = false;
   let strippedPrefix = false;
+  let workflowMode = null;
 
-  // Check for ! prefix (one-off optimization trigger)
-  if (prompt.startsWith('!')) {
+  // Check for workflow mode prefixes (!spec, !bug, !feedback, etc.)
+  const lowerPrompt = prompt.toLowerCase();
+  for (const [prefix, mode] of Object.entries(WORKFLOW_PREFIXES)) {
+    if (lowerPrompt.startsWith(prefix + ' ') || lowerPrompt === prefix) {
+      workflowMode = mode;
+      prompt = prompt.slice(prefix.length).trimStart();
+      forceOptimize = true;
+      strippedPrefix = true;
+      break;
+    }
+  }
+
+  // Check for generic ! prefix (one-off optimization trigger without workflow mode)
+  if (!strippedPrefix && prompt.startsWith('!')) {
     prompt = prompt.slice(1).trimStart(); // Remove ! and any leading space
     forceOptimize = true;
     strippedPrefix = true;
@@ -104,11 +141,13 @@ The user's prompt started with "!" but was too short to optimize. Using prompt w
   }
 
   try {
-    const result = await runOptimizer(prompt);
+    const result = await runOptimizer(prompt, workflowMode);
 
     if (result && result.optimized && result.optimized !== prompt && result.optimized.trim() !== prompt.trim()) {
       const confidence = result.confidence || 0;
       const confidencePercent = Math.round(confidence * 100);
+      const workflowInfo = result.workflowMode ?
+        `\n**Workflow Mode:** ${result.workflowMode} (${result.workflowModeSource}) - ${WORKFLOW_DESCRIPTIONS[result.workflowMode] || 'auto-detected'}` : '';
 
       if (confidence >= CONFIDENCE_THRESHOLD) {
         // High confidence - auto-send
@@ -120,7 +159,7 @@ The user's input has been analyzed and optimized for clarity (${confidencePercen
 
 **Original input:** ${prompt}
 
-**Optimized version:** ${result.optimized}
+**Optimized version:** ${result.optimized}${workflowInfo}
 
 Please respond to the OPTIMIZED version of the prompt. The optimization corrected any spelling/grammar issues and improved clarity while preserving the user's intent.
 </prompt-optimization>`
@@ -129,6 +168,37 @@ Please respond to the OPTIMIZED version of the prompt. The optimization correcte
         console.log(JSON.stringify(output));
       } else {
         // Low confidence - identify ambiguities and ask clarifying questions
+        // Build workflow-specific section guidance
+        let workflowSectionGuidance = '';
+        if (result.workflowMode) {
+          const sectionGuidelines = {
+            spec: `
+### Specification Mode - Check for Missing Sections:
+- **Goal/Objective**: What is the primary goal or outcome?
+- **Requirements**: What are the key requirements or constraints?
+- **Context**: How does this integrate with existing systems?`,
+            feedback: `
+### Feedback Mode - Check for Missing Sections:
+- **What to Change**: What specific aspect needs to be changed?
+- **Direction**: What direction should the change go?`,
+            bug: `
+### Bug Report Mode - Check for Missing Sections:
+- **Expected Behavior**: What did you expect to happen?
+- **Actual Behavior**: What actually happened?
+- **Repro Steps**: How can this be reproduced?`,
+            arch: `
+### Architecture Mode - Check for Missing Sections:
+- **Constraints**: What are the technical or business constraints?
+- **Goals**: What are the key architectural goals (scalability, etc.)?
+- **Trade-offs**: What trade-offs are acceptable?`,
+            explore: `
+### Exploration Mode - Check for Missing Sections:
+- **Scope**: How deep should the exploration go?
+- **Familiarity Level**: What is your current understanding?`,
+          };
+          workflowSectionGuidance = sectionGuidelines[result.workflowMode] || '';
+        }
+
         const output = {
           hookSpecificOutput: {
             hookEventName: "UserPromptSubmit",
@@ -139,7 +209,7 @@ The user's input was optimized but confidence is below threshold (${confidencePe
 
 **Proposed optimization:** ${result.optimized}
 
-**Category:** ${result.category || 'unknown'} | **Domain:** ${result.domain || 'unknown'} | **Confidence:** ${confidencePercent}%
+**Category:** ${result.category || 'unknown'} | **Domain:** ${result.domain || 'unknown'} | **Workflow Mode:** ${result.workflowMode || 'auto'} | **Confidence:** ${confidencePercent}%
 
 IMPORTANT: Do NOT respond to either prompt yet. Follow this process:
 
@@ -149,6 +219,7 @@ Identify specific ambiguities in the original prompt that are causing low confid
 - Unclear sequencing ("before or after", "maybe", "I don't remember")
 - Missing specifics (unnamed events, unspecified values, unclear scope)
 - Assumed context (references to past conversations)
+${workflowSectionGuidance}
 
 ## Step 2: Present Options
 Use AskUserQuestion with:
@@ -161,14 +232,14 @@ Use AskUserQuestion with:
   4. "Cancel" - Don't process either prompt
 
 ## Step 3: If "Clarify & re-optimize" selected
-List the specific ambiguities you identified, then use AskUserQuestion to ask about EACH ambiguity. For example:
+List the specific ambiguities you identified (including any missing workflow-specific sections), then use AskUserQuestion to ask about EACH ambiguity. For example:
 - "Validation timing: Should validation happen before or after email confirmation?"
 - "Analytics events: Which specific events are needed? (e.g., signup_started, email_verified)"
 
 After user answers ALL clarifying questions:
 1. Rebuild the prompt incorporating their answers
 2. Run the optimizer on the NEW prompt:
-   node "$CLAUDE_PROJECT_DIR/packages/prompt-optimizer/dist/cli/index.js" --json --auto --level 3 "NEW_PROMPT"
+   node "$CLAUDE_PROJECT_DIR/packages/prompt-optimizer/dist/cli/index.js" --json --auto --level 3${result.workflowMode ? ` --workflow ${result.workflowMode}` : ''} "NEW_PROMPT"
 3. Show the new result with confidence
 4. If still below 85%, repeat this process
 5. If 85%+, auto-send or ask for final confirmation
@@ -191,7 +262,7 @@ Wait for all user inputs before responding to the final prompt.
   }
 }
 
-function runOptimizer(prompt) {
+function runOptimizer(prompt, workflowMode) {
   return new Promise((resolve, reject) => {
     // Build args based on mode - use --json for clean machine-readable output
     // Default to level 3 (thorough) for highest quality optimization
@@ -200,6 +271,10 @@ function runOptimizer(prompt) {
       args.push('--local');
     } else if (MODE === 'mock') {
       args.push('--mock');
+    }
+    // Add workflow mode if specified via prefix
+    if (workflowMode) {
+      args.push('--workflow', workflowMode);
     }
     // 'api' mode uses Anthropic API (default, no flag needed)
     args.push(prompt);
@@ -239,7 +314,9 @@ function runOptimizer(prompt) {
               optimized: result.optimized,
               confidence: result.confidence || 0,
               category: result.category,
-              domain: result.domain
+              domain: result.domain,
+              workflowMode: result.workflowMode,
+              workflowModeSource: result.workflowModeSource
             });
           } else {
             resolve(null); // Pass through unchanged

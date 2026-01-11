@@ -81,6 +81,7 @@ export async function executeOptimize(args: ParsedArgs): Promise<void> {
       level: args.level,
       force: args.optimize,
       skip: args.noOptimize,
+      workflowMode: args.workflowMode,
     });
 
     if (!args.quiet && !args.json) {
@@ -95,6 +96,8 @@ export async function executeOptimize(args: ParsedArgs): Promise<void> {
         wasOptimized: result.wasOptimized,
         category: result.category,
         domain: result.domain,
+        workflowMode: result.workflowMode.mode,
+        workflowModeSource: result.workflowMode.source,
         confidence: result.confidence,
       };
       console.log(JSON.stringify(jsonOutput));

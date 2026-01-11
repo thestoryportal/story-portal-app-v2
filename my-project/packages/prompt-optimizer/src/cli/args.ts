@@ -3,6 +3,7 @@
  */
 
 import { Command } from 'commander';
+import type { WorkflowMode } from '../types/workflow.js';
 
 /** Parsed CLI arguments */
 export interface ParsedArgs {
@@ -40,6 +41,10 @@ export interface ParsedArgs {
   quiet: boolean;
   /** JSON output for machine parsing */
   json: boolean;
+
+  // Workflow mode
+  /** Override workflow mode */
+  workflowMode?: WorkflowMode;
 
   // Other
   /** Show statistics */
@@ -108,6 +113,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
     .option('-e, --explain', 'Show detailed optimization explanation')
     .option('-q, --quiet', 'Minimal output')
     .option('--json', 'Output as JSON for machine parsing')
+    // Workflow mode
+    .option('-w, --workflow <mode>', 'Override workflow mode (spec, feedback, bug, quick, arch, explore)')
     // Other
     .option('-s, --stats', 'Show session optimization statistics')
     .option('-f, --feedback <rating>', 'Rate last optimization (good/bad)')
@@ -192,6 +199,24 @@ export function parseArgs(argv: string[]): ParsedArgs {
     feedback = feedbackVal;
   }
 
+  // Parse workflow mode
+  let workflowMode: WorkflowMode | undefined;
+  const workflowVal = opts.workflow as string | undefined;
+  if (workflowVal) {
+    const workflowMap: Record<string, WorkflowMode> = {
+      spec: 'SPECIFICATION',
+      specification: 'SPECIFICATION',
+      feedback: 'FEEDBACK',
+      bug: 'BUG_REPORT',
+      quick: 'QUICK_TASK',
+      arch: 'ARCHITECTURE',
+      architecture: 'ARCHITECTURE',
+      explore: 'EXPLORATION',
+      exploration: 'EXPLORATION',
+    };
+    workflowMode = workflowMap[workflowVal.toLowerCase()];
+  }
+
   return {
     prompt: result.prompt,
     noOptimize: opts.optimize === false, // --no-optimize sets optimize to false
@@ -206,6 +231,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     explain: (opts.explain as boolean) ?? false,
     quiet: (opts.quiet as boolean) ?? false,
     json: (opts.json as boolean) ?? false,
+    workflowMode,
     stats: (opts.stats as boolean) ?? false,
     feedback,
     mock: (opts.mock as boolean) ?? false,

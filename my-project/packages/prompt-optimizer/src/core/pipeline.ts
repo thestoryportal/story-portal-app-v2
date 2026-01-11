@@ -11,10 +11,16 @@ import type {
   VerificationResponse,
   AssembledContext,
   OptimizerApiClient,
+  WorkflowMode,
+  WorkflowModeDetection,
 } from '../types/index.js';
 import { Classifier } from '../layers/classifier.js';
 import { PassOneOptimizer } from '../layers/optimization/pass-one.js';
 import { IntentVerifier } from '../layers/intent-verifier.js';
+import {
+  WorkflowModeDetector,
+  WorkflowModeTransformer,
+} from '../layers/workflow/index.js';
 import {
   ROUTING_THRESHOLDS,
   DEFAULT_CONFIG,
@@ -30,6 +36,8 @@ export interface PipelineResult {
   wasOptimized: boolean;
   /** Classification result */
   classification: ClassificationResponse;
+  /** Workflow mode detection result */
+  workflowMode: WorkflowModeDetection;
   /** Optimization result (if applied) */
   optimization?: OptimizationResponse;
   /** Verification result (if optimized) */
@@ -54,6 +62,8 @@ export interface PipelineOptions {
   skipOptimize?: boolean;
   /** Context to inject */
   context?: Partial<AssembledContext>;
+  /** Override workflow mode */
+  workflowMode?: WorkflowMode;
 }
 
 /**
@@ -63,11 +73,15 @@ export class Pipeline {
   private classifier: Classifier;
   private passOneOptimizer: PassOneOptimizer;
   private intentVerifier: IntentVerifier;
+  private workflowDetector: WorkflowModeDetector;
+  private workflowTransformer: WorkflowModeTransformer;
 
   constructor(apiClient: OptimizerApiClient) {
     this.classifier = new Classifier(apiClient);
     this.passOneOptimizer = new PassOneOptimizer(apiClient);
     this.intentVerifier = new IntentVerifier(apiClient);
+    this.workflowDetector = new WorkflowModeDetector();
+    this.workflowTransformer = new WorkflowModeTransformer();
   }
 
   /**
@@ -76,9 +90,21 @@ export class Pipeline {
   async process(input: string, options: PipelineOptions = {}): Promise<PipelineResult> {
     const startTime = Date.now();
 
-    // Step 1: Classification
+    // Step 0: Detect workflow mode (prefix triggers or auto-detect)
+    const workflowMode = this.workflowDetector.detect(input, options.workflowMode);
+
+    // Use cleaned prompt (prefix stripped if applicable)
+    const workingPrompt = workflowMode.cleanedPrompt;
+
+    // Apply workflow transformation (add missing sections)
+    const workflowTransform = this.workflowTransformer.transform(
+      workingPrompt,
+      workflowMode.mode
+    );
+
+    // Step 1: Classification (use transformed prompt)
     const classificationRequest: ClassificationRequest = {
-      input,
+      input: workflowTransform.transformed,
       context: options.context ? {
         projectLanguage: options.context.project?.language ?? undefined,
         projectFramework: options.context.project?.framework ?? undefined,
@@ -94,21 +120,25 @@ export class Pipeline {
     if (route === 'PASS_THROUGH') {
       return {
         original: input,
-        output: input,
-        wasOptimized: false,
+        output: workflowTransform.transformed,
+        wasOptimized: workflowTransform.sectionsAdded.length > 0,
         classification,
+        workflowMode,
         totalLatencyMs: Date.now() - startTime,
         needsConfirmation: false,
-        explanation: 'Prompt passed through without optimization (well-formed).',
+        explanation: workflowTransform.sectionsAdded.length > 0
+          ? `Workflow mode (${workflowMode.mode}) added sections: ${workflowTransform.sectionsAdded.join(', ')}.`
+          : 'Prompt passed through without optimization (well-formed).',
       };
     }
 
     if (route === 'CLARIFY') {
       return {
         original: input,
-        output: input,
+        output: workflowTransform.transformed,
         wasOptimized: false,
         classification,
+        workflowMode,
         totalLatencyMs: Date.now() - startTime,
         needsConfirmation: true,
         explanation: 'Prompt needs clarification before optimization.',
@@ -123,7 +153,7 @@ export class Pipeline {
     };
 
     const optimizationRequest: OptimizationRequest = {
-      original: input,
+      original: workflowTransform.transformed,
       classification,
       context,
       config: {
@@ -136,9 +166,14 @@ export class Pipeline {
 
     const optimization = await this.optimizeWithPassOne(optimizationRequest);
 
+    // Apply workflow confidence adjustment
+    const adjustedConfidence = Math.max(0, Math.min(1,
+      optimization.confidence + workflowTransform.confidenceAdjustment
+    ));
+
     // Step 4: Verify intent preservation
     const verification = await this.intentVerifier.verify({
-      original: input,
+      original: workingPrompt,
       optimized: optimization.optimized,
       preservedElements: optimization.preservedElements,
     });
@@ -146,25 +181,30 @@ export class Pipeline {
     // Step 5: Determine final output based on verification
     const shouldUseOptimized = this.shouldUseOptimized(verification, options);
     const needsConfirmation = this.needsConfirmation(
-      optimization.confidence,
+      adjustedConfidence,
       verification,
       options
     );
 
     return {
       original: input,
-      output: shouldUseOptimized ? optimization.optimized : input,
+      output: shouldUseOptimized ? optimization.optimized : workflowTransform.transformed,
       wasOptimized: shouldUseOptimized,
       classification,
-      optimization,
+      workflowMode,
+      optimization: {
+        ...optimization,
+        confidence: adjustedConfidence,
+      },
       verification,
       totalLatencyMs: Date.now() - startTime,
       needsConfirmation,
       explanation: this.generateExplanation(
         classification,
-        optimization,
+        { ...optimization, confidence: adjustedConfidence },
         verification,
-        shouldUseOptimized
+        shouldUseOptimized,
+        workflowMode.mode
       ),
       tip: optimization.tip,
     };
@@ -275,7 +315,8 @@ export class Pipeline {
     classification: ClassificationResponse,
     optimization: OptimizationResponse,
     verification: VerificationResponse,
-    wasOptimized: boolean
+    wasOptimized: boolean,
+    workflowMode?: WorkflowMode
   ): string {
     if (!wasOptimized) {
       if (verification.status === 'REJECTED') {
@@ -285,6 +326,11 @@ export class Pipeline {
     }
 
     const parts: string[] = [];
+
+    // Workflow mode info
+    if (workflowMode) {
+      parts.push(`[${workflowMode}]`);
+    }
 
     // Classification info
     parts.push(`Classified as ${classification.category}`);

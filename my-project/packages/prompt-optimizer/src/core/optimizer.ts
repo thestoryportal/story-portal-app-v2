@@ -7,6 +7,8 @@ import type {
   OptimizerConfig,
   AssembledContext,
   OptimizerApiClient,
+  WorkflowMode,
+  WorkflowModeDetection,
 } from '../types/index.js';
 import { Pipeline, type PipelineResult, type PipelineOptions } from './pipeline.js';
 import { AnthropicClient } from '../api/anthropic-client.js';
@@ -35,6 +37,8 @@ export interface OptimizeResult {
   category: string;
   /** Detected domain */
   domain: string | null;
+  /** Detected workflow mode */
+  workflowMode: WorkflowModeDetection;
   /** Whether user confirmation is recommended */
   needsConfirmation: boolean;
   /** Human-readable explanation */
@@ -58,6 +62,8 @@ export interface OptimizeOptions {
   force?: boolean;
   /** Skip optimization */
   skip?: boolean;
+  /** Override workflow mode */
+  workflowMode?: WorkflowMode;
   /** Additional context */
   context?: {
     /** Project language */
@@ -113,6 +119,7 @@ export class PromptOptimizer {
       level: options.level ?? this.config.behavior.defaultLevel,
       forceOptimize: options.force,
       skipOptimize: options.skip,
+      workflowMode: options.workflowMode,
       context,
     };
 
@@ -202,6 +209,7 @@ export class PromptOptimizer {
       confidence: result.optimization?.confidence ?? result.classification.confidence,
       category: result.classification.category,
       domain: result.classification.domain,
+      workflowMode: result.workflowMode,
       needsConfirmation: result.needsConfirmation,
       explanation: result.explanation,
       tip: result.tip,
