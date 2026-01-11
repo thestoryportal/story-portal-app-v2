@@ -6,19 +6,21 @@
  * Orthographic R3F implementation of electricity animation.
  * Preserves Canvas 2D animation characteristics with GPU-accelerated rendering.
  *
- * Week 2 Implementation Status:
+ * Implementation Status:
  * - [x] Orthographic camera setup (1:1 pixel mapping)
  * - [x] Multi-bolt generation (8-10 bolts)
  * - [x] Branching system (1-3 branches per bolt)
- * - [ ] Animation phases (BUILD/PEAK/DECAY) - Week 3
- * - [ ] Multi-layer glow - Week 4
- * - [ ] Plasma background - Week 4
- * - [ ] Bloom post-processing - Week 4
+ * - [x] Animation phases (BUILD/PEAK/DECAY)
+ * - [ ] Multi-layer glow - Future
+ * - [ ] Plasma background - Future
+ * - [ ] Bloom post-processing - Future
  */
 
 import { useRef, useEffect } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrthoScene } from './scene/OrthoScene'
+import { useAnimationPhase } from './animation/useAnimationPhase'
+import type { AnimationPhase } from './animation/types'
 
 export interface ElectricityOrthoProps {
   visible?: boolean
@@ -36,11 +38,60 @@ export interface ElectricityOrthoProps {
   // Bolt configuration
   boltCount?: number      // Number of bolts (8-10 recommended)
   frameNumber?: number    // For animation (0-42)
-  intensity?: number      // 0-1 for animation phases
   useBoltGroup?: boolean  // Multi-bolt (true) or single bolt (false)
 
   // Debug options
   showTestCube?: boolean  // Show test cube for camera validation
+}
+
+/**
+ * Internal animated scene component
+ * Must be inside Canvas to use useFrame for animation
+ */
+interface AnimatedSceneProps {
+  isActive: boolean
+  lockAtPeak: boolean
+  showTestCube: boolean
+  showBolt: boolean
+  useBoltGroup: boolean
+  boltCount: number
+  frameNumber: number
+  onPhaseChange?: (phase: string) => void
+  onComplete?: () => void
+}
+
+function AnimatedScene({
+  isActive,
+  lockAtPeak,
+  showTestCube,
+  showBolt,
+  useBoltGroup,
+  boltCount,
+  frameNumber,
+  onPhaseChange,
+  onComplete,
+}: AnimatedSceneProps) {
+  // Animation phase hook - manages BUILD/PEAK/DECAY timing
+  // Returns intensityRef for direct Three.js material updates (no re-renders)
+  const { intensityRef } = useAnimationPhase({
+    isActive,
+    lockAtPeak,
+    onPhaseChange: (p: AnimationPhase) => {
+      onPhaseChange?.(p)
+    },
+    onComplete,
+  })
+
+  return (
+    <OrthoScene
+      showTestCube={showTestCube}
+      showBolt={showBolt}
+      useBoltGroup={useBoltGroup}
+      boltCount={boltCount}
+      frameNumber={frameNumber}
+      intensityRef={intensityRef}
+    />
+  )
 }
 
 export function ElectricityOrtho({
@@ -53,45 +104,42 @@ export function ElectricityOrtho({
   fillContainer = true,
   boltCount = 10,
   frameNumber = 0,
-  intensity = 1.0,
   useBoltGroup = true,
   showTestCube = false,
 }: ElectricityOrthoProps) {
   const effectiveVisible = isActive !== undefined ? isActive : visible
 
-  // Debug logging - ALWAYS log to trace rendering
+  // Debug logging
   console.log('[ElectricityOrtho] Render called:', {
     visible,
     isActive,
     effectiveVisible,
-    showTestCube,
+    lockAtPeak,
     boltCount,
-    intensity,
-    useBoltGroup,
   })
 
-  // Early return if not visible
-  if (!effectiveVisible) {
-    console.log('[ElectricityOrtho] Not visible, returning null')
-    return null
-  }
-
-  console.log('[ElectricityOrtho] Rendering Canvas...')
+  // Use ref outside conditional to maintain hook order
+  const containerRef = useRef<HTMLDivElement>(null)
 
   // Debug: Log container dimensions after render
-  const containerRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (containerRef.current) {
+    if (containerRef.current && effectiveVisible) {
       const rect = containerRef.current.getBoundingClientRect()
       console.log('[ElectricityOrtho] Container mounted:', {
         width: rect.width,
         height: rect.height,
-        top: rect.top,
-        left: rect.left,
         visible: rect.width > 0 && rect.height > 0,
       })
     }
-  }, [])
+  }, [effectiveVisible])
+
+  // Early return if not visible - BUT this causes remount issues
+  // For animation stability, we always render but control visibility via CSS
+  // However, we also need the Canvas to be present for useFrame to work
+  if (!effectiveVisible) {
+    console.log('[ElectricityOrtho] Not visible, returning null')
+    return null
+  }
 
   // Show bolts unless test cube is enabled or explicitly hidden
   const showBolt = !showTestCube && (elementVisibility?.bolts !== false)
@@ -115,7 +163,7 @@ export function ElectricityOrtho({
           position: [0, 0, 10],
           near: 0.1,
           far: 1000,
-          zoom: 1, // Will be reconfigured in OrthoScene for 1:1 pixel mapping
+          zoom: 1,
         }}
         style={{
           width: '100%',
@@ -125,30 +173,26 @@ export function ElectricityOrtho({
         gl={{
           alpha: true,
           antialias: true,
-          preserveDrawingBuffer: true, // Needed for frame capture
+          preserveDrawingBuffer: true,
         }}
         onCreated={(state) => {
           console.log('[ElectricityOrtho] Canvas created:', {
             cameraType: state.camera.type,
-            cameraPosition: state.camera.position.toArray(),
             size: state.size,
-            gl: state.gl.domElement.tagName,
           })
         }}
-        onError={(error) => {
-          console.error('[ElectricityOrtho] Canvas error:', error)
-        }}
       >
-        <OrthoScene
+        <AnimatedScene
+          isActive={effectiveVisible}
+          lockAtPeak={lockAtPeak}
           showTestCube={showTestCube}
           showBolt={showBolt}
           useBoltGroup={useBoltGroup}
           boltCount={boltCount}
           frameNumber={frameNumber}
-          intensity={intensity}
-        >
-          {/* Week 4: Plasma layers, bloom post-processing */}
-        </OrthoScene>
+          onPhaseChange={onPhaseChange}
+          onComplete={onComplete}
+        />
       </Canvas>
     </div>
   )

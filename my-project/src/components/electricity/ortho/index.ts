@@ -20,4 +20,6 @@ export type { BoltPath, BoltSegment, BoltConfig } from './bolts/BoltGenerator'
 export { createBoltGeometry, createBoltGeometries, calculateBoltLength } from './bolts/BoltGeometry'
 
 export * from './animation/types'
+export { useAnimationPhase } from './animation/useAnimationPhase'
+export type { UseAnimationPhaseOptions, AnimationPhaseState } from './animation/useAnimationPhase'
 export * from './utils/seededRandom'

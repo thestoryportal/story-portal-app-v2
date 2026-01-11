@@ -2,22 +2,25 @@
  * BoltMaterial.tsx
  *
  * Material component for lightning bolts with additive blending.
- * Week 1 PoC: Simple bright material, no multi-layer glow.
+ * Supports both static intensity (prop) and animated intensity (ref).
  *
- * Future (Week 3+): Multi-layer glow system with 5 color layers.
+ * For animation, pass intensityRef and the material will update
+ * its opacity on every frame via useFrame.
  */
 
+import { useRef, MutableRefObject } from 'react'
+import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 
 export interface BoltMaterialProps {
-  intensity?: number // 0-1, for animation
+  intensity?: number // Static intensity 0-1 (used if intensityRef not provided)
+  intensityRef?: MutableRefObject<number> // Animated intensity ref (updates every frame)
   color?: THREE.Color | string
   opacity?: number
 }
 
 /**
  * Create material for lightning bolt
- * Week 1 PoC: Single color with additive blending
  *
  * @param props - Material properties
  * @returns THREE.MeshBasicMaterial with additive blending
@@ -25,7 +28,7 @@ export interface BoltMaterialProps {
 export function createBoltMaterial(props: BoltMaterialProps = {}): THREE.MeshBasicMaterial {
   const {
     intensity = 1.0,
-    color = '#F0F050', // Bright yellow (Canvas 2D spec: #F0F050)
+    color = '#F0F050',
     opacity = 1.0,
   } = props
 
@@ -33,9 +36,9 @@ export function createBoltMaterial(props: BoltMaterialProps = {}): THREE.MeshBas
     color: color,
     transparent: true,
     opacity: opacity * intensity,
-    blending: THREE.AdditiveBlending, // KEY: Additive blending for glow effect
-    depthWrite: false, // Don't write to depth buffer (allows overlapping glow)
-    side: THREE.DoubleSide, // Render both sides
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
   })
 
   return material
@@ -43,14 +46,40 @@ export function createBoltMaterial(props: BoltMaterialProps = {}): THREE.MeshBas
 
 /**
  * BoltMaterial Component
- * React wrapper for bolt material (for declarative usage in JSX)
+ * React Three Fiber material that supports animated intensity via ref
  *
- * Week 1 PoC: Pass as children to <mesh>
+ * If intensityRef is provided, the material opacity updates every frame.
+ * Otherwise, it uses the static intensity prop.
  */
-export function BoltMaterial({ intensity = 1.0, color = '#F0F050', opacity = 1.0 }: BoltMaterialProps) {
-  const material = createBoltMaterial({ intensity, color, opacity })
+export function BoltMaterial({
+  intensity = 1.0,
+  intensityRef,
+  color = '#F0F050',
+  opacity = 1.0
+}: BoltMaterialProps) {
+  const materialRef = useRef<THREE.MeshBasicMaterial>(null)
 
-  return <primitive object={material} attach="material" />
+  // If using animated intensity, update material opacity every frame
+  useFrame(() => {
+    if (materialRef.current && intensityRef) {
+      materialRef.current.opacity = opacity * intensityRef.current
+    }
+  })
+
+  // Initial opacity uses either ref value or static intensity
+  const initialOpacity = intensityRef ? opacity * intensityRef.current : opacity * intensity
+
+  return (
+    <meshBasicMaterial
+      ref={materialRef}
+      color={color}
+      transparent={true}
+      opacity={initialOpacity}
+      blending={THREE.AdditiveBlending}
+      depthWrite={false}
+      side={THREE.DoubleSide}
+    />
+  )
 }
 
 export default BoltMaterial

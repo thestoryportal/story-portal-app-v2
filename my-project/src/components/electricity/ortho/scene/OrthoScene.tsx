@@ -11,7 +11,7 @@
  */
 
 import { useThree, useFrame } from '@react-three/fiber'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, MutableRefObject } from 'react'
 import * as THREE from 'three'
 import { Bolt, BoltGroup } from '../bolts/Bolt'
 
@@ -35,7 +35,8 @@ export interface OrthoSceneProps {
   useBoltGroup?: boolean    // Use multi-bolt group (true) or single bolt (false)
   boltCount?: number        // Number of bolts in group (8-10 recommended)
   frameNumber?: number      // For animation (0-42)
-  intensity?: number        // 0-1 for animation phases
+  intensity?: number        // 0-1 for static animation phases
+  intensityRef?: MutableRefObject<number> // For animated intensity (updates every frame)
   color?: string            // Bolt color override
 }
 
@@ -47,6 +48,7 @@ export function OrthoScene({
   boltCount = 10,           // 10 bolts for production
   frameNumber = 0,
   intensity = 1.0,
+  intensityRef,
   color = COLORS.boltCore,
 }: OrthoSceneProps) {
   const { camera, size } = useThree()
@@ -113,6 +115,7 @@ export function OrthoScene({
           boltCount={boltCount}
           frameNumber={frameNumber}
           intensity={intensity}
+          intensityRef={intensityRef}
           color={color}
         />
       )}
@@ -125,6 +128,7 @@ export function OrthoScene({
           thickness={2.5}     // 2.5px thickness
           frameNumber={frameNumber}
           intensity={intensity}
+          intensityRef={intensityRef}
           color={color}
         />
       )}
