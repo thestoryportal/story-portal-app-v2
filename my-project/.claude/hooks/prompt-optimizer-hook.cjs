@@ -2,12 +2,20 @@
 /**
  * Claude Code UserPromptSubmit hook for automatic prompt optimization.
  *
- * Integrates the prompt-optimizer CLI to:
+ * Features:
  * - Fix spelling and typing errors
  * - Improve clarity and specificity
  * - Optimize for Claude Code linguistics
- * - Expand or condense as needed
- * - Apply workflow-specific optimizations (!spec, !bug, !feedback, etc.)
+ * - Workflow-specific optimizations with structured sections
+ * - Iterative clarifying questions for low-confidence results
+ *
+ * Workflow Modes (via prefix triggers):
+ * - !spec    - Specification: goal, requirements, context
+ * - !feedback - Feedback: what to change, direction
+ * - !bug     - Bug Report: expected/actual behavior, repro steps
+ * - !quick   - Quick Task: minimal optimization
+ * - !arch    - Architecture: constraints, goals, trade-offs
+ * - !explore - Exploration: scope, depth
  */
 
 const { spawn } = require('child_process');
@@ -29,27 +37,102 @@ const WORKFLOW_PREFIXES = {
   '!exploration': 'explore',
 };
 
-// Workflow mode descriptions for context output
+// Workflow mode full names for display
+const WORKFLOW_NAMES = {
+  spec: 'Specification',
+  feedback: 'Feedback',
+  bug: 'Bug Report',
+  quick: 'Quick Task',
+  arch: 'Architecture',
+  explore: 'Exploration',
+};
+
+// Workflow mode descriptions
 const WORKFLOW_DESCRIPTIONS = {
-  spec: 'Specification mode - optimizing for new feature/project specs with goal, requirements, and context sections',
-  feedback: 'Feedback mode - optimizing for revision direction with what-to-change and direction sections',
-  bug: 'Bug Report mode - optimizing for issue description with expected/actual behavior and repro steps',
-  quick: 'Quick Task mode - minimal optimization for simple actions',
-  arch: 'Architecture mode - optimizing for design decisions with constraints, goals, and trade-offs',
-  explore: 'Exploration mode - optimizing for research/understanding with scope and depth',
+  spec: 'New feature/project specs with goal, requirements, and context sections',
+  feedback: 'Revision direction with what-to-change and direction sections',
+  bug: 'Issue description with expected/actual behavior and repro steps',
+  quick: 'Simple actions with minimal optimization',
+  arch: 'Design decisions with constraints, goals, and trade-offs',
+  explore: 'Research/understanding with scope and depth',
+};
+
+// Workflow-specific missing section checks and clarifying questions
+const WORKFLOW_SECTIONS = {
+  spec: {
+    name: 'Specification',
+    sections: [
+      { name: 'Goal/Objective', question: 'What is the primary outcome you want to achieve?', required: true },
+      { name: 'Requirements', question: 'What are the must-have requirements or constraints?', required: true },
+      { name: 'Context', question: 'How does this integrate with existing systems?', required: false },
+    ],
+    examples: [
+      { header: 'Clarify', question: 'What is the primary goal?', options: ['Add new capability', 'Replace existing feature', 'Improve performance', 'Fix user pain point'] },
+      { header: 'Clarify', question: 'What are the key requirements?', options: ['Must be backwards compatible', 'Needs authentication', 'Should scale horizontally', 'Must work offline'] },
+    ],
+  },
+  feedback: {
+    name: 'Feedback',
+    sections: [
+      { name: 'What to Change', question: 'What specific aspect needs to change?', required: true },
+      { name: 'Direction', question: 'How should it be different?', required: true },
+    ],
+    examples: [
+      { header: 'Clarify', question: 'What aspect needs to change?', options: ['Visual design/styling', 'Functionality/behavior', 'Performance', 'Code structure'] },
+      { header: 'Clarify', question: 'What direction should it go?', options: ['Simpler/minimal', 'More detailed/comprehensive', 'Different approach entirely', 'Fix specific issue'] },
+    ],
+  },
+  bug: {
+    name: 'Bug Report',
+    sections: [
+      { name: 'Expected Behavior', question: 'What should happen?', required: true },
+      { name: 'Actual Behavior', question: 'What actually happens instead?', required: true },
+      { name: 'Repro Steps', question: 'What are the exact steps to reproduce?', required: true },
+      { name: 'Environment', question: 'What browser/OS/version are you using?', required: false },
+    ],
+    examples: [
+      { header: 'Clarify', question: 'What behavior did you EXPECT?', options: ['Form submits once successfully', 'Validation then submit', 'Loading state then complete', 'Error message shown'] },
+      { header: 'Clarify', question: 'What ACTUALLY happens?', options: ['Nothing on first clicks', 'Multiple submissions/duplicates', 'Error in console', 'UI freezes/crashes'] },
+      { header: 'Clarify', question: 'Steps to reproduce?', options: ['Click submit immediately', 'Fill form then submit', 'Specific sequence of actions', 'Happens randomly'] },
+    ],
+  },
+  arch: {
+    name: 'Architecture',
+    sections: [
+      { name: 'Constraints', question: 'What are the technical or business constraints?', required: true },
+      { name: 'Goals', question: 'What qualities matter most (speed, scale, simplicity)?', required: true },
+      { name: 'Trade-offs', question: 'What are you willing to compromise on?', required: false },
+    ],
+    examples: [
+      { header: 'Clarify', question: 'What are the key constraints?', options: ['Must use existing tech stack', 'Budget/time limited', 'Team expertise', 'Regulatory/compliance'] },
+      { header: 'Clarify', question: 'What qualities matter most?', options: ['Performance/speed', 'Scalability', 'Simplicity/maintainability', 'Cost efficiency'] },
+    ],
+  },
+  explore: {
+    name: 'Exploration',
+    sections: [
+      { name: 'Scope', question: 'How deep should the exploration go?', required: false },
+      { name: 'Familiarity', question: 'What do you already know about this topic?', required: false },
+    ],
+    examples: [
+      { header: 'Clarify', question: 'How deep should we explore?', options: ['High-level overview', 'Moderate detail', 'Deep dive with examples', 'Comprehensive analysis'] },
+      { header: 'Clarify', question: 'Your familiarity level?', options: ['Complete beginner', 'Some basics', 'Intermediate', 'Advanced, need specifics'] },
+    ],
+  },
+  quick: {
+    name: 'Quick Task',
+    sections: [],
+    examples: [],
+  },
 };
 
 // Configuration via environment variable PROMPT_OPTIMIZER_MODE
-// Options:
-//   'api'   - Fast (~500ms), uses Anthropic API (requires ANTHROPIC_API_KEY)
-//   'local' - Slow (~90s), uses Ollama local LLM (free)
-//   'mock'  - Instant, basic transformations only (default for testing)
 const MODE = process.env.PROMPT_OPTIMIZER_MODE || 'api';
 
-// Toggle file to ENABLE auto-optimize (auto-optimize is OFF by default)
+// Toggle file to ENABLE auto-optimize (OFF by default)
 const ENABLE_FILE = path.resolve(__dirname, '.optimizer-auto-enabled');
 
-// Minimum prompt length to optimize (skip very short inputs)
+// Minimum prompt length to optimize
 const MIN_LENGTH = 10;
 
 // Confidence threshold for auto-send (below this, ask for approval)
@@ -76,17 +159,13 @@ async function main() {
   let inputData;
 
   try {
-    // Read JSON input from stdin
     const chunks = [];
     process.stdin.setEncoding('utf8');
-
     for await (const chunk of process.stdin) {
       chunks.push(chunk);
     }
-    const input = chunks.join('');
-    inputData = JSON.parse(input);
+    inputData = JSON.parse(chunks.join(''));
   } catch (e) {
-    // If we can't parse input, just exit silently (don't block)
     process.exit(0);
   }
 
@@ -107,31 +186,29 @@ async function main() {
     }
   }
 
-  // Check for generic ! prefix (one-off optimization trigger without workflow mode)
+  // Check for generic ! prefix (one-off optimization without workflow mode)
   if (!strippedPrefix && prompt.startsWith('!')) {
-    prompt = prompt.slice(1).trimStart(); // Remove ! and any leading space
+    prompt = prompt.slice(1).trimStart();
     forceOptimize = true;
     strippedPrefix = true;
   }
 
-  // Check if auto-optimize is enabled (it's OFF by default)
+  // Check if auto-optimize is enabled
   const autoEnabled = fs.existsSync(ENABLE_FILE);
 
-  // Skip if auto-optimize is not enabled AND no ! prefix
+  // Skip if not enabled and no prefix
   if (!forceOptimize && !autoEnabled) {
     process.exit(0);
   }
 
-  // Skip optimization for short or command-like inputs
+  // Skip for short or command-like inputs
   if (prompt.length < MIN_LENGTH || SKIP_PATTERNS.some(p => p.test(prompt.trim()))) {
-    // If ! prefix was used but prompt is too short/skip pattern, still need to pass through
-    // the modified prompt (without the !)
     if (strippedPrefix) {
       const output = {
         hookSpecificOutput: {
           hookEventName: "UserPromptSubmit",
           additionalContext: `<prompt-modification>
-The user's prompt started with "!" but was too short to optimize. Using prompt without prefix: "${prompt}"
+The user's prompt started with a prefix but was too short to optimize. Using: "${prompt}"
 </prompt-modification>`
         }
       };
@@ -146,137 +223,157 @@ The user's prompt started with "!" but was too short to optimize. Using prompt w
     if (result && result.optimized && result.optimized !== prompt && result.optimized.trim() !== prompt.trim()) {
       const confidence = result.confidence || 0;
       const confidencePercent = Math.round(confidence * 100);
-      const workflowInfo = result.workflowMode ?
-        `\n**Workflow Mode:** ${result.workflowMode} (${result.workflowModeSource}) - ${WORKFLOW_DESCRIPTIONS[result.workflowMode] || 'auto-detected'}` : '';
+      const detectedWorkflow = result.workflowMode || workflowMode;
+      const workflowName = WORKFLOW_NAMES[detectedWorkflow] || 'Auto-detected';
+      const workflowDesc = WORKFLOW_DESCRIPTIONS[detectedWorkflow] || '';
 
       if (confidence >= CONFIDENCE_THRESHOLD) {
         // High confidence - auto-send
         const output = {
           hookSpecificOutput: {
             hookEventName: "UserPromptSubmit",
-            additionalContext: `<prompt-optimization>
-The user's input has been analyzed and optimized for clarity (${confidencePercent}% confidence):
-
-**Original input:** ${prompt}
-
-**Optimized version:** ${result.optimized}${workflowInfo}
-
-Please respond to the OPTIMIZED version of the prompt. The optimization corrected any spelling/grammar issues and improved clarity while preserving the user's intent.
-</prompt-optimization>`
+            additionalContext: generateHighConfidenceContext(prompt, result, confidencePercent, workflowName, workflowDesc)
           }
         };
         console.log(JSON.stringify(output));
       } else {
-        // Low confidence - identify ambiguities and ask clarifying questions
-        // Build workflow-specific section guidance
-        let workflowSectionGuidance = '';
-        if (result.workflowMode) {
-          const sectionGuidelines = {
-            spec: `
-### Specification Mode - Check for Missing Sections:
-- **Goal/Objective**: What is the primary goal or outcome?
-- **Requirements**: What are the key requirements or constraints?
-- **Context**: How does this integrate with existing systems?`,
-            feedback: `
-### Feedback Mode - Check for Missing Sections:
-- **What to Change**: What specific aspect needs to be changed?
-- **Direction**: What direction should the change go?`,
-            bug: `
-### Bug Report Mode - Check for Missing Sections:
-- **Expected Behavior**: What did you expect to happen?
-- **Actual Behavior**: What actually happened?
-- **Repro Steps**: How can this be reproduced?`,
-            arch: `
-### Architecture Mode - Check for Missing Sections:
-- **Constraints**: What are the technical or business constraints?
-- **Goals**: What are the key architectural goals (scalability, etc.)?
-- **Trade-offs**: What trade-offs are acceptable?`,
-            explore: `
-### Exploration Mode - Check for Missing Sections:
-- **Scope**: How deep should the exploration go?
-- **Familiarity Level**: What is your current understanding?`,
-          };
-          workflowSectionGuidance = sectionGuidelines[result.workflowMode] || '';
-        }
-
+        // Low confidence - clarifying questions flow
         const output = {
           hookSpecificOutput: {
             hookEventName: "UserPromptSubmit",
-            additionalContext: `<prompt-optimization-review>
-The user's input was optimized but confidence is below threshold (${confidencePercent}% < 85%):
-
-**Original input:** ${prompt}
-
-**Proposed optimization:** ${result.optimized}
-
-**Category:** ${result.category || 'unknown'} | **Domain:** ${result.domain || 'unknown'} | **Workflow Mode:** ${result.workflowMode || 'auto'} | **Confidence:** ${confidencePercent}%
-
-IMPORTANT: Do NOT respond to either prompt yet. Follow this process:
-
-## Step 1: Analyze Ambiguities
-Identify specific ambiguities in the original prompt that are causing low confidence. Look for:
-- Vague references ("that thing", "you know what I mean", "the ones we discussed")
-- Unclear sequencing ("before or after", "maybe", "I don't remember")
-- Missing specifics (unnamed events, unspecified values, unclear scope)
-- Assumed context (references to past conversations)
-${workflowSectionGuidance}
-
-## Step 2: Present Options
-Use AskUserQuestion with:
-- header: "Action"
-- question: "Optimization confidence is ${confidencePercent}% due to ambiguities. What would you like to do?"
-- options:
-  1. "Clarify & re-optimize" - Answer questions to resolve ambiguities, then re-optimize
-  2. "Use optimized" - Proceed with current optimization as-is
-  3. "Use original" - Keep original prompt, let Claude ask questions
-  4. "Cancel" - Don't process either prompt
-
-## Step 3: If "Clarify & re-optimize" selected
-List the specific ambiguities you identified (including any missing workflow-specific sections), then use AskUserQuestion to ask about EACH ambiguity. For example:
-- "Validation timing: Should validation happen before or after email confirmation?"
-- "Analytics events: Which specific events are needed? (e.g., signup_started, email_verified)"
-
-After user answers ALL clarifying questions:
-1. Rebuild the prompt incorporating their answers
-2. Run the optimizer on the NEW prompt:
-   node "$CLAUDE_PROJECT_DIR/packages/prompt-optimizer/dist/cli/index.js" --json --auto --level 3${result.workflowMode ? ` --workflow ${result.workflowMode}` : ''} "NEW_PROMPT"
-3. Show the new result with confidence
-4. If still below 85%, repeat this process
-5. If 85%+, auto-send or ask for final confirmation
-
-## Step 4: Execute chosen action
-Wait for all user inputs before responding to the final prompt.
-</prompt-optimization-review>`
+            additionalContext: generateLowConfidenceContext(prompt, result, confidencePercent, detectedWorkflow, workflowName)
           }
         };
         console.log(JSON.stringify(output));
       }
     }
-    // If not optimized or same, just exit without output (passes through unchanged)
     process.exit(0);
 
   } catch (e) {
-    // On error, don't block - just let the original through
     process.stderr.write(`Optimizer hook error: ${e.message}\n`);
     process.exit(0);
   }
 }
 
+function generateHighConfidenceContext(original, result, confidencePercent, workflowName, workflowDesc) {
+  const workflowInfo = workflowName !== 'Auto-detected'
+    ? `\n**Workflow:** ${workflowName} - ${workflowDesc}`
+    : '';
+
+  return `<prompt-optimization>
+The user's input has been analyzed and optimized for clarity (${confidencePercent}% confidence):
+
+**Original input:** ${original}
+
+**Optimized version:** ${result.optimized}${workflowInfo}
+
+**Category:** ${result.category || 'unknown'} | **Domain:** ${result.domain || 'unknown'}
+
+Please respond to the OPTIMIZED version of the prompt. The optimization corrected spelling/grammar issues and improved clarity while preserving the user's intent.
+</prompt-optimization>`;
+}
+
+function generateLowConfidenceContext(original, result, confidencePercent, workflowMode, workflowName) {
+  const workflowConfig = WORKFLOW_SECTIONS[workflowMode] || null;
+
+  // Build workflow-specific guidance
+  let workflowGuidance = '';
+  let clarifyingQuestionsExample = '';
+
+  if (workflowConfig && workflowConfig.sections.length > 0) {
+    workflowGuidance = `
+### ${workflowConfig.name} Mode - Check for Missing Sections:
+${workflowConfig.sections.map(s => `- **${s.name}**${s.required ? ' (required)' : ''}: ${s.question}`).join('\n')}`;
+
+    if (workflowConfig.examples.length > 0) {
+      clarifyingQuestionsExample = `
+
+### Example Clarifying Questions for ${workflowConfig.name}:
+${workflowConfig.examples.map((ex, i) => `
+**Question ${i + 1}:**
+Use AskUserQuestion with:
+- header: "${ex.header}"
+- question: "${ex.question}"
+- options: ${JSON.stringify(ex.options.map((opt, j) => ({ label: opt, description: `Option ${j + 1}` })))}`).join('\n')}
+
+(User can also type custom answers in "Other" field)`;
+    }
+  }
+
+  return `<prompt-optimization-review>
+The user's input was optimized but confidence is below threshold (${confidencePercent}% < 85%):
+
+**Original input:** ${original}
+
+**Proposed optimization:** ${result.optimized}
+
+**Category:** ${result.category || 'unknown'} | **Domain:** ${result.domain || 'unknown'} | **Workflow:** ${workflowName} | **Confidence:** ${confidencePercent}%
+
+---
+
+## IMPORTANT: Do NOT respond to either prompt yet. Follow this process:
+
+### Step 1: Analyze Ambiguities
+Identify specific ambiguities causing low confidence:
+- Vague references ("that thing", "you know what I mean")
+- Unclear sequencing ("before or after", "maybe")
+- Missing specifics (unnamed events, unspecified values)
+- Assumed context (references to past conversations)
+${workflowGuidance}
+
+### Step 2: Present Action Menu
+Use AskUserQuestion with:
+- header: "Action"
+- question: "Optimization confidence is ${confidencePercent}%. What would you like to do?"
+- options:
+  1. label: "Clarify & re-optimize", description: "Answer questions to resolve ambiguities"
+  2. label: "Use optimized", description: "Proceed with current optimization as-is"
+  3. label: "Use original", description: "Keep original prompt, let Claude ask questions"
+  4. label: "Cancel", description: "Don't process either prompt"
+
+### Step 3: If "Clarify & re-optimize" Selected
+
+**DO NOT restart workflow selection. Keep workflow as: ${workflowName}**
+
+List the specific ambiguities identified, then use AskUserQuestion for EACH one.
+${clarifyingQuestionsExample}
+
+After user answers ALL clarifying questions:
+1. Rebuild the prompt incorporating their answers
+2. Re-run optimizer with SAME workflow:
+   \`\`\`bash
+   node "$CLAUDE_PROJECT_DIR/packages/prompt-optimizer/dist/cli/index.js" --json --auto --level 3${workflowMode ? ` --workflow ${workflowMode}` : ''} "ENHANCED_PROMPT"
+   \`\`\`
+3. Show iteration results:
+   - **Iteration:** [N]
+   - **Original:** [user's initial input]
+   - **Clarifications added:** [list what was added]
+   - **New optimized:** [result]
+   - **Confidence:** [X]%
+4. Return to Step 2 action menu
+5. Repeat until confidence ≥85% or user accepts
+
+### Step 4: Execute Chosen Action
+- "Use optimized" → Respond to the optimized prompt
+- "Use original" → Respond to original prompt
+- "Cancel" → Acknowledge and wait for new input
+</prompt-optimization-review>`;
+}
+
 function runOptimizer(prompt, workflowMode) {
   return new Promise((resolve, reject) => {
-    // Build args based on mode - use --json for clean machine-readable output
-    // Default to level 3 (thorough) for highest quality optimization
     const args = [OPTIMIZER_PATH, '--json', '--auto', '--level', '3'];
+
     if (MODE === 'local') {
       args.push('--local');
     } else if (MODE === 'mock') {
       args.push('--mock');
     }
-    // Add workflow mode if specified via prefix
+
     if (workflowMode) {
       args.push('--workflow', workflowMode);
     }
-    // 'api' mode uses Anthropic API (default, no flag needed)
+
     args.push(prompt);
 
     const child = spawn('node', args, {
@@ -287,28 +384,20 @@ function runOptimizer(prompt, workflowMode) {
     let stdout = '';
     let stderr = '';
 
-    // Manual timeout - local LLM needs longer
     const timeoutMs = MODE === 'local' ? 120000 : 15000;
     const timer = setTimeout(() => {
       child.kill('SIGTERM');
       reject(new Error('Optimizer timed out'));
     }, timeoutMs);
 
-    child.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-
-    child.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
+    child.stdout.on('data', (data) => { stdout += data.toString(); });
+    child.stderr.on('data', (data) => { stderr += data.toString(); });
 
     child.on('close', (code) => {
       clearTimeout(timer);
       if (code === 0 || code === null) {
         try {
-          // Parse JSON output
           const result = JSON.parse(stdout.trim());
-          // Only return result if it was actually optimized
           if (result.wasOptimized && result.optimized) {
             resolve({
               optimized: result.optimized,
@@ -319,10 +408,9 @@ function runOptimizer(prompt, workflowMode) {
               workflowModeSource: result.workflowModeSource
             });
           } else {
-            resolve(null); // Pass through unchanged
+            resolve(null);
           }
         } catch (e) {
-          // If JSON parse fails, return null to pass through
           resolve(null);
         }
       } else {
