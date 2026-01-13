@@ -1,0 +1,38 @@
+{
+  "mcpServers": {
+    "elasticsearch-memory": {
+      "type": "stdio",
+      "command": "/Volumes/Extreme SSD/projects/story-portal-app/my-project/elasticsearch-memory-mcp/venv/bin/python",
+      "args": [
+        "-m",
+        "mcp_server"
+      ],
+      "env": {
+        "ELASTICSEARCH_URL": "http://localhost:9200"
+      }
+    },
+    "document-consolidator": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "/Volumes/Extreme SSD/projects/story-portal-app/my-project/mcp-document-consolidator/dist/server.js"
+      ],
+      "env": {
+        "POSTGRES_HOST": "localhost",
+        "POSTGRES_PORT": "5432",
+        "POSTGRES_DB": "docstore",
+        "POSTGRES_USER": "agentic",
+        "POSTGRES_PASSWORD": "agentic123",
+        "ELASTICSEARCH_HOST": "localhost",
+        "ELASTICSEARCH_PORT": "9200",
+        "ELASTICSEARCH_INDEX": "document_sections",
+        "NEO4J_URI": "bolt://localhost:7687",
+        "NEO4J_USER": "neo4j",
+        "NEO4J_PASSWORD": "consolidator_secret",
+        "OLLAMA_BASE_URL": "http://localhost:11434",
+        "OLLAMA_DEFAULT_MODEL": "llama3.1:8b",
+        "PYTHON_PATH": "/Volumes/Extreme SSD/projects/story-portal-app/my-project/mcp-document-consolidator/python/venv/bin/python"
+      }
+    }
+  }
+}
