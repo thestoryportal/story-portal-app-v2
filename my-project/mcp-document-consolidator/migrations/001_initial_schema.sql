@@ -20,9 +20,13 @@ CREATE TABLE documents (
 
     -- Timestamps
     created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
     modified_at TIMESTAMPTZ,
     ingested_at TIMESTAMPTZ DEFAULT NOW(),
     deprecated_at TIMESTAMPTZ,
+
+    -- Deprecation status
+    deprecated BOOLEAN DEFAULT FALSE,
 
     -- Relationships
     superseded_by UUID REFERENCES documents(id),
@@ -117,26 +121,34 @@ CREATE TABLE supersessions (
 CREATE TABLE consolidations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     source_document_ids UUID[] NOT NULL,
-    output_content TEXT NOT NULL,
-    output_document_id UUID REFERENCES documents(id),
+    result_document_id UUID REFERENCES documents(id),
 
-    strategy JSONB NOT NULL,
-    statistics JSONB NOT NULL,
+    strategy TEXT NOT NULL,
+    conflicts_resolved INTEGER DEFAULT 0,
+    conflicts_pending JSONB DEFAULT '[]',
 
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Provenance table
+-- Provenance table (supports both consolidation provenance and document events)
 CREATE TABLE provenance (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    consolidation_id UUID NOT NULL REFERENCES consolidations(id) ON DELETE CASCADE,
-    output_section_header TEXT NOT NULL,
-    source_document_id UUID NOT NULL REFERENCES documents(id),
-    source_section_id UUID NOT NULL REFERENCES sections(id),
-    contribution_type TEXT NOT NULL CHECK (contribution_type IN (
+
+    -- For consolidation provenance
+    consolidation_id UUID REFERENCES consolidations(id) ON DELETE CASCADE,
+    output_section_header TEXT,
+    source_document_id UUID REFERENCES documents(id),
+    source_section_id UUID REFERENCES sections(id),
+    contribution_type TEXT CHECK (contribution_type IN (
         'primary', 'supplementary', 'superseded'
     )),
     confidence FLOAT CHECK (confidence BETWEEN 0 AND 1),
+
+    -- For document event tracking (deprecation, etc.)
+    document_id UUID REFERENCES documents(id),
+    event_type TEXT,
+    details JSONB,
+    timestamp TIMESTAMPTZ DEFAULT NOW(),
 
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -168,6 +180,7 @@ CREATE TABLE feedback (
 -- Indexes
 CREATE INDEX idx_documents_type ON documents(document_type);
 CREATE INDEX idx_documents_deprecated ON documents(deprecated_at) WHERE deprecated_at IS NOT NULL;
+CREATE INDEX idx_documents_deprecated_flag ON documents(deprecated) WHERE deprecated = true;
 CREATE INDEX idx_documents_content_hash ON documents(content_hash);
 CREATE INDEX idx_sections_document ON sections(document_id);
 CREATE INDEX idx_sections_order ON sections(document_id, section_order);
@@ -179,4 +192,5 @@ CREATE INDEX idx_conflicts_claims ON conflicts(claim_a_id, claim_b_id);
 CREATE INDEX idx_conflicts_resolved ON conflicts(resolved);
 CREATE INDEX idx_document_tags_tag ON document_tags(tag);
 CREATE INDEX idx_provenance_consolidation ON provenance(consolidation_id);
+CREATE INDEX idx_provenance_document ON provenance(document_id);
 CREATE INDEX idx_feedback_type ON feedback(feedback_type);
