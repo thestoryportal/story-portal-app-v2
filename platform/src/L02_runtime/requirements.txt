@@ -1,0 +1,18 @@
+# L02 Agent Runtime Layer - Requirements
+# Phase 1 Foundation
+
+# Core dependencies
+pyyaml>=6.0.1                # Configuration file parsing
+docker>=7.0.0                # Docker client for LocalRuntime
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+
+# Future dependencies (Phase 2+)
+# kubernetes-asyncio>=24.2.3  # K8s client for KubernetesRuntime
+# asyncpg>=0.29.0             # PostgreSQL async driver for State Manager
+# redis>=5.0.0                # Redis client for hot state
+# prometheus-client>=0.19.0   # Metrics for Health Monitor
+# grpcio>=1.60.0              # gRPC for MCP integration

@@ -1,0 +1,140 @@
+# L02 Agent Runtime Configuration
+# Phase 1 Foundation - Local Development
+
+runtime:
+  # Backend selection: "local" or "kubernetes"
+  backend: "local"
+
+  # Default agent image
+  agent_image: "agent-runtime:latest"
+
+# Local Runtime Configuration (Docker-based)
+local_runtime:
+  # Available runtime classes (simulated for local dev)
+  available_runtimes:
+    - runc
+
+  # Default container network
+  default_network: "bridge"
+
+# Kubernetes Runtime Configuration (stub)
+kubernetes_runtime:
+  # Namespace for agent pods
+  namespace: "agent-runtime"
+
+  # Kubeconfig path (leave empty for in-cluster config)
+  kubeconfig: ""
+
+  # Available runtime classes
+  available_runtimes:
+    - runc
+    - gvisor
+    - kata
+    - kata-cc
+
+# Sandbox Manager Configuration
+sandbox:
+  # Default runtime class when trust level mapping fails
+  default_runtime_class: "runc"
+
+  # Default resource limits
+  default_cpu: "2"
+  default_memory: "2Gi"
+  default_tokens_per_hour: 100000
+
+  # Available runtime classes (must match backend)
+  available_runtimes:
+    - runc
+
+# Lifecycle Manager Configuration
+lifecycle:
+  # Spawn operation timeout
+  spawn_timeout_seconds: 60
+
+  # Graceful shutdown timeout
+  graceful_shutdown_seconds: 30
+
+  # Restart policy
+  max_restart_count: 5
+  restart_policy: "ExponentialBackoff"
+  restart_delay_seconds: [1, 2, 4, 8, 16]
+
+  # Suspend/resume operations
+  enable_suspend: true
+  suspend_idle_after_seconds: 300
+
+# Resource Manager Configuration (future)
+resource_manager:
+  # Budget enforcement
+  enable_quota_enforcement: true
+
+  # Token tracking
+  token_tracker_url: "http://localhost:8080"
+
+# State Manager Configuration (future)
+state_manager:
+  # Checkpoint backend
+  checkpoint_backend: "postgresql"
+  hot_state_backend: "redis"
+
+  # Auto checkpoint interval
+  auto_checkpoint_interval_seconds: 60
+
+  # Checkpoint limits
+  max_checkpoint_size_mb: 100
+  checkpoint_compression: "gzip"
+  retention_days: 30
+
+# Session Bridge Configuration (Phase 16 integration)
+session_bridge:
+  # MCP context-orchestrator URL
+  mcp_url: "http://localhost:3001"
+
+  # Checkpoint interval
+  checkpoint_interval_seconds: 300
+
+# Document Bridge Configuration (Phase 15 integration)
+document_bridge:
+  # MCP document-consolidator URL
+  mcp_url: "http://localhost:3000"
+
+# Health Monitor Configuration (future)
+health_monitor:
+  # Health check intervals
+  liveness_check_interval_seconds: 30
+  readiness_check_interval_seconds: 10
+
+  # Failure thresholds
+  liveness_failure_threshold: 3
+  readiness_failure_threshold: 3
+
+# Fleet Manager Configuration (future)
+fleet_manager:
+  # Scaling parameters
+  min_replicas: 1
+  max_replicas: 100
+  target_cpu_utilization: 70
+
+  # Scaling stabilization
+  scale_up_stabilization_seconds: 60
+  scale_down_stabilization_seconds: 300
+
+  # Warm pool
+  warm_pool_enabled: false
+  warm_pool_size: 5
+
+# Logging
+logging:
+  level: "INFO"
+  format: "json"
+  output: "stdout"
+
+# Observability
+observability:
+  # Prometheus metrics
+  enable_metrics: true
+  metrics_port: 9090
+
+  # Distributed tracing
+  enable_tracing: false
+  jaeger_endpoint: ""
