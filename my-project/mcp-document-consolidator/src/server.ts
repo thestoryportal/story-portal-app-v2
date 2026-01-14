@@ -114,7 +114,7 @@ class DocumentConsolidatorServer {
       }
 
       try {
-        const result = await tool.execute(args);
+        const result = await tool.execute(args || {});
         return {
           content: [
             {

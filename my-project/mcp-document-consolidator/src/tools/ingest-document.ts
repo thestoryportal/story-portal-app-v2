@@ -67,7 +67,9 @@ export function createIngestDocumentTool(deps: IngestToolDependencies) {
     description: 'Add a document to the consolidation index with optional claim extraction and embedding generation',
     inputSchema: IngestDocumentInputSchema,
 
-    async execute(input: IngestDocumentInput): Promise<IngestDocumentOutput> {
+    async execute(rawInput: unknown): Promise<IngestDocumentOutput> {
+      // Parse input through zod to apply defaults
+      const input = IngestDocumentInputSchema.parse(rawInput);
       const startTime = Date.now();
 
       // 1. Load document content
