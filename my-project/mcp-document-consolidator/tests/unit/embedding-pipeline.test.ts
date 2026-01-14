@@ -13,7 +13,7 @@ vi.mock('uuid', () => ({
 
 describe('EmbeddingPipeline', () => {
   let mockStdin: { write: Mock };
-  let mockStdout: { on: Mock };
+  let mockStdout: { on: Mock; removeListener: Mock };
   let mockStderr: { on: Mock };
   let mockProcess: {
     stdin: typeof mockStdin;
@@ -22,12 +22,28 @@ describe('EmbeddingPipeline', () => {
     on: Mock;
     kill: Mock;
   };
+  let dataCallbacks: Array<(data: Buffer) => void>;
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    dataCallbacks = [];
 
     mockStdin = { write: vi.fn() };
-    mockStdout = { on: vi.fn() };
+    mockStdout = {
+      on: vi.fn((event: string, callback: (data: Buffer) => void) => {
+        if (event === 'data') {
+          dataCallbacks.push(callback);
+        }
+        return mockStdout;
+      }),
+      removeListener: vi.fn((event: string, callback: (data: Buffer) => void) => {
+        if (event === 'data') {
+          const idx = dataCallbacks.indexOf(callback);
+          if (idx >= 0) dataCallbacks.splice(idx, 1);
+        }
+        return mockStdout;
+      })
+    };
     mockStderr = { on: vi.fn() };
     mockProcess = {
       stdin: mockStdin,
@@ -67,20 +83,21 @@ describe('EmbeddingPipeline', () => {
       const pipeline = new EmbeddingPipeline();
       const childProcess = await import('child_process');
 
-      // Simulate successful initialization
-      mockStdout.on.mockImplementation((event: string, callback: (data: Buffer) => void) => {
-        if (event === 'data') {
-          // Simulate response after a small delay
-          setTimeout(() => {
-            callback(Buffer.from(JSON.stringify({
-              request_id: 'mock-uuid',
-              embeddings: [[0.1, 0.2]]
-            }) + '\n'));
-          }, 10);
-        }
-      });
-
+      // Start initialization
       const initPromise = pipeline.initialize();
+
+      // Wait for handlers to be registered
+      await new Promise(r => setTimeout(r, 10));
+
+      // Simulate ready message - call all registered callbacks
+      const readyMsg = Buffer.from(JSON.stringify({ status: 'ready', model: 'test' }) + '\n');
+      dataCallbacks.forEach(cb => cb(readyMsg));
+
+      // Wait a bit then send response
+      await new Promise(r => setTimeout(r, 10));
+      const responseMsg = Buffer.from(JSON.stringify({ id: 'mock-uuid', result: [[0.1, 0.2]] }) + '\n');
+      dataCallbacks.forEach(cb => cb(responseMsg));
+
       await initPromise;
 
       expect(childProcess.spawn).toHaveBeenCalled();
@@ -90,18 +107,18 @@ describe('EmbeddingPipeline', () => {
       const pipeline = new EmbeddingPipeline();
       const childProcess = await import('child_process');
 
-      mockStdout.on.mockImplementation((event: string, callback: (data: Buffer) => void) => {
-        if (event === 'data') {
-          setTimeout(() => {
-            callback(Buffer.from(JSON.stringify({
-              request_id: 'mock-uuid',
-              embeddings: [[0.1]]
-            }) + '\n'));
-          }, 10);
-        }
-      });
+      // Start first initialization
+      const initPromise = pipeline.initialize();
 
-      await pipeline.initialize();
+      await new Promise(r => setTimeout(r, 10));
+      const readyMsg = Buffer.from(JSON.stringify({ status: 'ready', model: 'test' }) + '\n');
+      dataCallbacks.forEach(cb => cb(readyMsg));
+
+      await new Promise(r => setTimeout(r, 10));
+      const responseMsg = Buffer.from(JSON.stringify({ id: 'mock-uuid', result: [[0.1]] }) + '\n');
+      dataCallbacks.forEach(cb => cb(responseMsg));
+
+      await initPromise;
       await pipeline.initialize(); // Second call should be no-op
 
       expect(childProcess.spawn).toHaveBeenCalledTimes(1);
@@ -139,18 +156,18 @@ describe('EmbeddingPipeline', () => {
     it('should kill the python process', async () => {
       const pipeline = new EmbeddingPipeline();
 
-      mockStdout.on.mockImplementation((event: string, callback: (data: Buffer) => void) => {
-        if (event === 'data') {
-          setTimeout(() => {
-            callback(Buffer.from(JSON.stringify({
-              request_id: 'mock-uuid',
-              embeddings: [[0.1]]
-            }) + '\n'));
-          }, 10);
-        }
-      });
+      // Start initialization
+      const initPromise = pipeline.initialize();
 
-      await pipeline.initialize();
+      await new Promise(r => setTimeout(r, 10));
+      const readyMsg = Buffer.from(JSON.stringify({ status: 'ready', model: 'test' }) + '\n');
+      dataCallbacks.forEach(cb => cb(readyMsg));
+
+      await new Promise(r => setTimeout(r, 10));
+      const responseMsg = Buffer.from(JSON.stringify({ id: 'mock-uuid', result: [[0.1]] }) + '\n');
+      dataCallbacks.forEach(cb => cb(responseMsg));
+
+      await initPromise;
       await pipeline.shutdown();
 
       expect(mockProcess.kill).toHaveBeenCalled();

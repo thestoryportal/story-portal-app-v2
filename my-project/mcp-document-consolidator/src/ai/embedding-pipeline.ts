@@ -4,13 +4,22 @@ import { v4 as uuidv4 } from 'uuid';
 import { EmbeddingError } from '../errors.js';
 
 interface EmbeddingRequest {
-  request_id: string;
-  texts: string[];
+  id: string;
+  method: string;
+  params: {
+    texts: string[];
+  };
 }
 
 interface EmbeddingResponse {
-  request_id: string;
-  embeddings: number[][];
+  id: string;
+  result?: number[][];
+  error?: { code: number; message: string };
+}
+
+interface ReadyMessage {
+  status: string;
+  model?: string;
 }
 
 interface PendingRequest {
@@ -83,26 +92,44 @@ export class EmbeddingPipeline {
         reject(new EmbeddingError('Embedding service failed to start'));
       }, 30000);
 
-      // Send a test request to verify the service is ready
-      const testId = uuidv4();
-      this.requestQueue.set(testId, {
-        resolve: () => {
-          clearTimeout(timeout);
-          this.isInitialized = true;
-          resolve();
-        },
-        reject: (error) => {
-          clearTimeout(timeout);
-          reject(error);
-        }
-      });
+      // Listen for the ready message first, then send a test request
+      const readyHandler = (data: Buffer) => {
+        const lines = data.toString().split('\n');
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const msg = JSON.parse(line) as ReadyMessage | EmbeddingResponse;
+            if ('status' in msg && msg.status === 'ready') {
+              // Service is ready, now send test request
+              const testId = uuidv4();
+              this.requestQueue.set(testId, {
+                resolve: () => {
+                  clearTimeout(timeout);
+                  this.isInitialized = true;
+                  this.pythonProcess?.stdout?.removeListener('data', readyHandler);
+                  resolve();
+                },
+                reject: (error) => {
+                  clearTimeout(timeout);
+                  reject(error);
+                }
+              });
 
-      const testRequest: EmbeddingRequest = {
-        request_id: testId,
-        texts: ['test']
+              const testRequest: EmbeddingRequest = {
+                id: testId,
+                method: 'embed',
+                params: { texts: ['test'] }
+              };
+
+              this.pythonProcess?.stdin?.write(JSON.stringify(testRequest) + '\n');
+            }
+          } catch {
+            // Not valid JSON, ignore
+          }
+        }
       };
 
-      this.pythonProcess?.stdin?.write(JSON.stringify(testRequest) + '\n');
+      this.pythonProcess?.stdout?.on('data', readyHandler);
     });
   }
 
@@ -114,12 +141,21 @@ export class EmbeddingPipeline {
       if (!line.trim()) continue;
 
       try {
-        const response: EmbeddingResponse = JSON.parse(line);
-        const pending = this.requestQueue.get(response.request_id);
+        const parsed = JSON.parse(line);
+
+        // Skip ready messages and other non-response messages
+        if ('status' in parsed) continue;
+
+        const response = parsed as EmbeddingResponse;
+        const pending = this.requestQueue.get(response.id);
 
         if (pending) {
-          pending.resolve(response.embeddings);
-          this.requestQueue.delete(response.request_id);
+          if (response.error) {
+            pending.reject(new EmbeddingError(response.error.message));
+          } else if (response.result) {
+            pending.resolve(response.result);
+          }
+          this.requestQueue.delete(response.id);
         }
       } catch (error) {
         console.error('Failed to parse embedding response:', error);
@@ -142,8 +178,9 @@ export class EmbeddingPipeline {
       this.requestQueue.set(requestId, { resolve, reject });
 
       const request: EmbeddingRequest = {
-        request_id: requestId,
-        texts
+        id: requestId,
+        method: 'embed',
+        params: { texts }
       };
 
       this.pythonProcess?.stdin?.write(JSON.stringify(request) + '\n');
