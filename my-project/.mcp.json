@@ -1,21 +1,10 @@
 {
   "mcpServers": {
-    "elasticsearch-memory": {
-      "type": "stdio",
-      "command": "/Volumes/Extreme SSD/projects/story-portal-app/my-project/elasticsearch-memory-mcp/venv/bin/python",
-      "args": [
-        "-m",
-        "mcp_server"
-      ],
-      "env": {
-        "ELASTICSEARCH_URL": "http://localhost:9200"
-      }
-    },
     "document-consolidator": {
       "type": "stdio",
       "command": "node",
       "args": [
-        "/Volumes/Extreme SSD/projects/story-portal-app/my-project/mcp-document-consolidator/dist/server.js"
+        "/Volumes/Extreme SSD/projects/story-portal-app/platform/services/mcp-document-consolidator/dist/server.js"
       ],
       "env": {
         "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/agentic_platform",
@@ -27,14 +16,14 @@
         "MCP_SCHEMA": "mcp_documents",
         "OLLAMA_BASE_URL": "http://localhost:11434",
         "OLLAMA_DEFAULT_MODEL": "llama3.1:8b",
-        "PYTHON_PATH": "/Volumes/Extreme SSD/projects/story-portal-app/my-project/mcp-document-consolidator/python/venv/bin/python"
+        "PYTHON_PATH": "/Volumes/Extreme SSD/projects/story-portal-app/platform/services/mcp-document-consolidator/python/venv/bin/python"
       }
     },
     "context-orchestrator": {
       "type": "stdio",
       "command": "node",
       "args": [
-        "/Volumes/Extreme SSD/projects/story-portal-app/my-project/mcp-context-orchestrator/dist/server.js"
+        "/Volumes/Extreme SSD/projects/story-portal-app/platform/services/mcp-context-orchestrator/dist/server.js"
       ],
       "env": {
         "PROJECT_ID": "agentic-platform",
