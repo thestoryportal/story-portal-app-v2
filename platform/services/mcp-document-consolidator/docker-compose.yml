@@ -1,0 +1,138 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: consolidator-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-consolidator}
+      POSTGRES_USER: ${POSTGRES_USER:-consolidator}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-consolidator_secret}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-consolidator}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - consolidator-network
+
+  # Neo4j Graph Database
+  neo4j:
+    image: neo4j:5.15-community
+    container_name: consolidator-neo4j
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-consolidator_secret}
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+      NEO4J_dbms_memory_heap_initial__size: 512m
+      NEO4J_dbms_memory_heap_max__size: 1G
+    ports:
+      - "${NEO4J_HTTP_PORT:-7475}:7474"
+      - "${NEO4J_BOLT_PORT:-7688}:7687"
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - ./neo4j:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:7474 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - consolidator-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: consolidator-redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - consolidator-network
+
+  # Ollama LLM Service
+  ollama:
+    image: ollama/ollama:latest
+    container_name: consolidator-ollama
+    ports:
+      - "${OLLAMA_PORT:-11435}:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+        reservations:
+          memory: 4G
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:11434/api/tags || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - consolidator-network
+
+  # MCP Document Consolidator Server
+  consolidator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: consolidator-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=production
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-consolidator}
+      - POSTGRES_USER=${POSTGRES_USER:-consolidator}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-consolidator_secret}
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=${NEO4J_USER:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-consolidator_secret}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_DEFAULT_MODEL=${OLLAMA_DEFAULT_MODEL:-llama3.2:1b}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-all-MiniLM-L6-v2}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LLM_TIMEOUT=${LLM_TIMEOUT:-600000}
+      - CLAIM_EXTRACTION_TIMEOUT_MS=${CLAIM_EXTRACTION_TIMEOUT_MS:-600000}
+    volumes:
+      - ./data:/app/data
+    stdin_open: true
+    tty: true
+    networks:
+      - consolidator-network
+
+volumes:
+  postgres_data:
+  neo4j_data:
+  neo4j_logs:
+  redis_data:
+  ollama_data:
+
+networks:
+  consolidator-network:
+    driver: bridge

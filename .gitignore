@@ -1,0 +1,135 @@
+# ===================
+# Node.js / Frontend
+# ===================
+node_modules
+dist
+dist-ssr
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ===================
+# Python / Backend
+# ===================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# ===================
+# IDE / Editor
+# ===================
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+.sublime-project
+.sublime-workspace
+
+# ===================
+# OS Files
+# ===================
+.DS_Store
+._*
+Thumbs.db
+
+# ===================
+# Environment & Secrets
+# ===================
+.env
+.env.local
+.env.*.local
+credentials.json
+secrets.json
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+
+# ===================
+# Logs
+# ===================
+logs
+logs/
+*.log
+
+# ===================
+# Database
+# ===================
+*.db
+*.sqlite
+*.sqlite3
+
+# ===================
+# Temporary Files
+# ===================
+*.tmp
+.tmp/
+temp/
+
+# ===================
+# Cache
+# ===================
+.cache/
+*.cache
+
+# ===================
+# Local Development
+# ===================
+local_settings.py
+config/local.py
+
+# ===================
+# Test/Analysis Output
+# ===================
+**/test-analyzer-output/
+**/test-baseline-output/
+**/iteration-output/
+**/capture-output/
+**/debug-ortho-output/

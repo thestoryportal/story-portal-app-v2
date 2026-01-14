@@ -1,0 +1,61 @@
+{
+  "name": "mcp-document-consolidator",
+  "version": "2.0.0",
+  "description": "MCP server that consolidates multiple documents with overlapping, conflicting, or fragmented information into a single, authoritative source of truth",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "tsx watch src/server.ts",
+    "test": "vitest",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:e2e": "vitest run tests/e2e",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "neo4j:init": "tsx scripts/init-neo4j.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@instructor-ai/instructor": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "dotenv": "^17.2.3",
+    "glob": "^10.3.0",
+    "gray-matter": "^4.0.3",
+    "ioredis": "^5.3.0",
+    "marked": "^11.0.0",
+    "neo4j-driver": "^5.15.0",
+    "ollama": "^0.5.0",
+    "pg": "^8.11.0",
+    "uuid": "^9.0.0",
+    "zod": "^3.22.0",
+    "zod-to-json-schema": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/pg": "^8.10.0",
+    "@types/uuid": "^9.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "@vitest/coverage-v8": "^1.6.1",
+    "eslint": "^8.0.0",
+    "prettier": "^3.1.0",
+    "tsx": "^4.6.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  },
+  "keywords": [
+    "mcp",
+    "document-consolidation",
+    "ai",
+    "llm",
+    "knowledge-management"
+  ],
+  "author": "",
+  "license": "MIT"
+}
