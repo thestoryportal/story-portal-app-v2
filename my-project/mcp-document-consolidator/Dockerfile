@@ -1,10 +1,12 @@
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
 # Install build dependencies
-RUN apk add --no-cache python3 py3-pip make g++
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-pip make g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
 COPY package.json package-lock.json* ./
@@ -19,20 +21,23 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM node:20-alpine AS production
+FROM node:20-slim AS production
 
 WORKDIR /app
 
 # Install Python for embedding service
-RUN apk add --no-cache python3 py3-pip
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-pip python3-venv \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create Python virtual environment
 RUN python3 -m venv /app/venv
 ENV PATH="/app/venv/bin:$PATH"
 
-# Install Python dependencies
+# Install Python dependencies (CPU-only torch for smaller image)
 COPY python/requirements.txt /app/python/
-RUN pip install --no-cache-dir -r /app/python/requirements.txt
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir -r /app/python/requirements.txt
 
 # Copy Python service
 COPY python/ /app/python/
@@ -55,10 +60,14 @@ ENV PYTHON_PATH=/app/venv/bin/python3
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD node -e "process.exit(0)" || exit 1
 
-# Run as non-root user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001 && \
-    chown -R nodejs:nodejs /app
+# Run as non-root user with home directory for HuggingFace cache
+RUN groupadd -g 1001 nodejs && \
+    useradd -m -u 1001 -g nodejs -d /home/nodejs nodejs && \
+    chown -R nodejs:nodejs /app /home/nodejs
+
+# Set HuggingFace cache directory
+ENV HF_HOME=/home/nodejs/.cache/huggingface
+ENV TRANSFORMERS_CACHE=/home/nodejs/.cache/huggingface
 
 USER nodejs
 
