@@ -94,8 +94,8 @@ export function createSwitchTaskTool(deps: ToolDependencies): Tool<unknown, Swit
               version: currentContext.version
             };
 
-            // Record session work in Neo4j
-            if (sessionId) {
+            // Record session work in Neo4j (if available)
+            if (sessionId && deps.neo4j) {
               await deps.neo4j.recordSession(sessionId, fromTaskId);
             }
           }
@@ -131,11 +131,13 @@ export function createSwitchTaskTool(deps: ToolDependencies): Tool<unknown, Swit
         resumePrompt: newTaskContext.resumePrompt
       });
 
-      // Get blocking tasks
-      const blockingTasks = await deps.neo4j.getBlockingTasks(toTaskId);
+      // Get blocking tasks (requires Neo4j, fallback to empty)
+      const blockingTasks = deps.neo4j
+        ? await deps.neo4j.getBlockingTasks(toTaskId)
+        : [];
 
-      // Record session work on new task
-      if (sessionId) {
+      // Record session work on new task (if Neo4j available)
+      if (sessionId && deps.neo4j) {
         await deps.neo4j.recordSession(sessionId, toTaskId);
       }
 

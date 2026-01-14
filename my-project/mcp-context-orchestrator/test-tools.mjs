@@ -10,13 +10,13 @@ import pg from 'pg';
 
 const SERVER_PATH = './dist/server.js';
 
-// Database config matching MCP server
+// Database config matching unified infrastructure
 const dbConfig = {
   host: process.env.POSTGRES_HOST || 'localhost',
-  port: parseInt(process.env.POSTGRES_PORT || '5433', 10),
-  database: process.env.POSTGRES_DB || 'consolidator',
-  user: process.env.POSTGRES_USER || 'consolidator',
-  password: process.env.POSTGRES_PASSWORD || 'consolidator_secret',
+  port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
+  database: process.env.POSTGRES_DB || 'agentic_platform',
+  user: process.env.POSTGRES_USER || 'postgres',
+  password: process.env.POSTGRES_PASSWORD || 'postgres',
 };
 
 class MCPTestClient {
@@ -131,6 +131,9 @@ async function createTestTask(pool, taskId, name) {
     nextStep: 'Verify task creation',
     blockers: []
   };
+
+  // Set schema for mcp_contexts
+  await pool.query('SET search_path TO mcp_contexts');
 
   await pool.query(
     `INSERT INTO task_contexts (

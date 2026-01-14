@@ -14,7 +14,6 @@ vi.mock('fs/promises', () => ({
 
 describe('Ingest Document Tool', () => {
   let mockDb: Partial<DatabaseService>;
-  let mockEs: { index: Mock; search: Mock };
   let mockEmbeddingPipeline: { embed: Mock };
   let mockLlmPipeline: { generate: Mock };
   let mockEntityResolver: { resolve: Mock; linkClaimToEntity: Mock };
@@ -30,13 +29,16 @@ describe('Ingest Document Tool', () => {
         findByPathPattern: vi.fn(),
         findByContentHash: vi.fn(),
         update: vi.fn(),
-        delete: vi.fn()
+        delete: vi.fn(),
+        updateEmbedding: vi.fn().mockResolvedValue(undefined),
+        findSimilar: vi.fn().mockResolvedValue([])
       } as unknown as DatabaseService['documents'],
       sections: {
         create: vi.fn().mockResolvedValue('sec-1'),
         findByDocumentId: vi.fn().mockResolvedValue([]),
         findByDocumentIds: vi.fn().mockResolvedValue([]),
-        findById: vi.fn()
+        findById: vi.fn(),
+        updateEmbedding: vi.fn().mockResolvedValue(undefined)
       } as unknown as DatabaseService['sections'],
       claims: {
         create: vi.fn().mockResolvedValue('claim-1'),
@@ -53,13 +55,6 @@ describe('Ingest Document Tool', () => {
       supersessions: {
         create: vi.fn().mockResolvedValue('sup-1')
       } as unknown as DatabaseService['supersessions']
-    };
-
-    mockEs = {
-      index: vi.fn().mockResolvedValue({}),
-      search: vi.fn().mockResolvedValue({
-        hits: { hits: [] }
-      })
     };
 
     mockEmbeddingPipeline = {
@@ -136,11 +131,9 @@ describe('Ingest Document Tool', () => {
     it('should create tool with correct name', () => {
       const tool = createIngestDocumentTool({
         db: mockDb as DatabaseService,
-        es: mockEs as unknown as import('@elastic/elasticsearch').Client,
         embeddingPipeline: mockEmbeddingPipeline as unknown as import('../../src/ai/embedding-pipeline.js').EmbeddingPipeline,
         llmPipeline: mockLlmPipeline as unknown as import('../../src/ai/llm-pipeline.js').LLMPipeline,
-        entityResolver: mockEntityResolver as unknown as import('../../src/components/entity-resolver.js').EntityResolver,
-        esIndex: 'test-index'
+        entityResolver: mockEntityResolver as unknown as import('../../src/components/entity-resolver.js').EntityResolver
       });
 
       expect(tool.name).toBe('ingest_document');
@@ -149,11 +142,9 @@ describe('Ingest Document Tool', () => {
     it('should execute with inline content', async () => {
       const tool = createIngestDocumentTool({
         db: mockDb as DatabaseService,
-        es: mockEs as unknown as import('@elastic/elasticsearch').Client,
         embeddingPipeline: mockEmbeddingPipeline as unknown as import('../../src/ai/embedding-pipeline.js').EmbeddingPipeline,
         llmPipeline: mockLlmPipeline as unknown as import('../../src/ai/llm-pipeline.js').LLMPipeline,
-        entityResolver: mockEntityResolver as unknown as import('../../src/components/entity-resolver.js').EntityResolver,
-        esIndex: 'test-index'
+        entityResolver: mockEntityResolver as unknown as import('../../src/components/entity-resolver.js').EntityResolver
       });
 
       const result = await tool.execute({
@@ -178,11 +169,9 @@ describe('Ingest Document Tool', () => {
 
       const tool = createIngestDocumentTool({
         db: mockDb as DatabaseService,
-        es: mockEs as unknown as import('@elastic/elasticsearch').Client,
         embeddingPipeline: mockEmbeddingPipeline as unknown as import('../../src/ai/embedding-pipeline.js').EmbeddingPipeline,
         llmPipeline: mockLlmPipeline as unknown as import('../../src/ai/llm-pipeline.js').LLMPipeline,
-        entityResolver: mockEntityResolver as unknown as import('../../src/components/entity-resolver.js').EntityResolver,
-        esIndex: 'test-index'
+        entityResolver: mockEntityResolver as unknown as import('../../src/components/entity-resolver.js').EntityResolver
       });
 
       const result = await tool.execute({
@@ -203,11 +192,9 @@ describe('Ingest Document Tool', () => {
     it('should add tags to document', async () => {
       const tool = createIngestDocumentTool({
         db: mockDb as DatabaseService,
-        es: mockEs as unknown as import('@elastic/elasticsearch').Client,
         embeddingPipeline: mockEmbeddingPipeline as unknown as import('../../src/ai/embedding-pipeline.js').EmbeddingPipeline,
         llmPipeline: mockLlmPipeline as unknown as import('../../src/ai/llm-pipeline.js').LLMPipeline,
-        entityResolver: mockEntityResolver as unknown as import('../../src/components/entity-resolver.js').EntityResolver,
-        esIndex: 'test-index'
+        entityResolver: mockEntityResolver as unknown as import('../../src/components/entity-resolver.js').EntityResolver
       });
 
       await tool.execute({
@@ -228,11 +215,9 @@ describe('Ingest Document Tool', () => {
     it('should generate embeddings when enabled', async () => {
       const tool = createIngestDocumentTool({
         db: mockDb as DatabaseService,
-        es: mockEs as unknown as import('@elastic/elasticsearch').Client,
         embeddingPipeline: mockEmbeddingPipeline as unknown as import('../../src/ai/embedding-pipeline.js').EmbeddingPipeline,
         llmPipeline: mockLlmPipeline as unknown as import('../../src/ai/llm-pipeline.js').LLMPipeline,
-        entityResolver: mockEntityResolver as unknown as import('../../src/components/entity-resolver.js').EntityResolver,
-        esIndex: 'test-index'
+        entityResolver: mockEntityResolver as unknown as import('../../src/components/entity-resolver.js').EntityResolver
       });
 
       const result = await tool.execute({
@@ -247,18 +232,15 @@ describe('Ingest Document Tool', () => {
       });
 
       expect(mockEmbeddingPipeline.embed).toHaveBeenCalled();
-      expect(mockEs.index).toHaveBeenCalled();
       expect(result.embeddings_generated).toBeGreaterThan(0);
     });
 
     it('should handle supersession', async () => {
       const tool = createIngestDocumentTool({
         db: mockDb as DatabaseService,
-        es: mockEs as unknown as import('@elastic/elasticsearch').Client,
         embeddingPipeline: mockEmbeddingPipeline as unknown as import('../../src/ai/embedding-pipeline.js').EmbeddingPipeline,
         llmPipeline: mockLlmPipeline as unknown as import('../../src/ai/llm-pipeline.js').LLMPipeline,
-        entityResolver: mockEntityResolver as unknown as import('../../src/components/entity-resolver.js').EntityResolver,
-        esIndex: 'test-index'
+        entityResolver: mockEntityResolver as unknown as import('../../src/components/entity-resolver.js').EntityResolver
       });
 
       await tool.execute({

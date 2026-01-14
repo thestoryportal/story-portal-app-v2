@@ -69,6 +69,12 @@ export function getPool(): pg.Pool {
     pool.on('error', (err) => {
       console.error('Unexpected database pool error:', err);
     });
+
+    // Set the schema on pool connect
+    pool.on('connect', (client) => {
+      const schema = process.env.MCP_SCHEMA || 'mcp_contexts';
+      client.query(`SET search_path TO ${schema}`);
+    });
   }
   return pool;
 }

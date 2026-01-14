@@ -126,8 +126,8 @@ export function createGetUnifiedContextTool(deps: ToolDependencies): Tool<unknow
           // Update Redis cache
           await deps.redis.setTaskContext(taskId, result.task);
 
-          // Load relationships if requested
-          if (includeRelationships) {
+          // Load relationships if requested (requires Neo4j)
+          if (includeRelationships && deps.neo4j) {
             const graph = await deps.neo4j.getTaskGraph(taskId);
             if (graph) {
               result.relationships = {

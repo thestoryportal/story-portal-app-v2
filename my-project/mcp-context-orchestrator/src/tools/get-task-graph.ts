@@ -103,9 +103,9 @@ export function createGetTaskGraphTool(deps: ToolDependencies): Tool<unknown, Ge
         }
       }
 
-      // Get focus task details if specified
+      // Get focus task details if specified (requires Neo4j)
       let focus: GetTaskGraphOutput['focus'];
-      if (taskId) {
+      if (taskId && deps.neo4j) {
         const graph = await deps.neo4j.getTaskGraph(taskId);
         if (graph) {
           focus = {
@@ -124,8 +124,10 @@ export function createGetTaskGraphTool(deps: ToolDependencies): Tool<unknown, Ge
         }
       }
 
-      // Get ready and blocked tasks
-      const readyTasks = await deps.neo4j.getReadyTasks();
+      // Get ready and blocked tasks (Neo4j provides ready tasks, fallback to filtering)
+      const readyTasks = deps.neo4j
+        ? await deps.neo4j.getReadyTasks()
+        : filteredTasks.filter(t => t.status === 'pending');
       const blockedTasks = filteredTasks.filter(t => t.status === 'blocked');
 
       // Build summary

@@ -60,12 +60,14 @@ export class LLMPipeline {
   }
 
   async generate(params: GenerateParams): Promise<string> {
+    const model = params.model || this.models.general;
     try {
       const response = await this.ollama.generate({
-        model: params.model || this.models.general,
+        model,
         prompt: params.prompt,
         system: params.system,
         format: params.format,
+        stream: false,
         options: {
           temperature: params.temperature ?? params.options?.temperature ?? this.defaultOptions.temperature,
           num_ctx: params.options?.num_ctx ?? this.defaultOptions.num_ctx,
@@ -77,7 +79,7 @@ export class LLMPipeline {
       return response.response;
     } catch (error) {
       throw new LLMError(
-        params.model || this.models.general,
+        model,
         error instanceof Error ? error.message : 'Unknown error'
       );
     }
@@ -88,11 +90,13 @@ export class LLMPipeline {
     format?: 'json';
     options?: Partial<LLMConfig['defaultOptions']>;
   }): Promise<string> {
+    const model = params?.model || this.models.general;
     try {
       const response = await this.ollama.chat({
-        model: params?.model || this.models.general,
+        model,
         messages,
         format: params?.format,
+        stream: false,
         options: {
           temperature: params?.options?.temperature ?? this.defaultOptions.temperature,
           num_ctx: params?.options?.num_ctx ?? this.defaultOptions.num_ctx,
@@ -103,7 +107,7 @@ export class LLMPipeline {
       return response.message.content;
     } catch (error) {
       throw new LLMError(
-        params?.model || this.models.general,
+        model,
         error instanceof Error ? error.message : 'Unknown error'
       );
     }
@@ -288,8 +292,8 @@ Output JSON: { "verdict": "verified" | "refuted" | "uncertain", "confidence": nu
    */
   async isModelAvailable(model: string): Promise<boolean> {
     try {
-      const models = await this.ollama.list();
-      return models.models.some(m => m.name === model || m.name.startsWith(model + ':'));
+      const response = await this.ollama.list();
+      return response.models.some(m => m.name === model || m.name.startsWith(model + ':'));
     } catch {
       return false;
     }

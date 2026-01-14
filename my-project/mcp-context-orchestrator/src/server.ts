@@ -7,6 +7,7 @@
  * existing infrastructure (Elasticsearch, PostgreSQL, Neo4j, Redis).
  */
 
+import 'dotenv/config';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -46,7 +47,7 @@ import {
 interface ServerDependencies {
   config: ServerConfig;
   redis: RedisCache;
-  neo4j: Neo4jGraph;
+  neo4j: Neo4jGraph | null;
   projectId: string;
 }
 
@@ -181,13 +182,24 @@ class ContextOrchestratorServer {
     });
     await redis.connect();
 
-    // Initialize Neo4j graph
-    const neo4j = new Neo4jGraph({
-      uri: config.neo4j.uri,
-      username: config.neo4j.username,
-      password: config.neo4j.password
-    });
-    await neo4j.connect();
+    // Initialize Neo4j graph (optional - may not be available)
+    let neo4j: Neo4jGraph | null = null;
+    const neo4jEnabled = process.env.NEO4J_ENABLED !== 'false';
+    if (neo4jEnabled) {
+      try {
+        neo4j = new Neo4jGraph({
+          uri: config.neo4j.uri,
+          username: config.neo4j.username,
+          password: config.neo4j.password
+        });
+        await neo4j.connect();
+      } catch (error) {
+        console.error('Neo4j connection failed (continuing without graph features):', error instanceof Error ? error.message : error);
+        neo4j = null;
+      }
+    } else {
+      console.error('Neo4j disabled via NEO4J_ENABLED=false');
+    }
 
     // Store dependencies
     this.deps = {
@@ -240,7 +252,9 @@ class ContextOrchestratorServer {
   async shutdown(): Promise<void> {
     if (this.deps) {
       await this.deps.redis.disconnect();
-      await this.deps.neo4j.disconnect();
+      if (this.deps.neo4j) {
+        await this.deps.neo4j.disconnect();
+      }
       await db.closePool();
     }
     await this.server.close();

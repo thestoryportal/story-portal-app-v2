@@ -18,7 +18,7 @@ export * from './check-recovery.js';
 // Common types
 export interface ToolDependencies {
   redis: import('../cache/redis-client.js').RedisCache;
-  neo4j: import('../graph/neo4j-client.js').Neo4jGraph;
+  neo4j: import('../graph/neo4j-client.js').Neo4jGraph | null;
   projectId: string;
   contextsDir: string;
 }
