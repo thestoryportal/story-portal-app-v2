@@ -33,6 +33,29 @@
         "OLLAMA_DEFAULT_MODEL": "llama3.1:8b",
         "PYTHON_PATH": "/Volumes/Extreme SSD/projects/story-portal-app/my-project/mcp-document-consolidator/python/venv/bin/python"
       }
+    },
+    "context-orchestrator": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "/Volumes/Extreme SSD/projects/story-portal-app/my-project/mcp-context-orchestrator/dist/server.js"
+      ],
+      "env": {
+        "PROJECT_ID": "story-portal-app",
+        "CONTEXTS_DIR": ".claude/contexts",
+        "POSTGRES_HOST": "localhost",
+        "POSTGRES_PORT": "5433",
+        "POSTGRES_DB": "consolidator",
+        "POSTGRES_USER": "consolidator",
+        "POSTGRES_PASSWORD": "consolidator_secret",
+        "REDIS_HOST": "localhost",
+        "REDIS_PORT": "6380",
+        "NEO4J_URI": "bolt://localhost:7688",
+        "NEO4J_USER": "neo4j",
+        "NEO4J_PASSWORD": "consolidator_secret",
+        "ELASTICSEARCH_HOST": "localhost",
+        "ELASTICSEARCH_PORT": "9201"
+      }
     }
   }
 }
