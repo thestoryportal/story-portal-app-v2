@@ -40,6 +40,7 @@ npm run test:unit
 Tests that verify components work together with real external services:
 
 - **database.test.ts**: PostgreSQL database operations, schema interactions
+- **context-lifecycle.test.ts**: Task context creation, checkpoints, recovery workflows
 
 **Run integration tests:**
 ```bash
@@ -54,7 +55,6 @@ npm run test:integration
 
 Complete workflow tests that verify the entire system works from end to end:
 
-- **context-lifecycle.test.ts**: Task context creation, checkpoints, recovery
 - **workflow-integration.mjs**: Full MCP workflow with stdio transport
 - **mcp-tools-integration.mjs**: MCP tool invocation over JSON-RPC
 

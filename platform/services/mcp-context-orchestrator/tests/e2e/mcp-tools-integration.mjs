@@ -173,6 +173,12 @@ async function deleteTestTask(pool, taskId) {
 async function runTests() {
   const client = new MCPTestClient();
   const pool = new pg.Pool(dbConfig);
+
+  // Set search path to mcp_contexts schema
+  pool.on('connect', (client) => {
+    client.query('SET search_path TO mcp_contexts');
+  });
+
   const results = [];
   const testTaskId = 'test-e2e-task';
 

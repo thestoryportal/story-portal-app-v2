@@ -14,6 +14,7 @@
     "test": "vitest",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
+    "test:e2e": "node tests/e2e/workflow-integration.mjs && node tests/e2e/mcp-tools-integration.mjs",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\"",
     "db:migrate": "tsx scripts/migrate.ts",

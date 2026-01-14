@@ -17,10 +17,10 @@ const CONTEXTS_DIR = path.join(PROJECT_DIR, '.claude', 'contexts');
 
 const dbConfig = {
   host: process.env.POSTGRES_HOST || 'localhost',
-  port: parseInt(process.env.POSTGRES_PORT || '5433', 10),
-  database: process.env.POSTGRES_DB || 'consolidator',
-  user: process.env.POSTGRES_USER || 'consolidator',
-  password: process.env.POSTGRES_PASSWORD || 'consolidator_secret',
+  port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
+  database: process.env.POSTGRES_DB || 'agentic_platform',
+  user: process.env.POSTGRES_USER || 'postgres',
+  password: process.env.POSTGRES_PASSWORD || 'postgres',
 };
 
 class MCPClient {
@@ -134,6 +134,12 @@ async function runE2EWorkflow() {
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
 
   const pool = new pg.Pool(dbConfig);
+
+  // Set search path to mcp_contexts schema
+  pool.on('connect', (client) => {
+    client.query('SET search_path TO mcp_contexts');
+  });
+
   const client = new MCPClient();
   const testTaskId = 'e2e-workflow-task';
   const results = [];

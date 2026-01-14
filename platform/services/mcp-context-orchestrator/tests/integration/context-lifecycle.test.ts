@@ -1,10 +1,27 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 
-// Mock database and cache clients
-vi.mock('../../src/db/client.js');
-vi.mock('../../src/cache/redis-client.js');
+// Mock database and cache clients with factory functions
+vi.mock('../../src/db/client.js', () => ({
+  saveTaskContext: vi.fn(),
+  getTaskContext: vi.fn(),
+  createCheckpoint: vi.fn(),
+  getCheckpoint: vi.fn(),
+  listCheckpoints: vi.fn(),
+  restoreFromCheckpoint: vi.fn(),
+  detectConflicts: vi.fn(),
+  resolveConflict: vi.fn(),
+  getConflict: vi.fn(),
+  saveGlobalContext: vi.fn(),
+  checkRecoveryNeeded: vi.fn(),
+  findRecoveryCheckpoints: vi.fn(),
+}));
 
-describe('Context Lifecycle E2E', () => {
+vi.mock('../../src/cache/redis-client.js', () => ({
+  setHotContext: vi.fn(),
+  getHotContext: vi.fn(),
+}));
+
+describe('Context Lifecycle Integration', () => {
   beforeAll(async () => {
     // Setup test environment
   });
