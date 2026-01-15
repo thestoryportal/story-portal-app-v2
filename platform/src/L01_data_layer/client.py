@@ -319,6 +319,16 @@ class L01Client:
         response.raise_for_status()
         return response.json()
 
+    async def list_goals(self, agent_id: Optional[UUID] = None, limit: int = 100) -> List[Dict[str, Any]]:
+        """List goals, optionally filtered by agent_id."""
+        client = await self._get_client()
+        params = {"limit": limit}
+        if agent_id:
+            params["agent_id"] = str(agent_id)
+        response = await client.get("/goals/", params=params)
+        response.raise_for_status()
+        return response.json()
+
     # Plan methods
     async def create_plan(self, goal_id: UUID, agent_id: UUID,
                          steps: List[Dict[str, Any]],
