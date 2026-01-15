@@ -1,0 +1,28 @@
+# L09 API Gateway Dependencies
+
+# Web Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+httpx==0.25.1
+
+# Data Validation
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Redis
+redis[hiredis]==5.0.1
+
+# PostgreSQL
+asyncpg==0.29.0
+sqlalchemy==2.0.23
+
+# Authentication
+PyJWT==2.8.0
+bcrypt==4.1.1
+cryptography==41.0.7
+
+# Metrics
+prometheus-client==0.19.0
+
+# Utilities
+python-dotenv==1.0.0
