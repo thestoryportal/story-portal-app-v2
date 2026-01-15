@@ -70,9 +70,6 @@ class EvaluationService:
         self.alerts = AlertManager(slack_webhook_url)
         self.query = QueryEngine(self.metrics, self.cache)
 
-        # Update scorer with compliance validator
-        self.scorer.scorers["compliance"].compliance_validator = self.compliance
-
         self._initialized = False
 
     async def initialize(self):
@@ -81,6 +78,14 @@ class EvaluationService:
             return
 
         logger.info("Initializing L06 Evaluation Service")
+
+        # Initialize scorer (which creates scorers dict)
+        await self.scorer.initialize()
+
+        # Update scorer with compliance validator after scorers are created
+        if "compliance" in self.scorer.scorers:
+            self.scorer.scorers["compliance"].compliance_validator = self.compliance
+
         await self.audit.log("service.started", {"service": "L06_evaluation"})
         self._initialized = True
 

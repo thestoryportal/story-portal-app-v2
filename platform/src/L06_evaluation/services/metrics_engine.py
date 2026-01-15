@@ -10,10 +10,31 @@ import statistics
 from ..models.metric import MetricPoint, MetricType, MetricAggregation
 from ..models.cloud_event import CloudEvent
 from ..models.error_codes import ErrorCode
-from .storage_manager import StorageManager
+
+try:
+    from .storage_manager import StorageManager
+except ImportError:
+    StorageManager = None
+
 from .cache_manager import CacheManager
 
 logger = logging.getLogger(__name__)
+
+
+class StubStorageManager:
+    """Stub storage manager for when actual storage is not available."""
+
+    async def write_metric(self, metric: MetricPoint):
+        """Stub method - does nothing."""
+        pass
+
+    async def query_metrics(self, *args, **kwargs):
+        """Stub method - returns empty list."""
+        return []
+
+    async def cleanup(self):
+        """Stub method - does nothing."""
+        pass
 
 
 class MetricsEngine:
@@ -29,7 +50,7 @@ class MetricsEngine:
 
     def __init__(
         self,
-        storage_manager: StorageManager,
+        storage_manager: Optional[StorageManager] = None,
         cache_manager: Optional[CacheManager] = None,
         window_seconds: int = 60,
         max_cardinality_per_tenant: int = 100000,
@@ -38,7 +59,7 @@ class MetricsEngine:
         Initialize metrics engine.
 
         Args:
-            storage_manager: Storage manager for persistence
+            storage_manager: Storage manager for persistence (optional, created in initialize())
             cache_manager: Cache manager for hot data (optional)
             window_seconds: Aggregation window size (default: 60s)
             max_cardinality_per_tenant: Max unique series per tenant
@@ -47,6 +68,7 @@ class MetricsEngine:
         self.cache = cache_manager
         self.window_seconds = window_seconds
         self.max_cardinality = max_cardinality_per_tenant
+        self._initialized = False
 
         # In-memory aggregation buffer (for current window)
         self._buffer: Dict[str, List[MetricPoint]] = defaultdict(list)
@@ -58,6 +80,38 @@ class MetricsEngine:
         # Statistics
         self.metrics_ingested = 0
         self.metrics_dropped_cardinality = 0
+
+    async def initialize(self):
+        """Initialize metrics engine and create dependencies if needed."""
+        if self._initialized:
+            return
+
+        # Create storage manager if not provided
+        if self.storage is None:
+            if StorageManager is not None:
+                self.storage = StorageManager()
+                if hasattr(self.storage, 'initialize'):
+                    await self.storage.initialize()
+            else:
+                # Storage module not available, create stub
+                logger.warning("StorageManager not available, using stub")
+                self.storage = StubStorageManager()
+
+        self._initialized = True
+        logger.info("MetricsEngine initialized")
+
+    async def cleanup(self):
+        """Cleanup metrics engine resources."""
+        # Flush remaining metrics
+        await self._flush()
+
+        # Cleanup storage if we created it
+        if self.storage and self._initialized:
+            if hasattr(self.storage, 'cleanup'):
+                await self.storage.cleanup()
+
+        self._initialized = False
+        logger.info("MetricsEngine cleaned up")
 
     async def ingest(self, metric: MetricPoint) -> bool:
         """

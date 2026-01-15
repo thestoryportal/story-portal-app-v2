@@ -118,6 +118,38 @@ class RateLimiter:
             # On error, allow the request (fail open)
             return True
 
+    async def check_limit(
+        self,
+        agent_id: str,
+        tokens: int,
+        provider: str = "default",
+        rpm_limit: Optional[int] = None,
+        tpm_limit: Optional[int] = None
+    ) -> bool:
+        """
+        Convenience method - alias for check_rate_limit with simplified parameters
+
+        Args:
+            agent_id: Agent identifier (agent_did)
+            tokens: Number of tokens in request
+            provider: Provider identifier (default: "default")
+            rpm_limit: Optional override for RPM limit
+            tpm_limit: Optional override for TPM limit
+
+        Returns:
+            True if within limits
+
+        Raises:
+            RateLimitError: If rate limit exceeded
+        """
+        return await self.check_rate_limit(
+            agent_did=agent_id,
+            provider=provider,
+            tokens=tokens,
+            rpm_limit=rpm_limit,
+            tpm_limit=tpm_limit
+        )
+
     async def _check_token_bucket(
         self,
         key: str,

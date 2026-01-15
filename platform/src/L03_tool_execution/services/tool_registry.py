@@ -17,6 +17,11 @@ from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime, timedelta
 import psycopg
 from psycopg.rows import dict_row
+try:
+    from psycopg_pool import AsyncConnectionPool
+except ImportError:
+    # Fallback for older psycopg versions
+    from psycopg import AsyncConnectionPool
 import httpx
 
 from ..models import (
@@ -69,7 +74,7 @@ class ToolRegistry:
     async def initialize(self):
         """Initialize database connection pool and ensure schema exists"""
         try:
-            self.db_pool = psycopg.AsyncConnectionPool(
+            self.db_pool = AsyncConnectionPool(
                 self.db_connection_string,
                 min_size=2,
                 max_size=10,
@@ -328,6 +333,67 @@ class ToolRegistry:
                     )
 
                 return self._row_to_tool_definition(row)
+
+    async def list_tools(
+        self,
+        category: Optional[ToolCategory] = None,
+        include_deprecated: bool = False
+    ) -> List[ToolDefinition]:
+        """
+        List all available tools.
+
+        Args:
+            category: Optional category filter
+            include_deprecated: Whether to include deprecated tools
+
+        Returns:
+            List of ToolDefinition objects
+
+        Raises:
+            ToolExecutionError: If listing fails (E3008)
+        """
+        try:
+            async with self.db_pool.connection() as conn:
+                async with conn.cursor(row_factory=dict_row) as cur:
+                    # Build query based on filters
+                    if category and not include_deprecated:
+                        await cur.execute("""
+                            SELECT * FROM tool_definitions
+                            WHERE category = %s
+                              AND deprecation_state = 'active'
+                            ORDER BY tool_name
+                        """, (category.value,))
+                    elif category:
+                        await cur.execute("""
+                            SELECT * FROM tool_definitions
+                            WHERE category = %s
+                            ORDER BY tool_name
+                        """, (category.value,))
+                    elif not include_deprecated:
+                        await cur.execute("""
+                            SELECT * FROM tool_definitions
+                            WHERE deprecation_state = 'active'
+                            ORDER BY tool_name
+                        """)
+                    else:
+                        await cur.execute("""
+                            SELECT * FROM tool_definitions
+                            ORDER BY tool_name
+                        """)
+
+                    rows = await cur.fetchall()
+                    tools = [self._row_to_tool_definition(row) for row in rows]
+
+                    logger.info(f"Listed {len(tools)} tools")
+                    return tools
+
+        except Exception as e:
+            logger.error(f"Failed to list tools: {e}")
+            raise ToolExecutionError(
+                ErrorCode.E3008,
+                message="Failed to list tools",
+                details={"error": str(e)}
+            )
 
     async def semantic_search(
         self,

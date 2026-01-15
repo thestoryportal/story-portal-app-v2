@@ -175,6 +175,26 @@ class ModelGateway:
                 {"error": str(e)}
             )
 
+    async def complete(
+        self,
+        request: InferenceRequest,
+        routing_strategy: Optional[RoutingStrategy] = None
+    ) -> InferenceResponse:
+        """
+        Alias for execute() - completes an inference request
+
+        Args:
+            request: InferenceRequest to complete
+            routing_strategy: Optional routing strategy override
+
+        Returns:
+            InferenceResponse with result
+
+        Raises:
+            L04Error: On any error during execution
+        """
+        return await self.execute(request, routing_strategy)
+
     async def stream(
         self,
         request: InferenceRequest,

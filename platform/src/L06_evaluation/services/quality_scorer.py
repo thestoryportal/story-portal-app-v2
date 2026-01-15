@@ -29,7 +29,7 @@ class QualityScorer:
 
     def __init__(
         self,
-        metrics_engine: any,
+        metrics_engine: Optional[any] = None,
         compliance_validator: Optional[any] = None,
         cache_manager: Optional[CacheManager] = None,
         weights: Optional[Dict[str, float]] = None,
@@ -38,13 +38,15 @@ class QualityScorer:
         Initialize quality scorer.
 
         Args:
-            metrics_engine: MetricsEngine for querying metrics
+            metrics_engine: MetricsEngine for querying metrics (optional, created in initialize())
             compliance_validator: ComplianceValidator for compliance scoring
             cache_manager: CacheManager for score caching (optional)
             weights: Dimension weights (default: balanced)
         """
         self.metrics_engine = metrics_engine
         self.cache = cache_manager
+        self.compliance_validator = compliance_validator
+        self._initialized = False
 
         # Default weights (must sum to 1.0)
         self.weights = weights or {
@@ -60,18 +62,47 @@ class QualityScorer:
         if abs(total_weight - 1.0) > 0.001:
             raise ValueError(f"Weights must sum to 1.0, got {total_weight}")
 
-        # Initialize dimension scorers
-        self.scorers = {
-            "accuracy": AccuracyScorer(metrics_engine, self.weights["accuracy"]),
-            "latency": LatencyScorer(metrics_engine, self.weights["latency"]),
-            "cost": CostScorer(metrics_engine, self.weights["cost"]),
-            "reliability": ReliabilityScorer(metrics_engine, self.weights["reliability"]),
-            "compliance": ComplianceScorer(compliance_validator, self.weights["compliance"]),
-        }
+        # Dimension scorers - initialized in initialize()
+        self.scorers = {}
 
         # Statistics
         self.scores_computed = 0
         self.cache_hits = 0
+
+        # Dimensions list for tests
+        self.dimensions = list(self.weights.keys())
+
+    async def initialize(self):
+        """Initialize quality scorer and create dependencies if needed."""
+        if self._initialized:
+            return
+
+        # Create metrics engine if not provided
+        if self.metrics_engine is None:
+            from .metrics_engine import MetricsEngine
+            self.metrics_engine = MetricsEngine()
+            await self.metrics_engine.initialize()
+
+        # Initialize dimension scorers
+        self.scorers = {
+            "accuracy": AccuracyScorer(self.metrics_engine, self.weights["accuracy"]),
+            "latency": LatencyScorer(self.metrics_engine, self.weights["latency"]),
+            "cost": CostScorer(self.metrics_engine, self.weights["cost"]),
+            "reliability": ReliabilityScorer(self.metrics_engine, self.weights["reliability"]),
+            "compliance": ComplianceScorer(self.compliance_validator, self.weights["compliance"]),
+        }
+
+        self._initialized = True
+        logger.info("QualityScorer initialized")
+
+    async def cleanup(self):
+        """Cleanup quality scorer resources."""
+        if self.metrics_engine and not self._initialized:
+            # Only cleanup if we created it
+            if hasattr(self.metrics_engine, 'cleanup'):
+                await self.metrics_engine.cleanup()
+        self._initialized = False
+        logger.info("QualityScorer cleaned up")
 
     async def compute_score(
         self,

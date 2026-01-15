@@ -121,7 +121,7 @@ class ModelRegistry:
             )
         return model
 
-    def list_models(
+    async def list_models(
         self,
         provider: Optional[str] = None,
         status: Optional[ModelStatus] = None

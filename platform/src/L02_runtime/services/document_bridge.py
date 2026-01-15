@@ -310,13 +310,13 @@ class DocumentBridge:
 
     async def find_source_of_truth(
         self,
-        topic: str
+        query: str
     ) -> Optional[Dict[str, Any]]:
         """
-        Find the authoritative source of truth for a topic.
+        Find the authoritative source of truth for a query.
 
         Args:
-            topic: Topic to find source for
+            query: Query to find source for
 
         Returns:
             Authoritative document or None if not found
@@ -324,17 +324,17 @@ class DocumentBridge:
         Raises:
             DocumentError: If search fails
         """
-        logger.info(f"Finding source of truth for: {topic}")
+        logger.info(f"Finding source of truth for: {query}")
 
         try:
             # Query documents
             documents = await self.query_documents(
-                query=topic,
+                query=query,
                 use_cache=True,
             )
 
             if not documents:
-                logger.warning(f"No source of truth found for: {topic}")
+                logger.warning(f"No source of truth found for: {query}")
                 return None
 
             # Return highest confidence document

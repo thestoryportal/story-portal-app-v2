@@ -45,7 +45,7 @@ class LogicalPrompt:
     """
     Logical prompt representation - abstraction over provider-specific formats
     """
-    messages: List[Message]
+    messages: Optional[List[Message]] = None
     system_prompt: Optional[str] = None
     temperature: float = 0.7
     max_tokens: Optional[int] = None
@@ -53,6 +53,28 @@ class LogicalPrompt:
     top_p: Optional[float] = None
     presence_penalty: Optional[float] = None
     frequency_penalty: Optional[float] = None
+
+    # Convenience parameters for simple prompts
+    system: Optional[str] = None
+    user: Optional[str] = None
+
+    def __post_init__(self):
+        """Convert convenience parameters to messages if provided"""
+        if self.messages is None:
+            self.messages = []
+
+        # If system and user convenience parameters are provided, convert them
+        if self.system is not None or self.user is not None:
+            new_messages = []
+            if self.system is not None:
+                self.system_prompt = self.system
+                new_messages.append(Message(role=MessageRole.SYSTEM, content=self.system))
+            if self.user is not None:
+                new_messages.append(Message(role=MessageRole.USER, content=self.user))
+
+            # Only set messages if they weren't already provided
+            if not self.messages:
+                self.messages = new_messages
 
     def to_dict(self) -> dict:
         """Convert to dictionary for serialization"""

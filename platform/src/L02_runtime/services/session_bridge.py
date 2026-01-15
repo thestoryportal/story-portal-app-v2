@@ -243,35 +243,35 @@ class SessionBridge:
 
     async def save_snapshot(
         self,
-        session_id: str,
-        context: Dict[str, Any],
+        task_id: str,
+        context_data: Dict[str, Any],
         change_summary: Optional[str] = None
     ) -> None:
         """
         Save context snapshot for a session.
 
         Args:
-            session_id: Session identifier
-            context: Context data to save
+            task_id: Task/session identifier
+            context_data: Context data to save
             change_summary: Description of changes
 
         Raises:
             SessionError: If snapshot save fails
         """
-        logger.debug(f"Saving snapshot for session {session_id}")
+        logger.debug(f"Saving snapshot for task {task_id}")
 
         try:
             await self._call_mcp_tool(
                 "save_context_snapshot",
                 {
-                    "taskId": session_id,
-                    "updates": context,
+                    "taskId": task_id,
+                    "updates": context_data,
                     "changeSummary": change_summary or "Context snapshot",
                 }
             )
 
         except Exception as e:
-            logger.error(f"Failed to save snapshot for session {session_id}: {e}")
+            logger.error(f"Failed to save snapshot for task {task_id}: {e}")
             raise SessionError(
                 code="E2052",
                 message=f"Snapshot save failed: {str(e)}"
@@ -279,13 +279,13 @@ class SessionBridge:
 
     async def get_unified_context(
         self,
-        session_id: str
+        task_id: str
     ) -> Dict[str, Any]:
         """
         Get unified context for a session.
 
         Args:
-            session_id: Session identifier
+            task_id: Task/session identifier
 
         Returns:
             Unified context data
@@ -297,7 +297,7 @@ class SessionBridge:
             result = await self._call_mcp_tool(
                 "get_unified_context",
                 {
-                    "taskId": session_id,
+                    "taskId": task_id,
                     "includeRelationships": True,
                     "includeVersionHistory": False,
                 }
@@ -306,10 +306,10 @@ class SessionBridge:
             return result
 
         except Exception as e:
-            logger.error(f"Failed to get context for session {session_id}: {e}")
+            logger.error(f"Failed to get context for task {task_id}: {e}")
             raise SessionError(
                 code="E2054",
-                message=f"Failed to get session context: {str(e)}"
+                message=f"Failed to get task context: {str(e)}"
             )
 
     async def check_recovery(self) -> List[Dict[str, Any]]:
@@ -361,8 +361,8 @@ class SessionBridge:
 
                 # Send heartbeat via snapshot save
                 await self.save_snapshot(
-                    session_id=session_id,
-                    context={
+                    task_id=session_id,
+                    context_data={
                         "immediateContext": {
                             "lastAction": "Heartbeat",
                         },

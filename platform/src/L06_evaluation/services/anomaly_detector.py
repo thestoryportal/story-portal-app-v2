@@ -44,6 +44,7 @@ class AnomalyDetector:
         self.threshold = deviation_threshold
         self.baseline_window_hours = baseline_window_hours
         self.cold_start_samples = cold_start_samples
+        self._initialized = False
 
         # In-memory baseline cache
         self._baselines: dict[str, Baseline] = {}
@@ -51,6 +52,30 @@ class AnomalyDetector:
         # Statistics
         self.anomalies_detected = 0
         self.baselines_trained = 0
+
+    async def initialize(self):
+        """Initialize anomaly detector."""
+        if self._initialized:
+            return
+
+        # Load baselines from cache if available
+        if self.cache:
+            # TODO: Load baselines from cache
+            pass
+
+        self._initialized = True
+        logger.info("AnomalyDetector initialized")
+
+    async def cleanup(self):
+        """Cleanup anomaly detector resources."""
+        # Save baselines to cache if available
+        if self.cache:
+            # TODO: Save baselines to cache
+            pass
+
+        self._baselines.clear()
+        self._initialized = False
+        logger.info("AnomalyDetector cleaned up")
 
     async def detect(self, score: QualityScore) -> Optional[Anomaly]:
         """
