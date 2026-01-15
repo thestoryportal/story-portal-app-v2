@@ -238,7 +238,7 @@ async def list_services():
         )
 
     # Get registered services
-    services = await integration_layer.service_registry.list_services()
+    services = await integration_layer.service_registry.get_all_services()
 
     return {
         "services": services,
