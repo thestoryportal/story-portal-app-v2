@@ -10,6 +10,7 @@ from .tool_sandbox import ToolSandbox
 from .result_cache import ResultCache
 from .mcp_tool_bridge import MCPToolBridge
 from .tool_composer import ToolComposer
+from .model_gateway_bridge import ToolModelBridge
 
 __all__ = [
     "ToolRegistry",
@@ -18,4 +19,5 @@ __all__ = [
     "ResultCache",
     "MCPToolBridge",
     "ToolComposer",
+    "ToolModelBridge",
 ]
