@@ -1,6 +1,7 @@
 """Unit tests for CommandRouter."""
 
 import pytest
+import pytest_asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.L12_nl_interface.core.service_factory import ServiceFactory
@@ -17,7 +18,7 @@ from src.L12_nl_interface.routing.fuzzy_matcher import FuzzyMatcher
 from src.L12_nl_interface.services.memory_monitor import MemoryMonitor
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def command_router():
     """Create CommandRouter instance with mocked dependencies."""
     registry = get_registry()
@@ -27,6 +28,9 @@ async def command_router():
         factory, memory_monitor, ttl_seconds=3600, cleanup_interval_seconds=300
     )
 
+    # Start session manager
+    await session_manager.start()
+
     exact_matcher = ExactMatcher(registry)
     fuzzy_matcher = FuzzyMatcher(registry, use_semantic=False)
 
@@ -34,7 +38,10 @@ async def command_router():
         registry, factory, session_manager, exact_matcher, fuzzy_matcher
     )
 
-    return router
+    yield router
+
+    # Cleanup
+    await session_manager.stop()
 
 
 @pytest.mark.asyncio

@@ -213,6 +213,44 @@ class ServiceRegistry:
 
         return [self.services[name] for name in matched_names]
 
+    def search_services(self, query: str) -> List[ServiceMetadata]:
+        """Search services by query string (case-insensitive).
+
+        Searches across service names, descriptions, and keywords.
+
+        Args:
+            query: Search query string
+
+        Returns:
+            List of matching ServiceMetadata objects
+
+        Example:
+            >>> matches = registry.search_services("plan")
+            >>> print(f"Found {len(matches)} planning services")
+        """
+        query_lower = query.lower().strip()
+        if not query_lower:
+            return []
+
+        results = []
+        for service in self.services.values():
+            # Check service name
+            if query_lower in service.service_name.lower():
+                results.append(service)
+                continue
+
+            # Check description
+            if query_lower in service.description.lower():
+                results.append(service)
+                continue
+
+            # Check keywords
+            if any(query_lower in kw.lower() for kw in service.keywords):
+                results.append(service)
+                continue
+
+        return results
+
     def get_dependencies(self, service_name: str) -> List[ServiceMetadata]:
         """Get all direct dependencies of a service.
 

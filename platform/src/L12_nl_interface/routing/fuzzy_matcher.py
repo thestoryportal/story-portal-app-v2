@@ -435,7 +435,7 @@ class FuzzyMatcher:
     def _calculate_name_similarity(self, query: str, service_name: str) -> float:
         """Calculate similarity between query and service name.
 
-        Uses simple substring and prefix matching.
+        Uses substring and word-based matching for multi-word queries.
 
         Args:
             query: Query string
@@ -447,20 +447,24 @@ class FuzzyMatcher:
         Example:
             >>> score = matcher._calculate_name_similarity("Plan", "PlanningService")
         """
-        query_lower = query.lower().replace(" ", "")
+        query_lower = query.lower()
         name_lower = service_name.lower()
 
-        # Exact match
-        if query_lower == name_lower:
+        # Exact match (with spaces removed)
+        if query_lower.replace(" ", "") == name_lower:
             return 1.0
 
-        # Substring match
+        # Full substring match
         if query_lower in name_lower or name_lower in query_lower:
             return 0.7
 
-        # Prefix match
-        if name_lower.startswith(query_lower) or query_lower.startswith(name_lower):
-            return 0.6
+        # Check if any significant word in query appears in service name
+        query_words = self._tokenize_query(query)
+        if query_words:
+            matches = sum(1 for word in query_words if word in name_lower)
+            if matches > 0:
+                # Partial word match: score based on proportion of matching words
+                return 0.3 + (0.4 * matches / len(query_words))
 
         return 0.0
 
