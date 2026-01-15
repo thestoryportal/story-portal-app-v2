@@ -31,6 +31,11 @@ from .agent_assigner import AgentAssigner
 from .execution_monitor import ExecutionMonitor
 from .plan_cache import PlanCache
 
+# Cross-layer imports
+from src.L04_model_gateway.services.model_gateway import ModelGateway
+from src.L02_runtime.services.agent_executor import AgentExecutor
+from src.L03_tool_execution.services.tool_executor import ToolExecutor
+
 logger = logging.getLogger(__name__)
 
 
@@ -55,7 +60,9 @@ class PlanningService:
         context_injector: Optional[ContextInjector] = None,
         agent_assigner: Optional[AgentAssigner] = None,
         monitor: Optional[ExecutionMonitor] = None,
-        gateway_client=None,  # L04 Model Gateway
+        gateway_client: Optional[ModelGateway] = None,
+        executor_client: Optional[AgentExecutor] = None,
+        tool_executor_client: Optional[ToolExecutor] = None,
     ):
         """
         Initialize Planning Service.
@@ -69,12 +76,20 @@ class PlanningService:
             agent_assigner: AgentAssigner instance
             monitor: ExecutionMonitor instance
             gateway_client: L04 Model Gateway client
+            executor_client: L02 AgentExecutor client
+            tool_executor_client: L03 ToolExecutor client
         """
-        # Initialize components
+        # Initialize cross-layer clients
+        self.gateway = gateway_client or ModelGateway()
+        self.executor = executor_client or AgentExecutor()
+        # ToolExecutor requires ToolRegistry and ToolSandbox, so only use if provided
+        self.tool_executor = tool_executor_client
+
+        # Initialize components with cross-layer wiring
         cache = PlanCache()
         self.decomposer = decomposer or GoalDecomposer(
             cache=cache,
-            gateway_client=gateway_client,
+            gateway_client=self.gateway,
         )
         self.resolver = resolver or DependencyResolver()
         self.resource_estimator = ResourceEstimator()
@@ -84,6 +99,8 @@ class PlanningService:
         )
         self.orchestrator = orchestrator or TaskOrchestrator(
             dependency_resolver=self.resolver,
+            executor_client=self.executor,
+            tool_executor_client=self.tool_executor,
         )
         self.context_injector = context_injector or ContextInjector()
         self.agent_assigner = agent_assigner or AgentAssigner()
@@ -95,7 +112,7 @@ class PlanningService:
         self.plans_executed = 0
         self.execution_failures = 0
 
-        logger.info("PlanningService initialized with all components")
+        logger.info("PlanningService initialized with all components and cross-layer integrations")
 
     async def initialize(self) -> None:
         """Initialize service and components."""

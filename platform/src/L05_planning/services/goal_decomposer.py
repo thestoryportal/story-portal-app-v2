@@ -331,10 +331,7 @@ Output JSON format:
                 ],
                 temperature=0.3,  # Lower temperature for structured output
                 max_tokens=2000,
-                requirements=ModelRequirements(
-                    capabilities=[],
-                    min_context_length=4096,
-                ),
+                capabilities=[],  # InferenceRequest.create() will build ModelRequirements internally
             )
 
             # Execute via L04 gateway

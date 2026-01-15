@@ -62,6 +62,7 @@ class TaskOrchestrator:
         self,
         dependency_resolver: Optional[DependencyResolver] = None,
         executor_client=None,  # L02 AgentExecutor client
+        tool_executor_client=None,  # L03 ToolExecutor client
         max_parallel_tasks: int = 10,
         task_timeout_sec: int = 300,
     ):
@@ -71,11 +72,13 @@ class TaskOrchestrator:
         Args:
             dependency_resolver: DependencyResolver instance
             executor_client: L02 AgentExecutor client for task dispatch
+            tool_executor_client: L03 ToolExecutor client for tool execution
             max_parallel_tasks: Maximum concurrent tasks
             task_timeout_sec: Default task timeout
         """
         self.dependency_resolver = dependency_resolver or DependencyResolver()
         self.executor_client = executor_client
+        self.tool_executor_client = tool_executor_client
         self.max_parallel_tasks = max_parallel_tasks
         self.task_timeout_sec = task_timeout_sec
 
@@ -351,7 +354,7 @@ class TaskOrchestrator:
         inputs: Dict[str, Any],
     ) -> Dict[str, Any]:
         """
-        Execute tool call task.
+        Execute tool call task via L03 Tool Execution Layer.
 
         Args:
             task: Task with tool_name
@@ -360,10 +363,25 @@ class TaskOrchestrator:
         Returns:
             Tool outputs
         """
-        # TODO: Integrate with L03 Tool Execution Layer
-        # For now, return mock output
-        logger.info(f"Executing tool: {task.tool_name} (mock)")
-        return {"result": f"Tool {task.tool_name} executed", "status": "success"}
+        if not self.tool_executor_client:
+            logger.warning(f"No L03 tool executor configured, using mock for {task.tool_name}")
+            return {"result": f"Tool {task.tool_name} executed (mock)", "status": "success"}
+
+        if not task.tool_name:
+            raise ValueError(f"Task {task.task_id} has no tool_name specified")
+
+        logger.info(f"Executing tool: {task.tool_name} via L03")
+
+        # Execute tool via L03 ToolExecutor
+        result = await self.tool_executor_client.execute(
+            tool_name=task.tool_name,
+            arguments=inputs,
+        )
+
+        if not result.success:
+            raise Exception(f"Tool execution failed: {result.error}")
+
+        return result.data or {"result": "Tool executed successfully"}
 
     async def _execute_llm_call(
         self,
@@ -371,7 +389,7 @@ class TaskOrchestrator:
         inputs: Dict[str, Any],
     ) -> Dict[str, Any]:
         """
-        Execute LLM call task.
+        Execute LLM call task via L02 AgentExecutor.
 
         Args:
             task: Task with llm_prompt
@@ -380,10 +398,30 @@ class TaskOrchestrator:
         Returns:
             LLM outputs
         """
-        # TODO: Integrate with L04 Model Gateway
-        # For now, return mock output
-        logger.info(f"Executing LLM call (mock): {task.llm_prompt[:50]}...")
-        return {"result": f"LLM call completed", "response": "Mock response"}
+        if not self.executor_client:
+            logger.warning(f"No L02 executor configured, using mock for LLM call")
+            return {"result": "LLM call completed (mock)", "response": "Mock response"}
+
+        logger.info(f"Executing LLM call via L02: {(task.llm_prompt or '')[:50]}...")
+
+        # Dispatch to L02 for execution
+        result = await self.executor_client.execute(
+            agent_id=task.assigned_agent or "default",
+            task_id=task.task_id,
+            task_config={
+                "name": task.name,
+                "description": task.description,
+                "task_type": "llm_call",
+                "llm_prompt": task.llm_prompt,
+                "inputs": inputs,
+                "timeout": task.timeout_seconds,
+            },
+        )
+
+        if not result.success:
+            raise Exception(f"LLM call execution failed: {result.error}")
+
+        return result.outputs or {"result": "LLM call completed"}
 
     async def _execute_atomic(
         self,
@@ -391,7 +429,7 @@ class TaskOrchestrator:
         inputs: Dict[str, Any],
     ) -> Dict[str, Any]:
         """
-        Execute atomic task.
+        Execute atomic task via L02 AgentExecutor.
 
         Args:
             task: Atomic task
@@ -400,11 +438,30 @@ class TaskOrchestrator:
         Returns:
             Task outputs
         """
-        # TODO: Integrate with L02 Agent Runtime for execution
-        # For now, simulate execution
-        logger.info(f"Executing atomic task: {task.name} (mock)")
-        await asyncio.sleep(0.1)  # Simulate work
-        return {"result": f"Atomic task {task.name} completed", "status": "success"}
+        if not self.executor_client:
+            logger.warning(f"No L02 executor configured, using mock for atomic task")
+            await asyncio.sleep(0.1)  # Simulate work
+            return {"result": f"Atomic task {task.name} completed (mock)", "status": "success"}
+
+        logger.info(f"Executing atomic task via L02: {task.name}")
+
+        # Dispatch to L02 for execution
+        result = await self.executor_client.execute(
+            agent_id=task.assigned_agent or "default",
+            task_id=task.task_id,
+            task_config={
+                "name": task.name,
+                "description": task.description,
+                "task_type": "atomic",
+                "inputs": inputs,
+                "timeout": task.timeout_seconds,
+            },
+        )
+
+        if not result.success:
+            raise Exception(f"Atomic task execution failed: {result.error}")
+
+        return result.outputs or {"result": f"Atomic task {task.name} completed"}
 
     def get_stats(self) -> Dict[str, Any]:
         """Get orchestrator statistics."""
