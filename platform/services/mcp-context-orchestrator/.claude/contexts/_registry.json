@@ -1,0 +1,45 @@
+{
+  "version": "1.0",
+  "activeTask": "test-e2e-task",
+  "lastUpdated": "2026-01-14T22:54:00.550Z",
+  "tasks": {
+    "test-e2e-task": {
+      "name": "E2E Test Task",
+      "status": "in_progress",
+      "contextFile": "task-agents/test-e2e-task.json",
+      "tokenEstimate": 500,
+      "priority": 50,
+      "keywords": [
+        "test",
+        "e2e"
+      ],
+      "lastSession": "2026-01-14T22:54:00.500Z"
+    },
+    "test-task-integration": {
+      "name": "L01 Integration Task",
+      "status": "in_progress",
+      "contextFile": "task-agents/test-task-integration.json",
+      "tokenEstimate": 500,
+      "priority": 50,
+      "keywords": [],
+      "lastSession": "2026-01-14T17:34:12.672Z"
+    },
+    "test-task-001": {
+      "name": "Integration Test Task",
+      "status": "in_progress",
+      "contextFile": "task-agents/test-task-001.json",
+      "tokenEstimate": 500,
+      "priority": 50,
+      "keywords": [],
+      "lastSession": "2026-01-14T17:01:37.267Z"
+    },
+    "test-task-planning": {
+      "name": "L05 Planning Task",
+      "status": "pending",
+      "contextFile": "task-agents/test-task-planning.json",
+      "tokenEstimate": 500,
+      "priority": 50,
+      "keywords": []
+    }
+  }
+}

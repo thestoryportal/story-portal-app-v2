@@ -21,7 +21,7 @@ try:
     from psycopg_pool import AsyncConnectionPool
 except ImportError:
     # Fallback for older psycopg versions
-    from psycopg import AsyncConnectionPool
+    from psycopg_pool import AsyncConnectionPool
 import httpx
 
 from ..models import (
@@ -100,75 +100,77 @@ class ToolRegistry:
     async def _ensure_schema(self):
         """Ensure required database tables exist"""
         async with self.db_pool.connection() as conn:
-            async with conn.cursor() as cur:
-                # Enable pgvector extension
-                await cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
+            # Use explicit transaction
+            async with conn.transaction():
+                async with conn.cursor() as cur:
+                    # Enable pgvector extension
+                    await cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
 
-                # Create tool_definitions table
-                await cur.execute("""
-                    CREATE TABLE IF NOT EXISTS tool_definitions (
-                        tool_id VARCHAR(255) PRIMARY KEY,
-                        tool_name VARCHAR(255) NOT NULL,
-                        description TEXT NOT NULL,
-                        category VARCHAR(100) NOT NULL,
-                        tags TEXT[],
-                        latest_version VARCHAR(50) NOT NULL,
-                        source_type VARCHAR(50) NOT NULL,
-                        source_metadata JSONB,
-                        deprecation_state VARCHAR(20) DEFAULT 'active',
-                        deprecation_date TIMESTAMP,
-                        created_at TIMESTAMP DEFAULT NOW(),
-                        updated_at TIMESTAMP DEFAULT NOW(),
-                        requires_approval BOOLEAN DEFAULT FALSE,
-                        default_timeout_seconds INTEGER DEFAULT 30,
-                        default_cpu_millicore_limit INTEGER DEFAULT 500,
-                        default_memory_mb_limit INTEGER DEFAULT 1024,
-                        required_permissions JSONB,
-                        result_schema JSONB,
-                        retry_policy JSONB,
-                        circuit_breaker_config JSONB,
-                        description_embedding VECTOR(768)
-                    )
-                """)
+                    # Create tool_definitions table
+                    await cur.execute("""
+                        CREATE TABLE IF NOT EXISTS tool_definitions (
+                            tool_id VARCHAR(255) PRIMARY KEY,
+                            tool_name VARCHAR(255) NOT NULL,
+                            description TEXT NOT NULL,
+                            category VARCHAR(100) NOT NULL,
+                            tags TEXT[],
+                            latest_version VARCHAR(50) NOT NULL,
+                            source_type VARCHAR(50) NOT NULL,
+                            source_metadata JSONB,
+                            deprecation_state VARCHAR(20) DEFAULT 'active',
+                            deprecation_date TIMESTAMP,
+                            created_at TIMESTAMP DEFAULT NOW(),
+                            updated_at TIMESTAMP DEFAULT NOW(),
+                            requires_approval BOOLEAN DEFAULT FALSE,
+                            default_timeout_seconds INTEGER DEFAULT 30,
+                            default_cpu_millicore_limit INTEGER DEFAULT 500,
+                            default_memory_mb_limit INTEGER DEFAULT 1024,
+                            required_permissions JSONB,
+                            result_schema JSONB,
+                            retry_policy JSONB,
+                            circuit_breaker_config JSONB,
+                            description_embedding VECTOR(768)
+                        )
+                    """)
 
-                # Create tool_versions table
-                await cur.execute("""
-                    CREATE TABLE IF NOT EXISTS tool_versions (
-                        version_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                        tool_id VARCHAR(255) REFERENCES tool_definitions(tool_id) ON DELETE CASCADE,
-                        version VARCHAR(50) NOT NULL,
-                        manifest JSONB NOT NULL,
-                        compatibility_range VARCHAR(100),
-                        release_notes TEXT,
-                        deprecated_in_favor_of VARCHAR(50),
-                        created_at TIMESTAMP DEFAULT NOW(),
-                        removed_at TIMESTAMP,
-                        UNIQUE(tool_id, version)
-                    )
-                """)
+                    # Create tool_versions table
+                    await cur.execute("""
+                        CREATE TABLE IF NOT EXISTS tool_versions (
+                            version_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                            tool_id VARCHAR(255) REFERENCES tool_definitions(tool_id) ON DELETE CASCADE,
+                            version VARCHAR(50) NOT NULL,
+                            manifest JSONB NOT NULL,
+                            compatibility_range VARCHAR(100),
+                            release_notes TEXT,
+                            deprecated_in_favor_of VARCHAR(50),
+                            created_at TIMESTAMP DEFAULT NOW(),
+                            removed_at TIMESTAMP,
+                            UNIQUE(tool_id, version)
+                        )
+                    """)
 
-                # Create indexes
-                await cur.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_tool_category
-                    ON tool_definitions(category)
-                """)
+                    # Create indexes
+                    await cur.execute("""
+                        CREATE INDEX IF NOT EXISTS idx_tool_category
+                        ON tool_definitions(category)
+                    """)
 
-                await cur.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_tool_deprecation_state
-                    ON tool_definitions(deprecation_state)
-                """)
+                    await cur.execute("""
+                        CREATE INDEX IF NOT EXISTS idx_tool_deprecation_state
+                        ON tool_definitions(deprecation_state)
+                    """)
 
-                await cur.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_tool_description_embedding
-                    ON tool_definitions USING ivfflat (description_embedding vector_cosine_ops)
-                """)
+                    await cur.execute("""
+                        CREATE INDEX IF NOT EXISTS idx_tool_description_embedding
+                        ON tool_definitions USING ivfflat (description_embedding vector_cosine_ops)
+                    """)
 
-                await cur.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_tool_version_tool_id
-                    ON tool_versions(tool_id)
-                """)
+                    await cur.execute("""
+                        CREATE INDEX IF NOT EXISTS idx_tool_version_tool_id
+                        ON tool_versions(tool_id)
+                    """)
 
-                await conn.commit()
+                # Transaction commits automatically when exiting context
 
     async def generate_embedding(self, text: str) -> List[float]:
         """

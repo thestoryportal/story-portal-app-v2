@@ -1,0 +1,19 @@
+{
+  "taskId": "test-task-001",
+  "version": "1.0",
+  "lastUpdated": "2026-01-15T10:15:01.914Z",
+  "state": {
+    "iteration": 0,
+    "status": "in_progress",
+    "lockedElements": []
+  },
+  "immediateContext": {
+    "blockers": [],
+    "nextStep": "Verify save works",
+    "workingOn": "Full integration test",
+    "lastAction": "Running test suite"
+  },
+  "keyFiles": [],
+  "technicalDecisions": [],
+  "resumePrompt": "Continue integration testing"
+}

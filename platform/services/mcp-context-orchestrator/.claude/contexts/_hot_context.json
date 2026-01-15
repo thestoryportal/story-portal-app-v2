@@ -1,0 +1,38 @@
+{
+  "projectId": "agentic-platform",
+  "activeTaskId": "test-e2e-task",
+  "lastUpdated": "2026-01-14T22:54:00.550Z",
+  "taskContext": {
+    "taskId": "test-e2e-task",
+    "name": "E2E Test Task",
+    "status": "in_progress",
+    "currentPhase": "testing-snapshot",
+    "iteration": 5,
+    "immediateContext": {
+      "blockers": [],
+      "nextStep": "Verify snapshot saved",
+      "workingOn": "Testing save_context_snapshot",
+      "lastAction": "Updated context"
+    },
+    "keyFiles": [
+      "test-tools.mjs"
+    ],
+    "resumePrompt": "Continue E2E testing"
+  },
+  "globalContext": {
+    "hardRules": [
+      "Canvas 2D is DEPRECATED - use ElectricityOrtho only",
+      "Animation timing via React Spring"
+    ],
+    "techStack": [
+      "React 19",
+      "Three.js",
+      "PostgreSQL",
+      "Redis"
+    ],
+    "keyPaths": {
+      "contexts": ".claude/contexts/",
+      "electricity": "src/components/electricity/ortho/"
+    }
+  }
+}

@@ -103,7 +103,7 @@ class MetricsEngine:
     async def cleanup(self):
         """Cleanup metrics engine resources."""
         # Flush remaining metrics
-        await self._flush()
+        await self._flush_buffer()
 
         # Cleanup storage if we created it
         if self.storage and self._initialized:

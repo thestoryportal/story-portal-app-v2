@@ -1,0 +1,485 @@
+[
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-14T21:28:59.664Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "94a4741d"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-14T21:30:02.085Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "8a37c6e0"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-14T21:30:41.640Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "7f657508"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-14T21:35:24.827Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "ce482632"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-14T21:49:15.997Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "578800ff"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-14T21:53:06.199Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "f21886a5"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-14T21:55:50.678Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "4751dc73"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-14T23:01:09.820Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "a0a7d7c7"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-14T23:02:10.576Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "0e3afda5"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-14T23:09:46.985Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "ec398262"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-14T23:24:57.235Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "792396df"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-14T23:27:58.551Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "d6ad5e20"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-14T23:38:54.499Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "9048ce7a"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-14T23:39:15.862Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "e256ee8e"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-14T23:50:54.002Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "993c9eb4"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-14T23:51:13.373Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "bd9535d3"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-14T23:51:58.198Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "16f88028"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-14T23:55:35.810Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "5c6a5d5e"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T00:11:18.840Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "4a3682fe"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T00:28:42.092Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "53342741"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T00:36:11.239Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "31c25bf6"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T00:38:42.755Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "975af1fb"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T00:39:03.463Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "e256ee8e"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T00:44:24.059Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "a15bd632"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T00:48:37.658Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "e90b916b"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T00:48:53.878Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "31fbef16"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T00:55:47.242Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "e389870c"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T01:00:29.575Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "314ba77d"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T01:01:46.493Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "e42874cb"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T01:03:24.421Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "92f9395d"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T01:12:59.903Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "d63268dc"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T02:16:57.026Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "d8ee2f66"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T02:32:59.128Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "a7707d36"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T02:43:53.883Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "2130cd2d"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T02:50:46.954Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "ee4cdaa2"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T02:51:29.614Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "6881ad6f"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T03:02:42.767Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "d6a50994"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T03:43:54.182Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "859102fd"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T03:54:08.407Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "0495dfd4"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T03:59:49.695Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "d5489aef"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T04:15:23.855Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "bcd392a5"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T04:18:44.460Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "993c9eb4"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T04:20:45.291Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "015885fc"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T04:23:11.230Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "16f88028"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T04:26:36.032Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "e2974e7b"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T05:24:16.747Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "c0a998f2"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T05:42:51.486Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "e38fcad1"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T05:51:26.570Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "993c9eb4"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T05:53:04.353Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "c32f2b1a"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T06:19:34.785Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "e04b06ee"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T06:54:30.826Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "d9ad1587"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T07:01:37.398Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "a1bbfbd6"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T07:15:52.279Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "ef06dd38"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T07:21:49.851Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "e12e093e"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T07:24:14.138Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "99dd1452"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T07:24:45.989Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "1f9f210d"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T07:25:36.488Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "16f88028"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T07:35:49.539Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "0c6f7eeb"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T07:51:06.961Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "27cda0bc"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T08:19:20.980Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "4996e2ae"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T08:24:01.037Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "115a490b"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T08:27:02.328Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "7990108f"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T08:29:31.680Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "01be1cad"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T08:32:29.690Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "d3815627"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T08:44:10.091Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "bc7404d5"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T08:49:26.640Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "993c9eb4"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T08:50:26.638Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "c32f2b1a"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T09:01:53.427Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "edfc68ca"
+  },
+  {
+    "sessionId": "1dce63d7-027f-41e2-b611-3239002c8038",
+    "timestamp": "2026-01-15T09:06:44.287Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "1b3fa7e1"
+  }
+]
