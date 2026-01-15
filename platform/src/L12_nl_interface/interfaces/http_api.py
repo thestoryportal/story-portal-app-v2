@@ -36,6 +36,7 @@ from ..routing.exact_matcher import ExactMatcher
 from ..routing.fuzzy_matcher import FuzzyMatcher, ServiceMatch
 from ..services.memory_monitor import MemoryMonitor
 from ..services.l01_bridge import L12Bridge
+from ..services.command_history import CommandHistory
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +121,14 @@ async def lifespan(app: FastAPI):
     )
     await l01_bridge.start()
 
+    # Initialize CommandHistory for command replay
+    command_history = CommandHistory(
+        redis_host="localhost",
+        redis_port=6379,
+        enabled=True,
+    )
+    await command_history.connect()
+
     # Initialize routing
     exact_matcher = ExactMatcher(registry)
     fuzzy_matcher = FuzzyMatcher(
@@ -127,7 +136,8 @@ async def lifespan(app: FastAPI):
         use_semantic=settings.use_semantic_matching,
     )
     command_router = CommandRouter(
-        registry, factory, session_manager, exact_matcher, fuzzy_matcher, l01_bridge
+        registry, factory, session_manager, exact_matcher, fuzzy_matcher,
+        l01_bridge, command_history
     )
 
     # Store in app state
@@ -140,6 +150,7 @@ async def lifespan(app: FastAPI):
     _app_state["fuzzy_matcher"] = fuzzy_matcher
     _app_state["command_router"] = command_router
     _app_state["l01_bridge"] = l01_bridge
+    _app_state["command_history"] = command_history
 
     logger.info(
         f"L12 HTTP API started: {len(registry.list_all_services())} services loaded"
@@ -149,6 +160,7 @@ async def lifespan(app: FastAPI):
 
     # Cleanup on shutdown
     logger.info("L12 HTTP API shutting down...")
+    await command_history.disconnect()
     await l01_bridge.stop()
     await session_manager.stop()
     logger.info("L12 HTTP API stopped")

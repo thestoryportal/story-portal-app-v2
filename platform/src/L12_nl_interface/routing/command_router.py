@@ -35,6 +35,7 @@ from ..models.command_models import (
 )
 from ..models.service_metadata import ServiceMetadata
 from ..services.l01_bridge import L12Bridge
+from ..services.command_history import CommandHistory
 from .exact_matcher import ExactMatcher
 from .fuzzy_matcher import FuzzyMatcher, ServiceMatch
 
@@ -74,6 +75,7 @@ class CommandRouter:
         exact_matcher: ExactMatcher,
         fuzzy_matcher: FuzzyMatcher,
         l01_bridge: Optional[L12Bridge] = None,
+        command_history: Optional[CommandHistory] = None,
     ):
         """Initialize the command router.
 
@@ -84,6 +86,7 @@ class CommandRouter:
             exact_matcher: ExactMatcher instance
             fuzzy_matcher: FuzzyMatcher instance
             l01_bridge: Optional L12Bridge for usage tracking
+            command_history: Optional CommandHistory for command replay
         """
         self.registry = registry
         self.factory = factory
@@ -91,6 +94,7 @@ class CommandRouter:
         self.exact_matcher = exact_matcher
         self.fuzzy_matcher = fuzzy_matcher
         self.l01_bridge = l01_bridge
+        self.command_history = command_history
 
         logger.info("CommandRouter initialized")
 
@@ -239,6 +243,20 @@ class CommandRouter:
                             result=result,
                             execution_time_ms=execution_time_ms,
                             status="success",
+                        )
+                    )
+
+                # Record to command history if available
+                if self.command_history:
+                    asyncio.create_task(
+                        self.command_history.add_command(
+                            session_id=request.session_id,
+                            service_name=service_metadata.service_name,
+                            method_name=request.method_name,
+                            parameters=request.parameters,
+                            status="success",
+                            execution_time_ms=execution_time_ms,
+                            result=result,
                         )
                     )
 
@@ -475,6 +493,20 @@ class CommandRouter:
                     result=message,
                     execution_time_ms=0.0,  # Not tracked for errors
                     status="error",
+                )
+            )
+
+        # Record error to command history if available
+        if self.command_history:
+            asyncio.create_task(
+                self.command_history.add_command(
+                    session_id=session_id,
+                    service_name=service_name,
+                    method_name=method_name,
+                    parameters={},  # Parameters not available in error path
+                    status="error",
+                    execution_time_ms=0.0,  # Not tracked for errors
+                    result=message,
                 )
             )
 
