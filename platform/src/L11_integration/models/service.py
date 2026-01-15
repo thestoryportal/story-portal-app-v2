@@ -5,7 +5,7 @@ Models for service discovery, registration, and health tracking.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, Dict, Any
 from uuid import uuid4
@@ -56,7 +56,7 @@ class ServiceInfo:
     endpoint: str  # Base URL or connection string (e.g., "http://localhost:8002")
     status: ServiceStatus = ServiceStatus.UNKNOWN
     health_check: Optional[HealthCheck] = None
-    registered_at: datetime = field(default_factory=datetime.utcnow)
+    registered_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     last_health_check: Optional[datetime] = None
     last_heartbeat: Optional[datetime] = None
     metadata: Dict[str, Any] = field(default_factory=dict)  # Additional service metadata
@@ -82,7 +82,7 @@ class ServiceInfo:
             endpoint=endpoint,
             status=ServiceStatus.UNKNOWN,
             health_check=health_check,
-            registered_at=datetime.utcnow(),
+            registered_at=datetime.now(timezone.utc),
             metadata=metadata or {},
             capabilities=capabilities or [],
             tags=tags or [],
@@ -91,11 +91,11 @@ class ServiceInfo:
     def update_health(self, status: ServiceStatus) -> None:
         """Update health status and timestamp."""
         self.status = status
-        self.last_health_check = datetime.utcnow()
+        self.last_health_check = datetime.now(timezone.utc)
 
     def update_heartbeat(self) -> None:
         """Update heartbeat timestamp."""
-        self.last_heartbeat = datetime.utcnow()
+        self.last_heartbeat = datetime.now(timezone.utc)
 
     def is_healthy(self) -> bool:
         """Check if service is healthy."""

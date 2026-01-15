@@ -5,7 +5,7 @@ Models for circuit breaker pattern implementation for failure isolation.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -50,7 +50,7 @@ class CircuitBreakerState:
     closed_at: Optional[datetime] = None  # When circuit was closed
     total_requests: int = 0  # Total requests in current window
     failed_requests: int = 0  # Failed requests in current window
-    window_start: datetime = field(default_factory=datetime.utcnow)
+    window_start: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     config: CircuitBreakerConfig = field(default_factory=CircuitBreakerConfig)
 
     def record_success(self) -> None:
@@ -58,13 +58,13 @@ class CircuitBreakerState:
         self.total_requests += 1
         self.success_count += 1
         self.failure_count = 0  # Reset failure count on success
-        self.last_success_time = datetime.utcnow()
+        self.last_success_time = datetime.now(timezone.utc)
 
         # Transition from HALF_OPEN to CLOSED if threshold met
         if self.state == CircuitState.HALF_OPEN:
             if self.success_count >= self.config.success_threshold:
                 self.state = CircuitState.CLOSED
-                self.closed_at = datetime.utcnow()
+                self.closed_at = datetime.now(timezone.utc)
                 self.success_count = 0
                 self.failed_requests = 0  # Reset error tracking
 
@@ -74,7 +74,7 @@ class CircuitBreakerState:
         self.failed_requests += 1
         self.failure_count += 1
         self.success_count = 0  # Reset success count on failure
-        self.last_failure_time = datetime.utcnow()
+        self.last_failure_time = datetime.now(timezone.utc)
 
         # Transition from CLOSED to OPEN if threshold exceeded
         if self.state == CircuitState.CLOSED:
@@ -82,12 +82,12 @@ class CircuitBreakerState:
             if (self.failure_count >= self.config.failure_threshold or
                 error_rate >= self.config.error_rate_threshold):
                 self.state = CircuitState.OPEN
-                self.opened_at = datetime.utcnow()
+                self.opened_at = datetime.now(timezone.utc)
 
         # Transition from HALF_OPEN back to OPEN on failure
         elif self.state == CircuitState.HALF_OPEN:
             self.state = CircuitState.OPEN
-            self.opened_at = datetime.utcnow()
+            self.opened_at = datetime.now(timezone.utc)
 
     def can_attempt_request(self) -> bool:
         """Check if a request can be attempted given current circuit state."""
@@ -97,10 +97,10 @@ class CircuitBreakerState:
         if self.state == CircuitState.OPEN:
             # Check if timeout has elapsed to try half-open
             if self.opened_at:
-                elapsed = (datetime.utcnow() - self.opened_at).total_seconds()
+                elapsed = (datetime.now(timezone.utc) - self.opened_at).total_seconds()
                 if elapsed >= self.config.timeout_sec:
                     self.state = CircuitState.HALF_OPEN
-                    self.half_opened_at = datetime.utcnow()
+                    self.half_opened_at = datetime.now(timezone.utc)
                     self.success_count = 0
                     self.failure_count = 0
                     return True
@@ -120,11 +120,11 @@ class CircuitBreakerState:
 
     def reset_window(self) -> None:
         """Reset the time window for error rate calculation."""
-        elapsed = (datetime.utcnow() - self.window_start).total_seconds()
+        elapsed = (datetime.now(timezone.utc) - self.window_start).total_seconds()
         if elapsed >= self.config.window_size_sec:
             self.total_requests = 0
             self.failed_requests = 0
-            self.window_start = datetime.utcnow()
+            self.window_start = datetime.now(timezone.utc)
 
     def to_dict(self) -> dict:
         """Convert to dictionary for serialization."""

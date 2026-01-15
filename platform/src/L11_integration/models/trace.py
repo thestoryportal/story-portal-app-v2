@@ -5,7 +5,7 @@ Models for distributed tracing and request correlation.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, Dict, Any
 from uuid import uuid4
@@ -139,7 +139,7 @@ class TraceSpan:
     span_kind: SpanKind = SpanKind.INTERNAL
     service_name: Optional[str] = None  # Service that created this span
     status: SpanStatus = SpanStatus.UNSET
-    start_time: datetime = field(default_factory=datetime.utcnow)
+    start_time: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     end_time: Optional[datetime] = None
     duration_ms: Optional[float] = None
     attributes: Dict[str, Any] = field(default_factory=dict)  # Span attributes
@@ -148,7 +148,7 @@ class TraceSpan:
 
     def end(self, status: SpanStatus = SpanStatus.OK, error: Optional[str] = None) -> None:
         """End the span and calculate duration."""
-        self.end_time = datetime.utcnow()
+        self.end_time = datetime.now(timezone.utc)
         self.status = status
         self.error = error
         if self.end_time and self.start_time:
@@ -159,7 +159,7 @@ class TraceSpan:
         """Add an event to the span."""
         self.events.append({
             "name": name,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "attributes": attributes or {},
         })
 
@@ -198,7 +198,7 @@ class Metric:
     metric_type: str  # "counter", "gauge", "histogram"
     value: float  # Metric value
     labels: Dict[str, str] = field(default_factory=dict)  # Metric labels
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     unit: Optional[str] = None  # Unit of measurement (e.g., "seconds", "bytes")
 
     def to_dict(self) -> dict:

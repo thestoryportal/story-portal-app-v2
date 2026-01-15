@@ -5,7 +5,7 @@ Models for event-driven integration across layers.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, Dict, Any, Callable, Awaitable
 from uuid import uuid4
@@ -29,7 +29,7 @@ class EventMetadata:
     trace_id: Optional[str] = None  # Distributed tracing ID
     correlation_id: Optional[str] = None  # Request correlation ID
     source_service: Optional[str] = None  # Service that published the event
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     priority: EventPriority = EventPriority.NORMAL
     retry_count: int = 0  # Number of delivery attempts
     max_retries: int = 3  # Maximum retry attempts
@@ -108,7 +108,7 @@ class EventMessage:
             correlation_id=metadata_dict.get("correlation_id"),
             source_service=metadata_dict.get("source_service"),
             timestamp=datetime.fromisoformat(metadata_dict["timestamp"])
-                if "timestamp" in metadata_dict else datetime.utcnow(),
+                if "timestamp" in metadata_dict else datetime.now(timezone.utc),
             priority=EventPriority(metadata_dict.get("priority", "normal")),
             retry_count=metadata_dict.get("retry_count", 0),
             max_retries=metadata_dict.get("max_retries", 3),
@@ -143,7 +143,7 @@ class EventSubscription:
     topic: str = ""  # Topic pattern (supports wildcards like "agent.*")
     handler: Optional[EventHandler] = None  # Async handler function
     service_name: Optional[str] = None  # Service that created this subscription
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     active: bool = True  # Whether subscription is active
 
     def matches_topic(self, topic: str) -> bool:

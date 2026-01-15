@@ -5,6 +5,7 @@ Tests for event pub/sub, saga orchestration, and service registry.
 """
 
 import pytest
+import pytest_asyncio
 import asyncio
 from typing import Dict, Any
 
@@ -28,7 +29,7 @@ from ..services import (
 )
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def service_registry():
     """Create service registry fixture."""
     registry = ServiceRegistry()
@@ -37,7 +38,7 @@ async def service_registry():
     await registry.stop()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def event_bus():
     """Create event bus fixture."""
     bus = EventBusManager(redis_url="redis://localhost:6379")
@@ -46,13 +47,13 @@ async def event_bus():
     await bus.stop()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def circuit_breaker():
     """Create circuit breaker fixture."""
     return CircuitBreaker()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def request_orchestrator(service_registry, circuit_breaker):
     """Create request orchestrator fixture."""
     orchestrator = RequestOrchestrator(service_registry, circuit_breaker)
@@ -61,7 +62,7 @@ async def request_orchestrator(service_registry, circuit_breaker):
     await orchestrator.stop()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def saga_orchestrator(request_orchestrator):
     """Create saga orchestrator fixture."""
     return SagaOrchestrator(request_orchestrator)

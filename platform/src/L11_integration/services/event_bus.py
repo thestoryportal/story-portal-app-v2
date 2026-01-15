@@ -59,6 +59,9 @@ class EventBusManager:
             # Start listening task
             self._listen_task = asyncio.create_task(self._listen_loop())
 
+            # Give the listen loop time to start
+            await asyncio.sleep(0.1)
+
             logger.info(f"Event bus started (Redis: {self._redis_url})")
         except Exception as e:
             raise IntegrationError.from_code(
@@ -83,7 +86,7 @@ class EventBusManager:
         # Unsubscribe from all topics
         if self._pubsub:
             await self._pubsub.unsubscribe()
-            await self._pubsub.close()
+            await self._pubsub.aclose()
 
         # Close Redis connection
         if self._redis_client:
@@ -242,17 +245,47 @@ class EventBusManager:
         logger.info("Event bus listening for messages...")
 
         try:
-            async for message in self._pubsub.listen():
-                if not self._running:
-                    break
+            while self._running:
+                try:
+                    # Check if we have any subscriptions
+                    async with self._lock:
+                        has_subscriptions = len(self._subscriptions) > 0
 
-                if message["type"] in ("message", "pmessage"):
-                    await self._handle_message(message)
+                    if not has_subscriptions:
+                        # No subscriptions yet, wait a bit
+                        await asyncio.sleep(0.1)
+                        continue
+
+                    # Get message with timeout
+                    message = await self._pubsub.get_message(
+                        ignore_subscribe_messages=False,
+                        timeout=1.0,
+                    )
+
+                    if message:
+                        logger.debug(f"Received Redis message: type={message.get('type')}, channel={message.get('channel')}, data={message.get('data')}")
+
+                        # Handle actual messages (not subscription confirmations)
+                        if message["type"] in ("message", "pmessage"):
+                            await self._handle_message(message)
+
+                    # Small sleep to prevent busy loop
+                    await asyncio.sleep(0.01)
+
+                except asyncio.TimeoutError:
+                    # No message received, continue loop
+                    continue
+                except RuntimeError as e:
+                    # Handle "pubsub connection not set" error
+                    if "pubsub connection not set" in str(e):
+                        await asyncio.sleep(0.1)
+                        continue
+                    raise
 
         except asyncio.CancelledError:
             logger.info("Event bus listen loop cancelled")
         except Exception as e:
-            logger.error(f"Error in event bus listen loop: {e}")
+            logger.error(f"Error in event bus listen loop: {e}", exc_info=True)
 
     async def _handle_message(self, message: dict) -> None:
         """
@@ -270,6 +303,8 @@ class EventBusManager:
 
             data = message["data"]
 
+            logger.debug(f"Handling message: topic={topic}, data_len={len(data) if data else 0}")
+
             # Deserialize event
             event = EventMessage.from_json(data)
 
@@ -280,13 +315,16 @@ class EventBusManager:
                     if sub.active and sub.matches_topic(topic)
                 ]
 
+            logger.debug(f"Found {len(matching_subs)} matching subscriptions for topic {topic}")
+
             # Dispatch to handlers
             for subscription in matching_subs:
                 if subscription.handler:
+                    logger.debug(f"Dispatching to handler for subscription {subscription.subscription_id}")
                     asyncio.create_task(self._invoke_handler(subscription, event))
 
         except Exception as e:
-            logger.error(f"Error handling message: {e}")
+            logger.error(f"Error handling message: {e}", exc_info=True)
 
     async def _invoke_handler(
         self,

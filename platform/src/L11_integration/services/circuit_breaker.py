@@ -5,9 +5,10 @@ Circuit breaker pattern for failure isolation and fast-fail behavior.
 """
 
 import asyncio
+import inspect
 import logging
 from typing import Dict, Callable, TypeVar, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..models import (
     CircuitBreakerState,
@@ -107,7 +108,7 @@ class CircuitBreaker:
         # Execute function
         try:
             # Handle both sync and async functions
-            if asyncio.iscoroutinefunction(func):
+            if inspect.iscoroutinefunction(func):
                 result = await func(*args, **kwargs)
             else:
                 result = func(*args, **kwargs)
@@ -199,7 +200,7 @@ class CircuitBreaker:
                 circuit.failure_count = 0
                 circuit.success_count = 0
                 circuit.failed_requests = 0
-                circuit.closed_at = datetime.utcnow()
+                circuit.closed_at = datetime.now(timezone.utc)
                 logger.info(f"Manually reset circuit breaker for {service_name}")
 
     async def remove_circuit(self, service_name: str) -> None:

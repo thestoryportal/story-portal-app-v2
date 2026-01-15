@@ -7,7 +7,7 @@ Trace and metric aggregation for system-wide observability.
 import asyncio
 import logging
 from typing import Dict, List, Optional, Any
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 
 from ..models import (
@@ -230,7 +230,7 @@ class ObservabilityCollector:
 
             # Prepare data
             data = {
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "spans": [s.to_dict() for s in self._spans],
                 "metrics": [m.to_dict() for m in self._metrics],
             }

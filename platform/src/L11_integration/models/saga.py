@@ -5,7 +5,7 @@ Models for multi-step workflow orchestration with compensation.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, Dict, Any, Callable, Awaitable
 from uuid import uuid4
@@ -69,18 +69,18 @@ class SagaStep:
     def start(self) -> None:
         """Mark step as started."""
         self.status = StepStatus.RUNNING
-        self.started_at = datetime.utcnow()
+        self.started_at = datetime.now(timezone.utc)
 
     def complete(self, output: Optional[Dict[str, Any]] = None) -> None:
         """Mark step as completed."""
         self.status = StepStatus.COMPLETED
-        self.completed_at = datetime.utcnow()
+        self.completed_at = datetime.now(timezone.utc)
         self.output = output or {}
 
     def fail(self, error: str) -> None:
         """Mark step as failed."""
         self.status = StepStatus.FAILED
-        self.completed_at = datetime.utcnow()
+        self.completed_at = datetime.now(timezone.utc)
         self.error = error
 
     def compensate(self) -> None:
@@ -172,17 +172,17 @@ class SagaExecution:
     def start(self) -> None:
         """Start saga execution."""
         self.status = SagaStatus.RUNNING
-        self.started_at = datetime.utcnow()
+        self.started_at = datetime.now(timezone.utc)
 
     def complete(self) -> None:
         """Complete saga execution."""
         self.status = SagaStatus.COMPLETED
-        self.completed_at = datetime.utcnow()
+        self.completed_at = datetime.now(timezone.utc)
 
     def fail(self, error: str) -> None:
         """Fail saga execution."""
         self.status = SagaStatus.FAILED
-        self.completed_at = datetime.utcnow()
+        self.completed_at = datetime.now(timezone.utc)
         self.error = error
 
     def start_compensation(self) -> None:
@@ -205,7 +205,7 @@ class SagaExecution:
     def is_timeout(self) -> bool:
         """Check if saga has exceeded timeout."""
         if self.started_at:
-            elapsed = (datetime.utcnow() - self.started_at).total_seconds()
+            elapsed = (datetime.now(timezone.utc) - self.started_at).total_seconds()
             return elapsed > self.saga_definition.timeout_sec
         return False
 
