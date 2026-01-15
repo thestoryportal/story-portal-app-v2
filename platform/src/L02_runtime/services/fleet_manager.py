@@ -10,7 +10,7 @@ Based on Section 3.3.10 of agent-runtime-layer-specification-v1.2-final-ASCII.md
 import asyncio
 import logging
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass
 
 from ..models import AgentConfig, AgentState, SpawnResult
@@ -176,7 +176,7 @@ class FleetManager:
                 else self.scale_down_stabilization
             )
             time_since_last_scale = (
-                datetime.utcnow() - self._last_scale_action_time
+                datetime.now(timezone.utc) - self._last_scale_action_time
             ).total_seconds()
 
             if time_since_last_scale < stabilization_period:
@@ -236,7 +236,7 @@ class FleetManager:
             for i in range(count):
                 # Create agent config
                 agent_config = AgentConfig(
-                    agent_id=f"agent-{datetime.utcnow().timestamp()}-{i}",
+                    agent_id=f"agent-{datetime.now(timezone.utc).timestamp()}-{i}",
                     trust_level=config_template.trust_level,
                     resource_limits=config_template.resource_limits,
                     tools=config_template.tools,
@@ -250,12 +250,12 @@ class FleetManager:
                 # Track instance
                 self._active_instances[result.agent_id] = {
                     "agent_id": result.agent_id,
-                    "spawned_at": datetime.utcnow(),
+                    "spawned_at": datetime.now(timezone.utc),
                     "state": result.state,
                 }
 
             self._current_replicas = target_replicas
-            self._last_scale_action_time = datetime.utcnow()
+            self._last_scale_action_time = datetime.now(timezone.utc)
 
             logger.info(f"Scale up complete: spawned {count} instances")
 
@@ -303,7 +303,7 @@ class FleetManager:
             # Select instances to terminate (oldest first)
             instances_sorted = sorted(
                 self._active_instances.items(),
-                key=lambda x: x[1].get("spawned_at", datetime.utcnow())
+                key=lambda x: x[1].get("spawned_at", datetime.now(timezone.utc))
             )
 
             terminated_ids = []
@@ -322,7 +322,7 @@ class FleetManager:
                 terminated_ids.append(agent_id)
 
             self._current_replicas = target_replicas
-            self._last_scale_action_time = datetime.utcnow()
+            self._last_scale_action_time = datetime.now(timezone.utc)
 
             logger.info(f"Scale down complete: terminated {count} instances")
 
@@ -354,7 +354,7 @@ class FleetManager:
                         session_id=instance.get("session_id", ""),
                         state=AgentState.SUSPENDED,
                         context={"drain_reason": "scale_down"},
-                        metadata={"drain_initiated_at": datetime.utcnow().isoformat()},
+                        metadata={"drain_initiated_at": datetime.now(timezone.utc).isoformat()},
                     )
 
             # Wait for drain timeout (TODO: implement actual drain logic)

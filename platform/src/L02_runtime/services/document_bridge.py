@@ -10,8 +10,11 @@ Based on Section 3.3.7 of agent-runtime-layer-specification-v1.2-final-ASCII.md
 import asyncio
 import json
 import logging
+import os
 from typing import Dict, Any, Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+from .mcp_client import MCPClient, MCPToolResult
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +64,21 @@ class DocumentBridge:
         self.cache_ttl = self.config.get("cache_ttl_seconds", 300)
         self.verify_claims = self.config.get("verify_claims", True)
 
+        # MCP server configuration
+        mcp_base_path = self.config.get(
+            "mcp_base_path",
+            "/Volumes/Extreme SSD/projects/story-portal-app/platform/services/mcp-document-consolidator"
+        )
+        server_script = os.path.join(mcp_base_path, "dist/index.js")
+
+        # Initialize MCP client
+        mcp_timeout = self.config.get("mcp_timeout_seconds", 30)
+        self.mcp_client = MCPClient(
+            server_command=["node", server_script],
+            server_name="document-consolidator",
+            timeout_seconds=mcp_timeout
+        )
+
         # Query cache: query_key -> (result, expiry_time)
         self._cache: Dict[str, tuple] = {}
 
@@ -71,19 +89,17 @@ class DocumentBridge:
 
     async def initialize(self) -> None:
         """Initialize document bridge"""
-        # Check if MCP server is accessible
+        # Connect to MCP server
         try:
-            # Verify connection with a simple query
-            result = await self._call_mcp_tool(
-                "search_hybrid",
-                {
-                    "query": "test",
-                    "limit": 1,
-                }
-            )
-            logger.info("MCP document-consolidator connection verified")
+            connected = await self.mcp_client.connect()
+            if connected:
+                # Verify connection by listing tools
+                tools = await self.mcp_client.list_tools()
+                logger.info(f"MCP document-consolidator connected with {len(tools)} tools available")
+            else:
+                logger.warning("Failed to connect to MCP document-consolidator, using stub mode")
         except Exception as e:
-            logger.warning(f"Failed to verify MCP connection: {e}")
+            logger.warning(f"Failed to verify MCP connection: {e}, using stub mode")
 
         logger.info("DocumentBridge initialization complete")
 
@@ -354,24 +370,37 @@ class DocumentBridge:
         Raises:
             Exception: If tool call fails
         """
-        # For MCP integration, we would use stdio communication
-        # For now, create a stub implementation that logs the call
-
         logger.debug(f"MCP tool call: {tool_name} with params: {parameters}")
 
-        # TODO: Implement actual MCP stdio communication
-        # This would involve:
-        # 1. Start MCP server as subprocess if not running
-        # 2. Send JSON-RPC request via stdin
-        # 3. Read JSON-RPC response from stdout
-        # 4. Parse and return result
+        try:
+            # Call tool via MCP client
+            result: MCPToolResult = await self.mcp_client.call_tool(
+                tool_name=tool_name,
+                arguments=parameters
+            )
 
-        # Stub response
-        return {
-            "success": True,
-            "tool": tool_name,
-            "documents": [],
-        }
+            if result.success:
+                logger.debug(f"MCP tool {tool_name} succeeded in {result.execution_time_ms:.2f}ms")
+                return result.result if result.result else {"success": True}
+            else:
+                logger.error(f"MCP tool {tool_name} failed: {result.error}")
+                # Return stub response on failure for graceful degradation
+                return {
+                    "success": False,
+                    "error": result.error,
+                    "tool": tool_name,
+                    "documents": [],
+                }
+
+        except Exception as e:
+            logger.error(f"MCP tool call exception: {tool_name}: {e}")
+            # Return stub response on exception for graceful degradation
+            return {
+                "success": False,
+                "error": str(e),
+                "tool": tool_name,
+                "documents": [],
+            }
 
     def _get_cache_key(
         self,
@@ -389,7 +418,7 @@ class DocumentBridge:
         """Get result from cache if not expired"""
         if cache_key in self._cache:
             result, expiry = self._cache[cache_key]
-            if datetime.utcnow() < expiry:
+            if datetime.now(timezone.utc) < expiry:
                 return result
             else:
                 # Expired, remove from cache
@@ -402,7 +431,7 @@ class DocumentBridge:
         result: List[Dict[str, Any]]
     ) -> None:
         """Add result to cache with expiry"""
-        expiry = datetime.utcnow() + timedelta(seconds=self.cache_ttl)
+        expiry = datetime.now(timezone.utc) + timedelta(seconds=self.cache_ttl)
         self._cache[cache_key] = (result, expiry)
 
     async def clear_cache(self) -> None:
@@ -414,4 +443,7 @@ class DocumentBridge:
         """Cleanup document bridge"""
         logger.info("Cleaning up DocumentBridge")
         self._cache.clear()
+
+        # Disconnect MCP client
+        await self.mcp_client.disconnect()
         logger.info("DocumentBridge cleanup complete")

@@ -11,10 +11,12 @@ import asyncio
 import json
 import logging
 import subprocess
+import os
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..models import AgentState
+from .mcp_client import MCPClient, MCPToolResult
 
 
 logger = logging.getLogger(__name__)
@@ -70,14 +72,18 @@ class SessionBridge:
         self.backoff_multiplier = retry_policy.get("backoff_multiplier", 2)
 
         # MCP server configuration
-        self.mcp_server_path = self.config.get(
-            "mcp_server_path",
-            "node"
+        mcp_base_path = self.config.get(
+            "mcp_base_path",
+            "/Volumes/Extreme SSD/projects/story-portal-app/platform/services/mcp-context-orchestrator"
         )
-        self.mcp_server_script = self.config.get(
-            "mcp_server_script",
-            "/Volumes/Extreme SSD/projects/story-portal-app/platform/services/"
-            "mcp-context-orchestrator/src/index.ts"
+        server_script = os.path.join(mcp_base_path, "dist/index.js")
+
+        # Initialize MCP client
+        mcp_timeout = self.config.get("mcp_timeout_seconds", 30)
+        self.mcp_client = MCPClient(
+            server_command=["node", server_script],
+            server_name="context-orchestrator",
+            timeout_seconds=mcp_timeout
         )
 
         # Active sessions: session_id -> session data
@@ -93,15 +99,17 @@ class SessionBridge:
 
     async def initialize(self) -> None:
         """Initialize session bridge"""
-        # Check if MCP server is accessible
+        # Connect to MCP server
         try:
-            result = await self._call_mcp_tool(
-                "check_recovery",
-                {}
-            )
-            logger.info("MCP context-orchestrator connection verified")
+            connected = await self.mcp_client.connect()
+            if connected:
+                # Verify connection with check_recovery call
+                result = await self._call_mcp_tool("check_recovery", {})
+                logger.info("MCP context-orchestrator connection verified")
+            else:
+                logger.warning("Failed to connect to MCP context-orchestrator, using stub mode")
         except Exception as e:
-            logger.warning(f"Failed to verify MCP connection: {e}")
+            logger.warning(f"Failed to verify MCP connection: {e}, using stub mode")
 
         logger.info("SessionBridge initialization complete")
 
@@ -153,8 +161,8 @@ class SessionBridge:
             self._sessions[session_id] = {
                 "agent_id": agent_id,
                 "session_id": session_id,
-                "started_at": datetime.utcnow(),
-                "last_heartbeat": datetime.utcnow(),
+                "started_at": datetime.now(timezone.utc),
+                "last_heartbeat": datetime.now(timezone.utc),
             }
 
             # Start heartbeat task
@@ -362,7 +370,7 @@ class SessionBridge:
 
                 # Update last heartbeat time
                 if session_id in self._sessions:
-                    self._sessions[session_id]["last_heartbeat"] = datetime.utcnow()
+                    self._sessions[session_id]["last_heartbeat"] = datetime.now(timezone.utc)
 
                 logger.debug(f"Heartbeat sent for session {session_id}")
 
@@ -391,24 +399,35 @@ class SessionBridge:
         Raises:
             Exception: If tool call fails
         """
-        # For MCP integration, we would use stdio communication
-        # For now, create a stub implementation that logs the call
-
         logger.debug(f"MCP tool call: {tool_name} with params: {parameters}")
 
-        # TODO: Implement actual MCP stdio communication
-        # This would involve:
-        # 1. Start MCP server as subprocess if not running
-        # 2. Send JSON-RPC request via stdin
-        # 3. Read JSON-RPC response from stdout
-        # 4. Parse and return result
+        try:
+            # Call tool via MCP client
+            result: MCPToolResult = await self.mcp_client.call_tool(
+                tool_name=tool_name,
+                arguments=parameters
+            )
 
-        # Stub response
-        return {
-            "success": True,
-            "tool": tool_name,
-            "result": {},
-        }
+            if result.success:
+                logger.debug(f"MCP tool {tool_name} succeeded in {result.execution_time_ms:.2f}ms")
+                return result.result if result.result else {"success": True}
+            else:
+                logger.error(f"MCP tool {tool_name} failed: {result.error}")
+                # Return stub response on failure for graceful degradation
+                return {
+                    "success": False,
+                    "error": result.error,
+                    "tool": tool_name,
+                }
+
+        except Exception as e:
+            logger.error(f"MCP tool call exception: {tool_name}: {e}")
+            # Return stub response on exception for graceful degradation
+            return {
+                "success": False,
+                "error": str(e),
+                "tool": tool_name,
+            }
 
     async def get_active_sessions(self) -> List[str]:
         """
@@ -420,17 +439,33 @@ class SessionBridge:
         return list(self._sessions.keys())
 
     async def cleanup(self) -> None:
-        """Cleanup session bridge"""
+        """Cleanup session bridge with timeout protection"""
         logger.info("Cleaning up SessionBridge")
 
-        # Stop all heartbeat tasks
+        # Stop all heartbeat tasks with timeout
         for session_id in list(self._heartbeat_tasks.keys()):
             try:
-                await self.stop_session(session_id, reason="cleanup")
+                await asyncio.wait_for(
+                    self.stop_session(session_id, reason="cleanup"),
+                    timeout=1.0
+                )
+            except asyncio.TimeoutError:
+                logger.warning(f"Timeout stopping session {session_id}")
+                # Force cancel the heartbeat task
+                if session_id in self._heartbeat_tasks:
+                    self._heartbeat_tasks[session_id].cancel()
             except Exception as e:
                 logger.error(f"Error stopping session {session_id}: {e}")
 
         self._sessions.clear()
         self._heartbeat_tasks.clear()
+
+        # Disconnect MCP client with timeout
+        try:
+            await asyncio.wait_for(self.mcp_client.disconnect(), timeout=1.0)
+        except asyncio.TimeoutError:
+            logger.warning("Timeout disconnecting MCP client")
+        except Exception as e:
+            logger.error(f"Error disconnecting MCP client: {e}")
 
         logger.info("SessionBridge cleanup complete")

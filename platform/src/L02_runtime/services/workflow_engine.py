@@ -10,7 +10,7 @@ Based on Section 3.3.2 of agent-runtime-layer-specification-v1.2-final-ASCII.md
 import asyncio
 import logging
 from typing import Dict, Any, Optional, List, Callable, Set
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -165,7 +165,7 @@ class WorkflowEngine:
             workflow_id=workflow_id,
             graph=graph,
             state=initial_state or {},
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
         )
 
         self._active_executions[workflow_id] = context
@@ -177,7 +177,7 @@ class WorkflowEngine:
                 timeout=self.workflow_timeout
             )
 
-            context.completed_at = datetime.utcnow()
+            context.completed_at = datetime.now(timezone.utc)
 
             logger.info(
                 f"Workflow {workflow_id} completed successfully "
@@ -535,8 +535,18 @@ class WorkflowEngine:
         }
 
     async def cleanup(self) -> None:
-        """Cleanup workflow engine"""
+        """Cleanup with timeout protection."""
         logger.info("Cleaning up WorkflowEngine")
-        self._active_executions.clear()
-        self._node_handlers.clear()
+        try:
+            async with asyncio.timeout(2.0):
+                # Clear active executions and handlers
+                self._active_executions.clear()
+                self._node_handlers.clear()
+        except asyncio.TimeoutError:
+            logger.warning("WorkflowEngine cleanup timed out")
+            pass
+        finally:
+            # Force clear even on timeout
+            self._active_executions.clear()
+            self._node_handlers.clear()
         logger.info("WorkflowEngine cleanup complete")

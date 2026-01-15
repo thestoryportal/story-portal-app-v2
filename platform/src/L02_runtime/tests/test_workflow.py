@@ -15,17 +15,7 @@ from ..models.workflow_models import (
     NodeType,
 )
 
-
-@pytest.fixture
-def workflow_engine():
-    """Create WorkflowEngine instance"""
-    return WorkflowEngine(config={
-        "max_graph_depth": 10,
-        "max_parallel_branches": 5,
-        "cycle_detection": True,
-        "checkpoint_on_node_complete": False,  # Disable for tests
-        "timeout_seconds": 30,
-    })
+# workflow_engine fixture is now in conftest.py with proper cleanup
 
 
 @pytest.fixture

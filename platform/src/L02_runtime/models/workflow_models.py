@@ -28,6 +28,35 @@ class WorkflowState(Enum):
     SUSPENDED = "suspended"
 
 
+class ExecutionStatus(Enum):
+    """Status of workflow execution"""
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    SUSPENDED = "suspended"
+    CANCELLED = "cancelled"
+
+
+@dataclass
+class WorkflowEdge:
+    """
+    Edge connecting two nodes in a workflow graph.
+
+    Supports conditional routing with optional condition expressions.
+    """
+    source: str                           # Source node ID
+    target: str                           # Target node ID
+    condition: str = ""                   # Optional condition expression
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "source": self.source,
+            "target": self.target,
+            "condition": self.condition,
+        }
+
+
 @dataclass
 class WorkflowNode:
     """
@@ -37,15 +66,15 @@ class WorkflowNode:
     """
     node_id: str
     node_type: NodeType
+    name: str = ""
     config: Dict[str, Any] = field(default_factory=dict)
-    edges: List[str] = field(default_factory=list)  # Target node IDs
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "node_id": self.node_id,
             "node_type": self.node_type.value,
+            "name": self.name,
             "config": self.config,
-            "edges": self.edges,
         }
 
 
@@ -57,13 +86,17 @@ class WorkflowGraph:
     Represents a DAG (or cyclic graph) of agent execution nodes.
     """
     graph_id: str = field(default_factory=lambda: str(uuid4()))
-    nodes: List[WorkflowNode] = field(default_factory=list)
+    name: str = ""
+    nodes: Dict[str, WorkflowNode] = field(default_factory=dict)  # node_id -> WorkflowNode
+    edges: List[WorkflowEdge] = field(default_factory=list)       # List of edges
     entry_node: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "graph_id": self.graph_id,
-            "nodes": [node.to_dict() for node in self.nodes],
+            "name": self.name,
+            "nodes": {node_id: node.to_dict() for node_id, node in self.nodes.items()},
+            "edges": [edge.to_dict() for edge in self.edges],
             "entry_node": self.entry_node,
         }
 

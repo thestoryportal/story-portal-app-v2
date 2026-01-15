@@ -10,7 +10,7 @@ Based on Section 3.3.10 warm_pool configuration
 import asyncio
 import logging
 from typing import Dict, Any, Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass
 
 from ..models import AgentConfig, AgentState, SpawnResult, RuntimeClass, TrustLevel, ResourceLimits
@@ -141,7 +141,7 @@ class WarmPoolManager:
 
         # Create agent config for warm instance
         agent_config = AgentConfig(
-            agent_id=f"warm-{datetime.utcnow().timestamp()}",
+            agent_id=f"warm-{datetime.now(timezone.utc).timestamp()}",
             trust_level=TrustLevel.STANDARD,
             resource_limits=ResourceLimits(),
             tools=[],
@@ -156,7 +156,7 @@ class WarmPoolManager:
             agent_id=result.agent_id,
             session_id=result.session_id,
             runtime_class=self.runtime_class.value,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             allocated=False,
         )
 
@@ -199,7 +199,7 @@ class WarmPoolManager:
 
         # Mark as allocated
         instance.allocated = True
-        instance.allocated_at = datetime.utcnow()
+        instance.allocated_at = datetime.now(timezone.utc)
         self._allocated[instance.agent_id] = instance
 
         logger.info(
@@ -225,7 +225,7 @@ class WarmPoolManager:
         instance = self._allocated[agent_id]
 
         # Check if instance is too old
-        age = (datetime.utcnow() - instance.created_at).total_seconds()
+        age = (datetime.now(timezone.utc) - instance.created_at).total_seconds()
         if age > self.max_instance_age:
             logger.info(f"Instance {agent_id} too old ({age:.0f}s), terminating")
             await self._terminate_instance(agent_id)
@@ -270,7 +270,7 @@ class WarmPoolManager:
                 logger.debug("Refreshing warm pool instances")
 
                 # Check for stale instances
-                now = datetime.utcnow()
+                now = datetime.now(timezone.utc)
                 stale_instances = []
 
                 for agent_id, instance in self._pool.items():
@@ -329,7 +329,7 @@ class WarmPoolManager:
             "instances": [
                 {
                     "agent_id": inst.agent_id,
-                    "age_seconds": (datetime.utcnow() - inst.created_at).total_seconds(),
+                    "age_seconds": (datetime.now(timezone.utc) - inst.created_at).total_seconds(),
                     "allocated": inst.allocated,
                 }
                 for inst in list(self._pool.values())[:10]  # Limit to 10 for display

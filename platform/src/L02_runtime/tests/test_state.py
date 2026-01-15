@@ -12,30 +12,7 @@ from ..services.state_manager import StateManager, StateError
 from ..services.session_bridge import SessionBridge, SessionError
 from ..models import AgentState
 
-
-@pytest.fixture
-def state_manager():
-    """Create StateManager instance"""
-    return StateManager(config={
-        "checkpoint_backend": "postgresql",
-        "hot_state_backend": "redis",
-        "auto_checkpoint_interval_seconds": 60,
-        "max_checkpoint_size_mb": 100,
-        "checkpoint_compression": "gzip",
-        "retention_days": 30,
-        # Use test database
-        "postgresql_dsn": "postgresql://postgres:postgres@localhost:5432/test_runtime",
-        "redis_url": "redis://localhost:6379/1",
-    })
-
-
-@pytest.fixture
-def session_bridge():
-    """Create SessionBridge instance"""
-    return SessionBridge(config={
-        "heartbeat_interval_seconds": 5,
-        "enable_recovery_check": True,
-    })
+# Fixtures are now in conftest.py
 
 
 @pytest.mark.asyncio

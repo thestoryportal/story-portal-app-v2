@@ -10,7 +10,7 @@ Based on Section 3.3.9 of agent-runtime-layer-specification-v1.2-final-ASCII.md
 import asyncio
 import logging
 from typing import Dict, Any, Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -142,7 +142,7 @@ class HealthMonitor:
         Returns:
             ProbeResult
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
 
         try:
             # Check if agent is tracked
@@ -159,7 +159,7 @@ class HealthMonitor:
             # Check if agent is alive (has recent activity)
             if status.last_heartbeat:
                 time_since_heartbeat = (
-                    datetime.utcnow() - status.last_heartbeat
+                    datetime.now(timezone.utc) - status.last_heartbeat
                 ).total_seconds()
 
                 if time_since_heartbeat > self.stuck_agent_timeout:
@@ -168,7 +168,7 @@ class HealthMonitor:
                         agent_id=agent_id,
                         success=False,
                         message=f"Agent stuck (no heartbeat for {time_since_heartbeat:.0f}s)",
-                        duration_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+                        duration_ms=(datetime.now(timezone.utc) - start_time).total_seconds() * 1000,
                     )
 
             # Basic liveness check passed
@@ -177,7 +177,7 @@ class HealthMonitor:
                 agent_id=agent_id,
                 success=True,
                 message="Agent is alive",
-                duration_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+                duration_ms=(datetime.now(timezone.utc) - start_time).total_seconds() * 1000,
             )
 
         except Exception as e:
@@ -186,7 +186,7 @@ class HealthMonitor:
                 agent_id=agent_id,
                 success=False,
                 message=f"Liveness check failed: {str(e)}",
-                duration_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+                duration_ms=(datetime.now(timezone.utc) - start_time).total_seconds() * 1000,
             )
 
     async def check_readiness(self, agent_id: str) -> ProbeResult:
@@ -199,7 +199,7 @@ class HealthMonitor:
         Returns:
             ProbeResult
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
 
         try:
             # Check if agent is tracked
@@ -220,7 +220,7 @@ class HealthMonitor:
                     agent_id=agent_id,
                     success=False,
                     message=f"Agent not ready (state: {status.state.value})",
-                    duration_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+                    duration_ms=(datetime.now(timezone.utc) - start_time).total_seconds() * 1000,
                 )
 
             # Check error rate
@@ -230,7 +230,7 @@ class HealthMonitor:
                     agent_id=agent_id,
                     success=False,
                     message=f"High error rate ({status.error_rate:.2%})",
-                    duration_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+                    duration_ms=(datetime.now(timezone.utc) - start_time).total_seconds() * 1000,
                 )
 
             # Readiness check passed
@@ -239,7 +239,7 @@ class HealthMonitor:
                 agent_id=agent_id,
                 success=True,
                 message="Agent is ready",
-                duration_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+                duration_ms=(datetime.now(timezone.utc) - start_time).total_seconds() * 1000,
             )
 
         except Exception as e:
@@ -248,7 +248,7 @@ class HealthMonitor:
                 agent_id=agent_id,
                 success=False,
                 message=f"Readiness check failed: {str(e)}",
-                duration_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+                duration_ms=(datetime.now(timezone.utc) - start_time).total_seconds() * 1000,
             )
 
     async def register_agent(
@@ -267,7 +267,7 @@ class HealthMonitor:
             agent_id=agent_id,
             state=state,
             is_healthy=True,
-            last_heartbeat=datetime.utcnow(),
+            last_heartbeat=datetime.now(timezone.utc),
             consecutive_failures=0,
             error_rate=0.0,
             avg_latency_ms=0.0,
@@ -332,7 +332,7 @@ class HealthMonitor:
             self._request_latencies.append(latency_ms)
 
             # Update heartbeat
-            status.last_heartbeat = datetime.utcnow()
+            status.last_heartbeat = datetime.now(timezone.utc)
 
     async def get_health_status(self, agent_id: str) -> Optional[HealthStatus]:
         """

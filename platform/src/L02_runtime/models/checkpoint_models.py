@@ -49,3 +49,30 @@ class Checkpoint:
             "created_at": self.created_at.isoformat(),
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
         }
+
+
+@dataclass
+class CheckpointMetadata:
+    """
+    Metadata about a checkpoint without the full state data.
+
+    Used by StateManager for listing checkpoints.
+    """
+    checkpoint_id: str
+    agent_id: str
+    session_id: str
+    state: Any  # AgentState - imported from agent_models to avoid circular import
+    created_at: datetime
+    size_bytes: int
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "checkpoint_id": self.checkpoint_id,
+            "agent_id": self.agent_id,
+            "session_id": self.session_id,
+            "state": self.state.value if hasattr(self.state, 'value') else str(self.state),
+            "created_at": self.created_at.isoformat(),
+            "size_bytes": self.size_bytes,
+            "metadata": self.metadata,
+        }

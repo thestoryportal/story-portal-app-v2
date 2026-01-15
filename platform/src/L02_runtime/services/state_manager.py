@@ -12,7 +12,7 @@ import json
 import gzip
 import logging
 from typing import Dict, Any, Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass, asdict
 
 try:
@@ -94,7 +94,7 @@ class StateManager:
         # Connection strings
         self.postgresql_dsn = self.config.get(
             "postgresql_dsn",
-            "postgresql://postgres:postgres@localhost:5432/agent_runtime"
+            "postgresql://postgres:postgres@localhost:5432/agentic_platform"
         )
         self.redis_url = self.config.get("redis_url", "redis://localhost:6379/0")
 
@@ -149,35 +149,56 @@ class StateManager:
         logger.info("StateManager initialization complete")
 
     async def _create_checkpoint_table(self) -> None:
-        """Create checkpoints table in PostgreSQL"""
+        """Create l02_runtime schema and required tables in PostgreSQL"""
         if not self._pg_pool:
             return
 
-        create_table_sql = """
-        CREATE TABLE IF NOT EXISTS agent_checkpoints (
+        create_schema_sql = """
+        -- Create schema
+        CREATE SCHEMA IF NOT EXISTS l02_runtime;
+
+        -- Create checkpoints table
+        CREATE TABLE IF NOT EXISTS l02_runtime.checkpoints (
             checkpoint_id TEXT PRIMARY KEY,
             agent_id TEXT NOT NULL,
             session_id TEXT NOT NULL,
             state TEXT NOT NULL,
             context_data BYTEA,
             metadata JSONB,
-            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             size_bytes INTEGER,
             compressed BOOLEAN DEFAULT false
         );
 
-        CREATE INDEX IF NOT EXISTS idx_agent_checkpoints_agent_id
-            ON agent_checkpoints(agent_id);
-        CREATE INDEX IF NOT EXISTS idx_agent_checkpoints_session_id
-            ON agent_checkpoints(session_id);
-        CREATE INDEX IF NOT EXISTS idx_agent_checkpoints_created_at
-            ON agent_checkpoints(created_at);
+        -- Create agent_state table
+        CREATE TABLE IF NOT EXISTS l02_runtime.agent_state (
+            agent_id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            state TEXT NOT NULL,
+            context JSONB,
+            last_updated TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            metadata JSONB
+        );
+
+        -- Create indexes for checkpoints table
+        CREATE INDEX IF NOT EXISTS idx_checkpoints_agent_id
+            ON l02_runtime.checkpoints(agent_id);
+        CREATE INDEX IF NOT EXISTS idx_checkpoints_session_id
+            ON l02_runtime.checkpoints(session_id);
+        CREATE INDEX IF NOT EXISTS idx_checkpoints_created_at
+            ON l02_runtime.checkpoints(created_at);
+
+        -- Create indexes for agent_state table
+        CREATE INDEX IF NOT EXISTS idx_agent_state_session_id
+            ON l02_runtime.agent_state(session_id);
+        CREATE INDEX IF NOT EXISTS idx_agent_state_last_updated
+            ON l02_runtime.agent_state(last_updated);
         """
 
         async with self._pg_pool.acquire() as conn:
-            await conn.execute(create_table_sql)
+            await conn.execute(create_schema_sql)
 
-        logger.info("Checkpoint table created/verified")
+        logger.info("L02 runtime schema and tables created/verified")
 
     async def create_checkpoint(
         self,
@@ -203,7 +224,7 @@ class StateManager:
         Raises:
             StateError: If checkpoint creation fails
         """
-        checkpoint_id = f"ckpt_{agent_id}_{datetime.utcnow().timestamp()}"
+        checkpoint_id = f"ckpt_{agent_id}_{datetime.now(timezone.utc).timestamp()}"
 
         logger.info(f"Creating checkpoint {checkpoint_id} for agent {agent_id}")
 
@@ -273,7 +294,7 @@ class StateManager:
             return
 
         insert_sql = """
-        INSERT INTO agent_checkpoints
+        INSERT INTO l02_runtime.checkpoints
             (checkpoint_id, agent_id, session_id, state, context_data,
              metadata, size_bytes, compressed)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -342,7 +363,7 @@ class StateManager:
         select_sql = """
         SELECT agent_id, session_id, state, context_data, metadata,
                created_at, compressed
-        FROM agent_checkpoints
+        FROM l02_runtime.checkpoints
         WHERE checkpoint_id = $1
         """
 
@@ -393,11 +414,11 @@ class StateManager:
             return
 
         try:
-            key = f"agent_state:{agent_id}"
+            key = f"l02:state:{agent_id}"
             value = json.dumps(state_data)
             await self._redis_client.setex(
                 key,
-                timedelta(hours=1),  # 1 hour TTL
+                timedelta(seconds=3600),  # 3600s TTL
                 value
             )
             logger.debug(f"Hot state saved for agent {agent_id}")
@@ -423,7 +444,7 @@ class StateManager:
             return None
 
         try:
-            key = f"agent_state:{agent_id}"
+            key = f"l02:state:{agent_id}"
             value = await self._redis_client.get(key)
             if value:
                 return json.loads(value)
@@ -431,6 +452,104 @@ class StateManager:
 
         except Exception as e:
             logger.warning(f"Failed to load hot state for agent {agent_id}: {e}")
+            return None
+
+    async def save_agent_state(
+        self,
+        agent_id: str,
+        session_id: str,
+        state: AgentState,
+        context: Dict[str, Any],
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """
+        Save agent state to PostgreSQL agent_state table.
+
+        Args:
+            agent_id: Agent identifier
+            session_id: Session identifier
+            state: Current agent state
+            context: Execution context
+            metadata: Optional metadata
+        """
+        if not self._pg_pool:
+            logger.debug("PostgreSQL not available, skipping agent state save")
+            return
+
+        try:
+            upsert_sql = """
+            INSERT INTO l02_runtime.agent_state
+                (agent_id, session_id, state, context, last_updated, metadata)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (agent_id)
+            DO UPDATE SET
+                session_id = EXCLUDED.session_id,
+                state = EXCLUDED.state,
+                context = EXCLUDED.context,
+                last_updated = EXCLUDED.last_updated,
+                metadata = EXCLUDED.metadata
+            """
+
+            async with self._pg_pool.acquire() as conn:
+                await conn.execute(
+                    upsert_sql,
+                    agent_id,
+                    session_id,
+                    state.value,
+                    json.dumps(context),
+                    datetime.now(timezone.utc),
+                    json.dumps(metadata or {}),
+                )
+
+            logger.debug(f"Agent state saved for {agent_id}")
+
+        except Exception as e:
+            logger.warning(f"Failed to save agent state for {agent_id}: {e}")
+
+    async def load_agent_state(
+        self,
+        agent_id: str
+    ) -> Optional[StateSnapshot]:
+        """
+        Load agent state from PostgreSQL agent_state table.
+
+        Args:
+            agent_id: Agent identifier
+
+        Returns:
+            StateSnapshot or None if not found
+        """
+        if not self._pg_pool:
+            logger.debug("PostgreSQL not available")
+            return None
+
+        try:
+            select_sql = """
+            SELECT agent_id, session_id, state, context, last_updated, metadata
+            FROM l02_runtime.agent_state
+            WHERE agent_id = $1
+            """
+
+            async with self._pg_pool.acquire() as conn:
+                row = await conn.fetchrow(select_sql, agent_id)
+
+                if not row:
+                    return None
+
+                context = json.loads(row['context']) if row['context'] else {}
+                metadata = json.loads(row['metadata']) if row['metadata'] else {}
+
+                return StateSnapshot(
+                    agent_id=row['agent_id'],
+                    session_id=row['session_id'],
+                    state=AgentState(row['state']),
+                    context=context,
+                    timestamp=row['last_updated'],
+                    metadata=metadata,
+                )
+
+        except Exception as e:
+            logger.warning(f"Failed to load agent state for {agent_id}: {e}")
             return None
 
     async def list_checkpoints(
@@ -453,7 +572,7 @@ class StateManager:
 
         select_sql = """
         SELECT checkpoint_id, session_id, state, created_at, size_bytes, metadata
-        FROM agent_checkpoints
+        FROM l02_runtime.checkpoints
         WHERE agent_id = $1
         ORDER BY created_at DESC
         LIMIT $2
@@ -485,10 +604,10 @@ class StateManager:
         if not self._pg_pool:
             return 0
 
-        cutoff_date = datetime.utcnow() - timedelta(days=self.retention_days)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=self.retention_days)
 
         delete_sql = """
-        DELETE FROM agent_checkpoints
+        DELETE FROM l02_runtime.checkpoints
         WHERE created_at < $1
         """
 

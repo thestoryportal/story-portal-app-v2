@@ -10,7 +10,7 @@ Based on Section 3.3.1 of agent-runtime-layer-specification-v1.2-final-ASCII.md
 import asyncio
 import logging
 from typing import Dict, Any, Optional, List, AsyncIterator, Callable
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
 
 from ..models import (
@@ -36,7 +36,7 @@ class ToolInvocation:
     """Tool execution request"""
     tool_name: str
     parameters: Dict[str, Any]
-    invocation_id: str = field(default_factory=lambda: f"tool_{datetime.utcnow().timestamp()}")
+    invocation_id: str = field(default_factory=lambda: f"tool_{datetime.now(timezone.utc).timestamp()}")
     timeout_seconds: int = 300
 
 
@@ -67,7 +67,7 @@ class ExecutionContext:
         self.messages.append({
             "role": role,
             "content": content,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         })
         self.current_tokens += tokens
 
@@ -404,7 +404,7 @@ class AgentExecutor:
         Raises:
             ExecutorError: If tool invocation fails
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
 
         try:
             # Acquire semaphore for concurrent tool execution
@@ -416,7 +416,7 @@ class AgentExecutor:
                 )
 
             # Calculate execution time
-            execution_time = (datetime.utcnow() - start_time).total_seconds() * 1000
+            execution_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
 
             logger.info(
                 f"Tool {invocation.tool_name} executed successfully "
@@ -432,13 +432,13 @@ class AgentExecutor:
             )
 
         except asyncio.TimeoutError:
-            execution_time = (datetime.utcnow() - start_time).total_seconds() * 1000
+            execution_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
             raise ExecutorError(
                 code="E2002",
                 message=f"Tool {invocation.tool_name} timeout after {invocation.timeout_seconds}s"
             )
         except Exception as e:
-            execution_time = (datetime.utcnow() - start_time).total_seconds() * 1000
+            execution_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
             logger.error(f"Tool {invocation.tool_name} failed: {e}")
             raise ExecutorError(
                 code="E2001",

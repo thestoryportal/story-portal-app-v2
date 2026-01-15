@@ -9,16 +9,7 @@ import asyncio
 
 from ..services.document_bridge import DocumentBridge, DocumentError
 
-
-@pytest.fixture
-def document_bridge():
-    """Create DocumentBridge instance"""
-    return DocumentBridge(config={
-        "default_confidence_threshold": 0.7,
-        "max_sources": 5,
-        "cache_ttl_seconds": 60,
-        "verify_claims": True,
-    })
+# Fixtures are now in conftest.py with proper cleanup
 
 
 @pytest.mark.asyncio

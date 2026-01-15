@@ -16,11 +16,13 @@ from .agent_models import (
     SpawnResult,
     AgentInstance,
     ResourceUsage,
+    ToolDefinition,
 )
 
 from .checkpoint_models import (
     CheckpointType,
     Checkpoint,
+    CheckpointMetadata,
 )
 
 from .health_models import (
@@ -28,20 +30,25 @@ from .health_models import (
     ReadinessState,
     HealthMetrics,
     HealthStatus,
+    ProbeResult,
 )
 
 from .workflow_models import (
     NodeType,
     WorkflowNode,
+    WorkflowEdge,
     WorkflowGraph,
     WorkflowState,
     WorkflowExecution,
+    ExecutionStatus,
 )
 
 from .fleet_models import (
     ScalePriority,
     ScaleRequest,
     FleetStatus,
+    ScalingMetrics,
+    WarmInstance,
 )
 
 from .resource_models import (
@@ -62,24 +69,31 @@ __all__ = [
     "SpawnResult",
     "AgentInstance",
     "ResourceUsage",
+    "ToolDefinition",
     # Checkpoint models
     "CheckpointType",
     "Checkpoint",
+    "CheckpointMetadata",
     # Health models
     "LivenessState",
     "ReadinessState",
     "HealthMetrics",
     "HealthStatus",
+    "ProbeResult",
     # Workflow models
     "NodeType",
     "WorkflowNode",
+    "WorkflowEdge",
     "WorkflowGraph",
     "WorkflowState",
     "WorkflowExecution",
+    "ExecutionStatus",
     # Fleet models
     "ScalePriority",
     "ScaleRequest",
     "FleetStatus",
+    "ScalingMetrics",
+    "WarmInstance",
     # Resource models
     "QuotaScope",
     "ResourceQuota",

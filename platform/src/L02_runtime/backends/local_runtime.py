@@ -7,7 +7,7 @@ Uses Docker containers for agent isolation without requiring Kubernetes.
 
 import asyncio
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 import docker
 from docker.models.containers import Container
@@ -107,7 +107,7 @@ class LocalRuntime:
                 state=AgentState.RUNNING,
                 sandbox_type=sandbox.runtime_class.value,
                 container_id=container.id,
-                created_at=datetime.utcnow()
+                created_at=datetime.now(timezone.utc)
             )
 
         except DockerException as e:

@@ -10,7 +10,7 @@ Based on Section 3.3.8 of agent-runtime-layer-specification-v1.2-final-ASCII.md
 import asyncio
 import logging
 from typing import Dict, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 
 from ..models import (
@@ -154,7 +154,7 @@ class ResourceManager:
                 "tokens_per_hour": limits.tokens_per_hour,
             },
             usage=QuotaUsage(),
-            reset_at=datetime.utcnow() + timedelta(hours=1),
+            reset_at=datetime.now(timezone.utc) + timedelta(hours=1),
         )
 
         self._quotas[agent_id] = quota
@@ -430,7 +430,7 @@ class ResourceManager:
         quota = self._quotas.get(agent_id)
         if quota:
             quota.usage = QuotaUsage()
-            quota.reset_at = datetime.utcnow() + timedelta(hours=1)
+            quota.reset_at = datetime.now(timezone.utc) + timedelta(hours=1)
             logger.info(f"Reset quota for agent {agent_id}")
 
         # Clear warnings

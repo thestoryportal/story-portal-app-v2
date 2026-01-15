@@ -9,7 +9,7 @@ Based on Section 3.3.3 and 11.3 of agent-runtime-layer-specification-v1.2-final-
 
 import asyncio
 from typing import Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 from ..models import (
@@ -211,15 +211,15 @@ class LifecycleManager:
 
             # Update instance state
             instance.state = AgentState.TERMINATED
-            instance.terminated_at = datetime.utcnow()
-            instance.updated_at = datetime.utcnow()
+            instance.terminated_at = datetime.now(timezone.utc)
+            instance.updated_at = datetime.now(timezone.utc)
 
             logger.info(f"Agent {agent_id} terminated successfully")
 
         except Exception as e:
             logger.error(f"Termination failed for agent {agent_id}: {e}")
             instance.state = AgentState.FAILED
-            instance.updated_at = datetime.utcnow()
+            instance.updated_at = datetime.now(timezone.utc)
             raise LifecycleError(
                 code="E2022",
                 message=f"Terminate failed: {str(e)}"
@@ -274,7 +274,7 @@ class LifecycleManager:
 
             # Update instance state
             instance.state = AgentState.SUSPENDED
-            instance.updated_at = datetime.utcnow()
+            instance.updated_at = datetime.now(timezone.utc)
 
             logger.info(f"Agent {agent_id} suspended successfully")
 
@@ -337,7 +337,7 @@ class LifecycleManager:
 
             # Update instance state
             instance.state = AgentState.RUNNING
-            instance.updated_at = datetime.utcnow()
+            instance.updated_at = datetime.now(timezone.utc)
 
             logger.info(f"Agent {agent_id} resumed successfully")
 
@@ -396,7 +396,7 @@ class LifecycleManager:
             if instance.container_id:
                 usage = await self.backend.get_resource_usage(instance.container_id)
                 instance.resource_usage = usage
-                instance.updated_at = datetime.utcnow()
+                instance.updated_at = datetime.now(timezone.utc)
         except Exception as e:
             logger.warning(f"Failed to update resource usage: {e}")
 
