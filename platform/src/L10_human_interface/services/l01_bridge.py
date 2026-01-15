@@ -10,7 +10,7 @@ from typing import Optional
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from L01_data_layer.client import L01Client
+from src.L01_data_layer.client import L01Client
 
 logger = logging.getLogger(__name__)
 
@@ -25,13 +25,14 @@ class L10Bridge:
     - Log human-in-the-loop workflows
     """
 
-    def __init__(self, l01_base_url: str = "http://localhost:8002"):
+    def __init__(self, l01_base_url: str = "http://localhost:8002", api_key: Optional[str] = None):
         """Initialize L10 bridge.
 
         Args:
             l01_base_url: Base URL for L01 Data Layer API
+            api_key: Optional API key for L01 authentication
         """
-        self.l01_client = L01Client(base_url=l01_base_url)
+        self.l01_client = L01Client(base_url=l01_base_url, api_key=api_key)
         self.enabled = True
         logger.info(f"L10Bridge initialized with base_url={l01_base_url}")
 

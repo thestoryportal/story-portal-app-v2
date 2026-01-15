@@ -18,7 +18,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from L01_data_layer.client import L01Client
+from src.L01_data_layer.client import L01Client
 from .config import get_settings
 from .services.l01_bridge import L10Bridge
 
@@ -86,12 +86,19 @@ async def lifespan(app: FastAPI):
     )
     logger.info("Redis connected")
 
-    # Initialize L01 Client
-    l01_client = L01Client(base_url=f"http://{settings.l01_host}:{settings.l01_port}")
+    # Initialize L01 Client with API key
+    l01_api_key = "dev_key_CHANGE_IN_PRODUCTION"  # Default development key
+    l01_client = L01Client(
+        base_url=f"http://{settings.l01_host}:{settings.l01_port}",
+        api_key=l01_api_key
+    )
     logger.info("L01 client initialized")
 
-    # Initialize L10 Bridge
-    l10_bridge = L10Bridge(l01_base_url=f"http://{settings.l01_host}:{settings.l01_port}")
+    # Initialize L10 Bridge with API key
+    l10_bridge = L10Bridge(
+        l01_base_url=f"http://{settings.l01_host}:{settings.l01_port}",
+        api_key=l01_api_key
+    )
     await l10_bridge.initialize()
     logger.info("L10 bridge initialized")
 
