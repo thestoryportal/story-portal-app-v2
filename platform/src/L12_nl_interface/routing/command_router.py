@@ -34,6 +34,7 @@ from ..models.command_models import (
     InvokeResponse,
 )
 from ..models.service_metadata import ServiceMetadata
+from ..services.l01_bridge import L12Bridge
 from .exact_matcher import ExactMatcher
 from .fuzzy_matcher import FuzzyMatcher, ServiceMatch
 
@@ -72,6 +73,7 @@ class CommandRouter:
         session_manager: SessionManager,
         exact_matcher: ExactMatcher,
         fuzzy_matcher: FuzzyMatcher,
+        l01_bridge: Optional[L12Bridge] = None,
     ):
         """Initialize the command router.
 
@@ -81,12 +83,14 @@ class CommandRouter:
             session_manager: SessionManager instance
             exact_matcher: ExactMatcher instance
             fuzzy_matcher: FuzzyMatcher instance
+            l01_bridge: Optional L12Bridge for usage tracking
         """
         self.registry = registry
         self.factory = factory
         self.session_manager = session_manager
         self.exact_matcher = exact_matcher
         self.fuzzy_matcher = fuzzy_matcher
+        self.l01_bridge = l01_bridge
 
         logger.info("CommandRouter initialized")
 
@@ -215,7 +219,7 @@ class CommandRouter:
 
                 # Success!
                 execution_time_ms = (time.time() - start_time) * 1000
-                return InvokeResponse(
+                response = InvokeResponse(
                     status=InvocationStatus.SUCCESS,
                     result=result,
                     service_name=service_metadata.service_name,
@@ -223,6 +227,22 @@ class CommandRouter:
                     session_id=request.session_id,
                     execution_time_ms=execution_time_ms,
                 )
+
+                # Record to L01 if bridge available
+                if self.l01_bridge:
+                    asyncio.create_task(
+                        self.l01_bridge.record_invocation(
+                            session_id=request.session_id,
+                            service_name=service_metadata.service_name,
+                            method_name=request.method_name,
+                            parameters=request.parameters,
+                            result=result,
+                            execution_time_ms=execution_time_ms,
+                            status="success",
+                        )
+                    )
+
+                return response
 
             except asyncio.TimeoutError:
                 return self._error_response(
@@ -436,13 +456,29 @@ class CommandRouter:
             code=error_code, message=message, details=details or {}
         )
 
-        return InvokeResponse(
+        response = InvokeResponse(
             status=InvocationStatus.ERROR,
             error=error,
             service_name=service_name,
             method_name=method_name,
             session_id=session_id,
         )
+
+        # Record error to L01 if bridge available
+        if self.l01_bridge:
+            asyncio.create_task(
+                self.l01_bridge.record_invocation(
+                    session_id=session_id,
+                    service_name=service_name,
+                    method_name=method_name,
+                    parameters={},  # Parameters not available in error path
+                    result=message,
+                    execution_time_ms=0.0,  # Not tracked for errors
+                    status="error",
+                )
+            )
+
+        return response
 
     def get_available_commands(self) -> List[str]:
         """Get list of all available commands.
