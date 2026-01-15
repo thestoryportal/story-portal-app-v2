@@ -76,14 +76,16 @@ class SessionBridge:
             "mcp_base_path",
             "/Volumes/Extreme SSD/projects/story-portal-app/platform/services/mcp-context-orchestrator"
         )
-        server_script = os.path.join(mcp_base_path, "dist/index.js")
+        server_script = os.path.join(mcp_base_path, "dist/server.js")
 
         # Initialize MCP client
         mcp_timeout = self.config.get("mcp_timeout_seconds", 30)
         self.mcp_client = MCPClient(
             server_command=["node", server_script],
             server_name="context-orchestrator",
-            timeout_seconds=mcp_timeout
+            timeout_seconds=mcp_timeout,
+            cwd=mcp_base_path,
+            env=os.environ.copy()  # Pass environment to subprocess
         )
 
         # Active sessions: session_id -> session data
@@ -410,7 +412,7 @@ class SessionBridge:
 
             if result.success:
                 logger.debug(f"MCP tool {tool_name} succeeded in {result.execution_time_ms:.2f}ms")
-                return result.result if result.result else {"success": True}
+                return result.result if result.result is not None else {"success": True}
             else:
                 logger.error(f"MCP tool {tool_name} failed: {result.error}")
                 # Return stub response on failure for graceful degradation

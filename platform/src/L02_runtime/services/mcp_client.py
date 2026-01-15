@@ -10,12 +10,57 @@ Based on Model Context Protocol specification.
 import asyncio
 import json
 import logging
+import os
 import uuid
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+
+def _load_env_file(working_dir: str, base_env: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+    """
+    Load .env file from working directory and merge with base environment.
+
+    Args:
+        working_dir: Directory containing .env file
+        base_env: Base environment to merge with (defaults to os.environ.copy())
+
+    Returns:
+        Merged environment dictionary
+    """
+    env = base_env if base_env is not None else os.environ.copy()
+    env_file = Path(working_dir) / ".env"
+
+    if env_file.exists():
+        logger.debug(f"Loading .env file from: {env_file}")
+        try:
+            with open(env_file) as f:
+                for line in f:
+                    line = line.strip()
+                    # Skip comments and empty lines
+                    if not line or line.startswith('#'):
+                        continue
+                    # Parse KEY=VALUE
+                    if '=' in line:
+                        key, value = line.split('=', 1)
+                        key = key.strip()
+                        value = value.strip()
+                        # Remove quotes if present
+                        if value.startswith('"') and value.endswith('"'):
+                            value = value[1:-1]
+                        elif value.startswith("'") and value.endswith("'"):
+                            value = value[1:-1]
+                        env[key] = value
+            logger.debug(f"Loaded {len(env)} environment variables")
+        except Exception as e:
+            logger.warning(f"Failed to load .env file: {e}")
+    else:
+        logger.debug(f"No .env file found at: {env_file}")
+
+    return env
 
 
 @dataclass
@@ -40,7 +85,9 @@ class MCPClient:
         self,
         server_command: List[str],
         server_name: str = "mcp-server",
-        timeout_seconds: int = 30
+        timeout_seconds: int = 30,
+        cwd: Optional[str] = None,
+        env: Optional[Dict[str, str]] = None
     ):
         """
         Initialize MCP client.
@@ -49,16 +96,22 @@ class MCPClient:
             server_command: Command to start MCP server (e.g., ['node', 'server.js'])
             server_name: Human-readable server name for logging
             timeout_seconds: Default timeout for tool calls
+            cwd: Working directory for server process
+            env: Environment variables for server process
         """
         self.server_command = server_command
         self.server_name = server_name
         self.timeout_seconds = timeout_seconds
+        self.cwd = cwd
+        self.env = env
 
         self.process: Optional[asyncio.subprocess.Process] = None
         self.connected = False
         self.message_id_counter = 0
         self._pending_responses: Dict[str, asyncio.Future] = {}
         self._reader_task: Optional[asyncio.Task] = None
+        self._stderr_reader_task: Optional[asyncio.Task] = None
+        self._init_event: Optional[asyncio.Event] = None
 
         logger.info(f"MCPClient initialized for {server_name}")
 
@@ -76,16 +129,39 @@ class MCPClient:
         try:
             logger.info(f"Starting MCP server: {' '.join(self.server_command)}")
 
+            # Load .env file if working directory is specified
+            env = self.env
+            if self.cwd and not env:
+                # Load .env from working directory
+                env = _load_env_file(self.cwd)
+            elif self.cwd and env:
+                # Merge .env with provided env
+                env = _load_env_file(self.cwd, env)
+
             # Start subprocess with stdio pipes
             self.process = await asyncio.create_subprocess_exec(
                 *self.server_command,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                cwd=self.cwd,
+                env=env
             )
 
-            # Start background task to read responses
+            # Create init event for server startup detection
+            self._init_event = asyncio.Event()
+
+            # Start background tasks to read responses and stderr
             self._reader_task = asyncio.create_task(self._read_responses())
+            self._stderr_reader_task = asyncio.create_task(self._read_stderr())
+
+            # Wait for server initialization (up to 10 seconds)
+            logger.debug("Waiting for server initialization...")
+            try:
+                await asyncio.wait_for(self._init_event.wait(), timeout=10.0)
+                logger.debug("Server initialization detected")
+            except asyncio.TimeoutError:
+                logger.warning("Server initialization timeout, proceeding anyway")
 
             # Send initialize request
             init_result = await self._send_request(
@@ -244,11 +320,18 @@ class MCPClient:
 
         self.connected = False
 
-        # Cancel reader task
+        # Cancel reader tasks
         if self._reader_task:
             self._reader_task.cancel()
             try:
                 await self._reader_task
+            except asyncio.CancelledError:
+                pass
+
+        if self._stderr_reader_task:
+            self._stderr_reader_task.cancel()
+            try:
+                await self._stderr_reader_task
             except asyncio.CancelledError:
                 pass
 
@@ -349,11 +432,17 @@ class MCPClient:
         logger.info(f"Starting response reader for {self.server_name}")
 
         try:
-            while self.connected and self.process:
+            while self.process:
                 # Read line from stdout
                 line = await self.process.stdout.readline()
+
+                # Check if stdout is closed (process exited or stream closed)
                 if not line:
-                    logger.warning(f"Server {self.server_name} closed stdout")
+                    # Check if process is still running
+                    if self.process.returncode is not None:
+                        logger.warning(f"Server {self.server_name} process exited (code: {self.process.returncode})")
+                    else:
+                        logger.warning(f"Server {self.server_name} closed stdout")
                     break
 
                 try:
@@ -391,6 +480,46 @@ class MCPClient:
             logger.error(f"Response reader error: {e}")
         finally:
             logger.info(f"Response reader stopped for {self.server_name}")
+
+    async def _read_stderr(self) -> None:
+        """Background task to read and log stderr from server."""
+        if not self.process or not self.process.stderr:
+            return
+
+        logger.debug(f"Starting stderr reader for {self.server_name}")
+
+        try:
+            while self.process:
+                # Read line from stderr
+                line = await self.process.stderr.readline()
+                if not line:
+                    break
+
+                # Decode stderr output
+                stderr_msg = line.decode().strip()
+                if not stderr_msg:
+                    continue
+
+                # Check for initialization message
+                if self._init_event and not self._init_event.is_set():
+                    if "initialized" in stderr_msg.lower() or "running on stdio" in stderr_msg.lower():
+                        self._init_event.set()
+                        logger.debug(f"Server initialization detected: {stderr_msg}")
+
+                # Log stderr output at appropriate level
+                if "error" in stderr_msg.lower() or "fail" in stderr_msg.lower():
+                    logger.error(f"[{self.server_name}] {stderr_msg}")
+                elif "warn" in stderr_msg.lower():
+                    logger.warning(f"[{self.server_name}] {stderr_msg}")
+                else:
+                    logger.debug(f"[{self.server_name}] {stderr_msg}")
+
+        except asyncio.CancelledError:
+            logger.debug(f"Stderr reader cancelled for {self.server_name}")
+        except Exception as e:
+            logger.warning(f"Stderr reader error: {e}")
+        finally:
+            logger.debug(f"Stderr reader stopped for {self.server_name}")
 
     async def __aenter__(self):
         """Async context manager entry."""
