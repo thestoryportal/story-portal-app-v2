@@ -10,7 +10,7 @@ from typing import Optional
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from src.L01_data_layer.client import L01Client
+from L01_data_layer.client import L01Client
 
 logger = logging.getLogger(__name__)
 

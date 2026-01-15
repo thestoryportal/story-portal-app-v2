@@ -10,7 +10,7 @@ cost tracking, and usage monitoring across the platform.
 import logging
 from typing import Optional
 
-from ...L01_data_layer.client import L01Client
+from L01_data_layer.client import L01Client
 from ..models.inference_request import InferenceRequest
 from ..models.inference_response import InferenceResponse
 

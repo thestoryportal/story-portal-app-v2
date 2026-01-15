@@ -15,15 +15,23 @@ logger = logging.getLogger(__name__)
 class L01Client:
     """Client for L01 Data Layer API."""
 
-    def __init__(self, base_url: str = "http://localhost:8002", timeout: float = 30.0):
+    def __init__(self, base_url: str = "http://localhost:8002", timeout: float = 30.0, api_key: Optional[str] = None):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        self.api_key = api_key
         self._client = None
 
     async def _get_client(self) -> httpx.AsyncClient:
-        """Get or create HTTP client."""
+        """Get or create HTTP client with authentication headers."""
         if self._client is None:
-            self._client = httpx.AsyncClient(base_url=self.base_url, timeout=self.timeout)
+            headers = {}
+            if self.api_key:
+                headers["X-API-Key"] = self.api_key
+            self._client = httpx.AsyncClient(
+                base_url=self.base_url,
+                timeout=self.timeout,
+                headers=headers
+            )
         return self._client
 
     async def close(self):

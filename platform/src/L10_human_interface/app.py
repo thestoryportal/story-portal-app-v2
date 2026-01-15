@@ -18,7 +18,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from src.L01_data_layer.client import L01Client
+from L01_data_layer.client import L01Client
 from .config import get_settings
 from .services.l01_bridge import L10Bridge
 

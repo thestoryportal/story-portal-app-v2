@@ -9,9 +9,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from .database import db
 from .redis_client import redis_client
+from .middleware import AuthenticationMiddleware
 from .routers import (
     health_router,
     events_router,
@@ -105,6 +107,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add Authentication middleware
+# Note: Authentication can be disabled by setting L01_AUTH_DISABLED=true
+import os
+if os.getenv("L01_AUTH_DISABLED", "false").lower() != "true":
+    app.add_middleware(BaseHTTPMiddleware, dispatch=AuthenticationMiddleware(app))
+    logger.info("L01 authentication middleware enabled")
+else:
+    logger.warning("L01 authentication middleware DISABLED - not recommended for production!")
 
 # Register routers
 app.include_router(health_router)

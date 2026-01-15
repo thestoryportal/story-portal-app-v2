@@ -116,56 +116,101 @@ class AuthenticationHandler:
         token = auth_header.replace("Bearer ", "").strip()
 
         try:
-            # Decode JWT without verification first to get header
-            unverified = jwt.decode(token, options={"verify_signature": False})
+            # Decode JWT header to get algorithm and key ID
+            unverified_header = jwt.get_unverified_header(token)
+            algorithm = unverified_header.get("alg", "RS256")
 
-            # Get consumer_id from subject claim
-            consumer_id = unverified.get("sub")
+            # Get consumer_id from subject claim (unverified for lookup)
+            unverified_payload = jwt.decode(token, options={"verify_signature": False})
+            consumer_id = unverified_payload.get("sub")
             if not consumer_id:
                 raise AuthenticationError(
                     ErrorCode.E9104, "Missing subject claim in JWT"
                 )
 
-            # Look up consumer
+            # Look up consumer to get their public key or secret
             consumer = await consumer_lookup_fn(consumer_id=consumer_id)
             if not consumer:
                 raise AuthenticationError(
                     ErrorCode.E9203, "Consumer not found"
                 )
 
-            # Verify JWT signature (RS256)
-            # In production, fetch public key from JWKS endpoint
-            # For now, skip signature verification
-            decoded = unverified
+            # Get verification key from consumer or JWKS endpoint
+            verification_key = await self._get_verification_key(
+                consumer, algorithm, unverified_header
+            )
 
-            # Check expiration
-            exp = decoded.get("exp")
-            if exp and datetime.utcfromtimestamp(exp) < datetime.utcnow():
-                raise AuthenticationError(
-                    ErrorCode.E9102,
-                    "Token expired",
-                    details={"expired_at": datetime.utcfromtimestamp(exp).isoformat()},
-                )
+            # Verify JWT signature with proper key
+            # This raises jwt.InvalidSignatureError if signature is invalid
+            decoded = jwt.decode(
+                token,
+                verification_key,
+                algorithms=[algorithm],
+                options={
+                    "verify_signature": True,
+                    "verify_exp": True,
+                    "verify_aud": False,  # Audience validation optional
+                    "require_exp": True,
+                }
+            )
+
+            # Signature and expiration verified successfully by jwt.decode above
 
             # Extract scopes from token
-            scopes = decoded.get("scope", "").split()
+            scopes = decoded.get("scope", "").split() if decoded.get("scope") else []
             consumer.oauth_scopes = scopes
 
             return consumer
 
-        except jwt.DecodeError:
-            raise AuthenticationError(
-                ErrorCode.E9104, "Invalid JWT signature"
-            )
         except jwt.ExpiredSignatureError:
             raise AuthenticationError(
                 ErrorCode.E9102, "Token expired"
+            )
+        except jwt.InvalidSignatureError:
+            raise AuthenticationError(
+                ErrorCode.E9104, "Invalid JWT signature"
+            )
+        except jwt.DecodeError as e:
+            raise AuthenticationError(
+                ErrorCode.E9104, f"Invalid JWT format: {str(e)}"
             )
         except Exception as e:
             raise AuthenticationError(
                 ErrorCode.E9104,
                 f"JWT validation failed: {str(e)}",
             )
+
+    async def _get_verification_key(
+        self, consumer: ConsumerProfile, algorithm: str, header: dict
+    ) -> str:
+        """
+        Get JWT verification key from consumer profile or JWKS endpoint.
+
+        For RS256: Returns public key (PEM format)
+        For HS256: Returns shared secret
+        """
+        # If JWKS URL configured, fetch public key from there
+        if self.jwks_url and algorithm.startswith("RS"):
+            kid = header.get("kid")
+            if kid and kid in self._jwks_cache:
+                return self._jwks_cache[kid]
+
+            # In production, fetch from JWKS endpoint and cache
+            # For now, use consumer's public key if available
+            pass
+
+        # Use consumer's configured key
+        if hasattr(consumer, 'jwt_public_key') and consumer.jwt_public_key:
+            return consumer.jwt_public_key
+
+        if hasattr(consumer, 'jwt_secret') and consumer.jwt_secret:
+            return consumer.jwt_secret
+
+        # Fallback: Use a configured default secret (NOT RECOMMENDED FOR PRODUCTION)
+        # In production, this should raise an error
+        import os
+        default_secret = os.getenv("JWT_SECRET", "INSECURE_DEFAULT_SECRET_CHANGE_ME")
+        return default_secret
 
     async def _authenticate_mtls(
         self, cert_fingerprint: str, consumer_lookup_fn

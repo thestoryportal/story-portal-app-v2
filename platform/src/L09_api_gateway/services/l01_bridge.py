@@ -10,7 +10,7 @@ from typing import Optional
 from datetime import datetime
 from uuid import uuid4
 
-from src.L01_data_layer.client import L01Client
+from L01_data_layer.client import L01Client
 
 logger = logging.getLogger(__name__)
 
@@ -25,15 +25,21 @@ class L09Bridge:
     - Record rate limit violations with token bucket tracking
     """
 
-    def __init__(self, l01_base_url: str = "http://localhost:8002"):
+    def __init__(self, l01_base_url: str = "http://localhost:8002", l01_api_key: Optional[str] = None):
         """Initialize L09 bridge.
 
         Args:
             l01_base_url: Base URL for L01 Data Layer API
+            l01_api_key: API key for authenticating with L01
         """
-        self.l01_client = L01Client(base_url=l01_base_url)
+        # Get API key from environment if not provided
+        if not l01_api_key:
+            import os
+            l01_api_key = os.getenv("L01_API_KEY")
+
+        self.l01_client = L01Client(base_url=l01_base_url, api_key=l01_api_key)
         self.enabled = True
-        logger.info(f"L09Bridge initialized with base_url={l01_base_url}")
+        logger.info(f"L09Bridge initialized with base_url={l01_base_url}, auth={bool(l01_api_key)}")
 
     async def initialize(self) -> None:
         """Initialize bridge (async setup if needed)."""
