@@ -102,6 +102,7 @@ class Dataset:
     description: str = ""
     tags: List[str] = field(default_factory=list)
     lineage: DatasetLineage = field(default_factory=DatasetLineage)
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
     # Timestamps
     created_at: datetime = field(default_factory=datetime.utcnow)
