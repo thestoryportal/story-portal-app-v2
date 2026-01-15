@@ -19,6 +19,7 @@ from .model_registry import ModelRegistry
 from .fine_tuning_engine import FineTuningEngine
 from .rlhf_engine import RLHFEngine
 from .model_validator import ModelValidator
+from .l01_bridge import L07Bridge
 
 logger = logging.getLogger(__name__)
 
@@ -35,25 +36,42 @@ class LearningService:
     - Model registry and deployment
 
     For local development, uses simulated training and stub implementations.
+
+    When L01 Data Layer is available, training data and datasets are persisted
+    via L07Bridge for cross-layer access and long-term retention.
     """
 
     def __init__(
         self,
         storage_path: str = "/tmp/l07_learning",
-        enable_rlhf: bool = False
+        enable_rlhf: bool = False,
+        l01_base_url: Optional[str] = None
     ):
         """Initialize Learning Service.
 
         Args:
-            storage_path: Base path for storage
+            storage_path: Base path for storage (fallback when L01 unavailable)
             enable_rlhf: Enable RLHF pipeline (stub)
+            l01_base_url: Optional L01 Data Layer URL (e.g., "http://localhost:8002")
         """
         self.storage_path = storage_path
+
+        # Initialize L01 Bridge if URL provided
+        self.l01_bridge = None
+        if l01_base_url:
+            try:
+                self.l01_bridge = L07Bridge(l01_base_url=l01_base_url)
+                logger.info(f"L07Bridge initialized with L01 at {l01_base_url}")
+            except Exception as e:
+                logger.warning(f"Failed to initialize L07Bridge: {e}")
 
         # Initialize components
         self.extractor = TrainingDataExtractor()
         self.filter = ExampleQualityFilter()
-        self.curator = DatasetCurator(f"{storage_path}/datasets")
+        self.curator = DatasetCurator(
+            storage_path=f"{storage_path}/datasets",
+            l01_bridge=self.l01_bridge
+        )
         self.registry = ModelRegistry(f"{storage_path}/models")
         self.fine_tuning_engine = FineTuningEngine(
             model_registry=self.registry,
@@ -71,7 +89,8 @@ class LearningService:
 
         logger.info(
             f"Initialized LearningService "
-            f"(storage={storage_path}, rlhf={'ON' if enable_rlhf else 'OFF'})"
+            f"(storage={storage_path}, rlhf={'ON' if enable_rlhf else 'OFF'}, "
+            f"l01={'enabled' if self.l01_bridge else 'disabled'})"
         )
 
     async def initialize(self) -> None:
@@ -82,7 +101,14 @@ class LearningService:
 
         logger.info("Initializing LearningService components...")
 
-        # Any async initialization would go here
+        # Initialize L01 Bridge if available
+        if self.l01_bridge:
+            try:
+                await self.l01_bridge.initialize()
+                logger.info("L07Bridge initialized successfully")
+            except Exception as e:
+                logger.warning(f"L07Bridge initialization failed: {e}")
+                self.l01_bridge = None
 
         self.initialized = True
         logger.info("LearningService initialized successfully")
@@ -90,7 +116,17 @@ class LearningService:
     async def cleanup(self) -> None:
         """Clean up resources."""
         logger.info("Cleaning up LearningService...")
+
+        # Cleanup L01 Bridge if available
+        if self.l01_bridge:
+            try:
+                await self.l01_bridge.cleanup()
+                logger.info("L07Bridge cleanup complete")
+            except Exception as e:
+                logger.warning(f"L07Bridge cleanup failed: {e}")
+
         self.initialized = False
+        logger.info("LearningService cleanup complete")
 
     async def process_event(self, event: Dict[str, Any]) -> Optional[TrainingExample]:
         """Process single event from L01 event stream.

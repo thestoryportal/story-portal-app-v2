@@ -30,6 +30,7 @@ from .task_orchestrator import TaskOrchestrator
 from .agent_assigner import AgentAssigner
 from .execution_monitor import ExecutionMonitor
 from .plan_cache import PlanCache
+from .l01_bridge import L05Bridge
 
 # Cross-layer imports
 from src.L04_model_gateway.services.model_gateway import ModelGateway
@@ -63,6 +64,7 @@ class PlanningService:
         gateway_client: Optional[ModelGateway] = None,
         executor_client: Optional[AgentExecutor] = None,
         tool_executor_client: Optional[ToolExecutor] = None,
+        l01_bridge: Optional[L05Bridge] = None,
     ):
         """
         Initialize Planning Service.
@@ -78,12 +80,16 @@ class PlanningService:
             gateway_client: L04 Model Gateway client
             executor_client: L02 AgentExecutor client
             tool_executor_client: L03 ToolExecutor client
+            l01_bridge: L05Bridge for L01 Data Layer integration
         """
         # Initialize cross-layer clients
         self.gateway = gateway_client or ModelGateway()
         self.executor = executor_client or AgentExecutor()
         # ToolExecutor requires ToolRegistry and ToolSandbox, so only use if provided
         self.tool_executor = tool_executor_client
+
+        # Initialize L01 Data Layer bridge
+        self.l01_bridge = l01_bridge or L05Bridge()
 
         # Initialize components with cross-layer wiring
         cache = PlanCache()
@@ -116,10 +122,12 @@ class PlanningService:
 
     async def initialize(self) -> None:
         """Initialize service and components."""
+        await self.l01_bridge.initialize()
         logger.info("PlanningService initialization complete")
 
     async def cleanup(self) -> None:
         """Cleanup service resources."""
+        await self.l01_bridge.cleanup()
         logger.info("PlanningService cleanup complete")
 
     async def create_plan(self, goal: Goal) -> ExecutionPlan:
@@ -150,9 +158,19 @@ class PlanningService:
         try:
             logger.info(f"Creating plan for goal: {goal.goal_id}")
 
+            # Record goal in L01
+            await self.l01_bridge.record_goal(goal)
+
             # Step 1: Decompose goal
             plan = await self.decomposer.decompose(goal)
             goal.status = GoalStatus.READY
+
+            # Update goal status in L01
+            await self.l01_bridge.update_goal_status(
+                goal_id=goal.goal_id,
+                status=goal.status.value,
+                decomposition_strategy=goal.decomposition_strategy
+            )
 
             # Step 2: Resolve dependencies
             dep_graph = self.resolver.resolve(plan)
@@ -185,6 +203,9 @@ class PlanningService:
 
             # Mark plan as validated
             plan.mark_validated()
+
+            # Record plan in L01
+            await self.l01_bridge.record_plan(plan)
 
             self.plans_created += 1
             logger.info(
@@ -258,6 +279,15 @@ class PlanningService:
         try:
             logger.info(f"Executing plan {plan.plan_id}")
 
+            # Update plan status to executing in L01
+            from datetime import datetime
+            execution_start = datetime.utcnow()
+            await self.l01_bridge.update_plan_status(
+                plan_id=plan.plan_id,
+                status=PlanStatus.EXECUTING.value,
+                execution_started_at=execution_start
+            )
+
             # Start monitoring
             monitor_task = None
             # monitor_task = asyncio.create_task(
@@ -274,15 +304,45 @@ class PlanningService:
             # if monitor_task:
             #     await monitor_task
 
+            # Calculate execution metrics
+            execution_end = datetime.utcnow()
+            execution_time_ms = (execution_end - execution_start).total_seconds() * 1000
+
+            # Count completed and failed tasks
+            completed_count = sum(1 for t in plan.tasks if t.status.value in ["completed", "success"])
+            failed_count = sum(1 for t in plan.tasks if t.status.value in ["failed", "error"])
+
+            # Update plan status to completed in L01
+            await self.l01_bridge.update_plan_status(
+                plan_id=plan.plan_id,
+                status=PlanStatus.COMPLETED.value,
+                execution_completed_at=execution_end,
+                execution_time_ms=execution_time_ms,
+                completed_task_count=completed_count,
+                failed_task_count=failed_count
+            )
+
             logger.info(f"Plan {plan.plan_id} execution completed")
             return result
 
-        except PlanningError:
+        except PlanningError as pe:
             self.execution_failures += 1
+            # Update plan status to failed in L01
+            await self.l01_bridge.update_plan_status(
+                plan_id=plan.plan_id,
+                status=PlanStatus.FAILED.value,
+                error=str(pe)
+            )
             raise
         except Exception as e:
             self.execution_failures += 1
             logger.error(f"Plan execution failed: {e}")
+            # Update plan status to failed in L01
+            await self.l01_bridge.update_plan_status(
+                plan_id=plan.plan_id,
+                status=PlanStatus.FAILED.value,
+                error=str(e)
+            )
             raise PlanningError.from_code(
                 ErrorCode.E5200,
                 details={"plan_id": plan.plan_id, "error": str(e)},

@@ -12,7 +12,7 @@ from typing import Dict, Any, Optional, AsyncIterator
 
 from .models import AgentConfig, AgentState, SpawnResult
 from .backends import LocalRuntime, KubernetesRuntime
-from .services import SandboxManager, LifecycleManager
+from .services import SandboxManager, LifecycleManager, L01Bridge
 
 
 logger = logging.getLogger(__name__)
@@ -45,6 +45,7 @@ class AgentRuntime:
         self.backend = None
         self.sandbox_manager = None
         self.lifecycle_manager = None
+        self.l01_bridge = None
 
         logger.info("AgentRuntime created")
 
@@ -86,11 +87,22 @@ class AgentRuntime:
             config=self.config.get("sandbox", {})
         )
 
+        # Create L01 bridge if enabled
+        l01_config = self.config.get("l01_bridge", {})
+        if l01_config.get("enabled", True):  # Enabled by default
+            l01_base_url = l01_config.get("base_url", "http://localhost:8002")
+            self.l01_bridge = L01Bridge(l01_base_url=l01_base_url)
+            logger.info(f"L01 bridge created with base_url={l01_base_url}")
+        else:
+            self.l01_bridge = None
+            logger.info("L01 bridge disabled")
+
         # Create lifecycle manager
         self.lifecycle_manager = LifecycleManager(
             backend=self.backend,
             sandbox_manager=self.sandbox_manager,
-            config=self.config.get("lifecycle", {})
+            config=self.config.get("lifecycle", {}),
+            l01_bridge=self.l01_bridge
         )
 
         # Initialize all components

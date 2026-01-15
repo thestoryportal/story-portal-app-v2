@@ -11,6 +11,7 @@ from .result_cache import ResultCache
 from .mcp_tool_bridge import MCPToolBridge
 from .tool_composer import ToolComposer
 from .model_gateway_bridge import ToolModelBridge
+from .l01_bridge import L03Bridge
 
 __all__ = [
     "ToolRegistry",
@@ -20,4 +21,5 @@ __all__ = [
     "MCPToolBridge",
     "ToolComposer",
     "ToolModelBridge",
+    "L03Bridge",
 ]

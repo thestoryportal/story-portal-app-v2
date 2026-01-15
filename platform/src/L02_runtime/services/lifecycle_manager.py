@@ -21,6 +21,7 @@ from ..models import (
 )
 from ..backends.protocol import RuntimeBackend
 from .sandbox_manager import SandboxManager, SandboxError
+from .l01_bridge import L01Bridge
 
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,8 @@ class LifecycleManager:
         self,
         backend: RuntimeBackend,
         sandbox_manager: SandboxManager,
-        config: Optional[Dict[str, Any]] = None
+        config: Optional[Dict[str, Any]] = None,
+        l01_bridge: Optional[L01Bridge] = None
     ):
         """
         Initialize LifecycleManager.
@@ -63,10 +65,12 @@ class LifecycleManager:
                 - graceful_shutdown_seconds: Graceful shutdown timeout
                 - max_restart_count: Maximum automatic restarts
                 - enable_suspend: Enable suspend/resume operations
+            l01_bridge: Optional L01 Data Layer bridge for event publishing
         """
         self.backend = backend
         self.sandbox_manager = sandbox_manager
         self.config = config or {}
+        self.l01_bridge = l01_bridge
 
         # Configuration
         self.spawn_timeout = self.config.get("spawn_timeout_seconds", 60)
@@ -77,15 +81,23 @@ class LifecycleManager:
         # State tracking
         self._instances: Dict[str, AgentInstance] = {}
         self._restart_counts: Dict[str, int] = {}
+        # Track L01 session IDs: agent_id -> l01_session_id
+        self._l01_sessions: Dict[str, Any] = {}
 
         logger.info(
             f"LifecycleManager initialized with backend: "
-            f"{backend.__class__.__name__}"
+            f"{backend.__class__.__name__}, "
+            f"L01 bridge: {'enabled' if l01_bridge else 'disabled'}"
         )
 
     async def initialize(self) -> None:
         """Initialize lifecycle manager and backend"""
         await self.backend.initialize()
+
+        # Initialize L01 bridge if present
+        if self.l01_bridge:
+            await self.l01_bridge.initialize()
+
         logger.info("LifecycleManager initialization complete")
 
     async def spawn(
@@ -144,6 +156,16 @@ class LifecycleManager:
             # Store instance
             self._instances[config.agent_id] = instance
             self._restart_counts[config.agent_id] = 0
+
+            # Notify L01 of agent spawn
+            if self.l01_bridge:
+                l01_session_id = await self.l01_bridge.on_agent_spawned(
+                    spawn_result=result,
+                    agent_instance=instance
+                )
+                if l01_session_id:
+                    self._l01_sessions[config.agent_id] = l01_session_id
+                    logger.debug(f"Linked agent {config.agent_id} to L01 session {l01_session_id}")
 
             logger.info(
                 f"Agent {config.agent_id} spawned successfully "
@@ -210,9 +232,19 @@ class LifecycleManager:
             )
 
             # Update instance state
+            old_state = instance.state
             instance.state = AgentState.TERMINATED
             instance.terminated_at = datetime.now(timezone.utc)
             instance.updated_at = datetime.now(timezone.utc)
+
+            # Notify L01 of termination
+            if self.l01_bridge and agent_id in self._l01_sessions:
+                await self.l01_bridge.on_agent_terminated(
+                    l01_session_id=self._l01_sessions[agent_id],
+                    agent_id=agent_id,
+                    termination_reason=reason,
+                    resource_usage=instance.resource_usage.to_dict()
+                )
 
             logger.info(f"Agent {agent_id} terminated successfully")
 
@@ -273,8 +305,18 @@ class LifecycleManager:
             )
 
             # Update instance state
+            old_state = instance.state
             instance.state = AgentState.SUSPENDED
             instance.updated_at = datetime.now(timezone.utc)
+
+            # Notify L01 of state change
+            if self.l01_bridge and agent_id in self._l01_sessions:
+                await self.l01_bridge.on_agent_state_changed(
+                    l01_session_id=self._l01_sessions[agent_id],
+                    agent_id=agent_id,
+                    old_state=old_state,
+                    new_state=AgentState.SUSPENDED
+                )
 
             logger.info(f"Agent {agent_id} suspended successfully")
 
@@ -336,8 +378,18 @@ class LifecycleManager:
             )
 
             # Update instance state
+            old_state = instance.state
             instance.state = AgentState.RUNNING
             instance.updated_at = datetime.now(timezone.utc)
+
+            # Notify L01 of state change
+            if self.l01_bridge and agent_id in self._l01_sessions:
+                await self.l01_bridge.on_agent_state_changed(
+                    l01_session_id=self._l01_sessions[agent_id],
+                    agent_id=agent_id,
+                    old_state=old_state,
+                    new_state=AgentState.RUNNING
+                )
 
             logger.info(f"Agent {agent_id} resumed successfully")
 

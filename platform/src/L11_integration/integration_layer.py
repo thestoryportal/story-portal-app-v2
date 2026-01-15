@@ -16,6 +16,7 @@ from .services import (
     SagaOrchestrator,
     ObservabilityCollector,
 )
+from .services.l01_bridge import L11Bridge
 from .models import IntegrationError, ErrorCode
 
 
@@ -33,6 +34,7 @@ class IntegrationLayer:
         self,
         redis_url: str = "redis://localhost:6379",
         observability_output_file: Optional[str] = None,
+        l01_base_url: str = "http://localhost:8002",
     ):
         """
         Initialize integration layer.
@@ -40,11 +42,15 @@ class IntegrationLayer:
         Args:
             redis_url: Redis connection URL for event bus
             observability_output_file: Optional file path for observability data
+            l01_base_url: Base URL for L01 Data Layer API
         """
-        # Initialize services
-        self.service_registry = ServiceRegistry()
+        # Initialize L01 bridge
+        self.l11_bridge = L11Bridge(l01_base_url=l01_base_url)
+
+        # Initialize services (passing bridge for L01 recording)
+        self.service_registry = ServiceRegistry(l11_bridge=self.l11_bridge)
         self.event_bus = EventBusManager(redis_url=redis_url)
-        self.circuit_breaker = CircuitBreaker()
+        self.circuit_breaker = CircuitBreaker(l11_bridge=self.l11_bridge)
         self.observability = ObservabilityCollector(output_file=observability_output_file)
 
         # Initialize orchestrators (depend on other services)
@@ -54,6 +60,7 @@ class IntegrationLayer:
         )
         self.saga_orchestrator = SagaOrchestrator(
             request_orchestrator=self.request_orchestrator,
+            l11_bridge=self.l11_bridge,
         )
 
         self._running = False
@@ -67,6 +74,10 @@ class IntegrationLayer:
         logger.info("Starting L11 Integration Layer...")
 
         try:
+            # Initialize L01 bridge
+            await self.l11_bridge.initialize()
+            logger.info("L11 bridge initialized")
+
             # Start services in order
             await self.service_registry.start()
             await self.event_bus.start()
@@ -99,6 +110,10 @@ class IntegrationLayer:
             await self.observability.stop()
             await self.event_bus.stop()
             await self.service_registry.stop()
+
+            # Cleanup L01 bridge
+            await self.l11_bridge.cleanup()
+            logger.info("L11 bridge cleanup complete")
 
             self._running = False
             logger.info("L11 Integration Layer stopped successfully")

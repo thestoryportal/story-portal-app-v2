@@ -46,7 +46,8 @@ class ModelGateway:
         rate_limiter: Optional[RateLimiter] = None,
         circuit_breaker: Optional[CircuitBreaker] = None,
         request_queue: Optional[RequestQueue] = None,
-        providers: Optional[Dict[str, ProviderAdapter]] = None
+        providers: Optional[Dict[str, ProviderAdapter]] = None,
+        l01_bridge = None
     ):
         """
         Initialize Model Gateway
@@ -59,6 +60,7 @@ class ModelGateway:
             circuit_breaker: CircuitBreaker instance (creates default if None)
             request_queue: RequestQueue instance (creates default if None)
             providers: Dictionary of provider adapters (creates defaults if None)
+            l01_bridge: Optional L04Bridge instance for L01 integration
         """
         # Initialize registry
         self.registry = registry or ModelRegistry()
@@ -71,6 +73,9 @@ class ModelGateway:
         self.rate_limiter = rate_limiter or RateLimiter()
         self.circuit_breaker = circuit_breaker or CircuitBreaker()
         self.request_queue = request_queue or RequestQueue()
+
+        # Initialize L01 bridge (optional)
+        self.l01_bridge = l01_bridge
 
         # Initialize providers
         self.providers = providers or {}
@@ -153,6 +158,10 @@ class ModelGateway:
             # Step 5: Cache response (if enabled and successful)
             if request.enable_cache and response.is_success():
                 await self.cache.set(request, response)
+
+            # Step 6: Record usage in L01 (if bridge is enabled)
+            if self.l01_bridge:
+                await self.l01_bridge.record_inference(request, response)
 
             # Log execution time
             total_time = (datetime.utcnow() - start_time).total_seconds() * 1000
@@ -399,6 +408,9 @@ class ModelGateway:
 
         if self.rate_limiter:
             await self.rate_limiter.close()
+
+        if self.l01_bridge:
+            await self.l01_bridge.cleanup()
 
         for provider in self.providers.values():
             if hasattr(provider, 'close'):

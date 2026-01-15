@@ -24,6 +24,10 @@ class L10Settings(BaseSettings):
     redis_db: int = Field(default=0, description="Redis database number")
     redis_password: Optional[str] = Field(default=None, description="Redis password")
 
+    # L01 Data Layer configuration
+    l01_host: str = Field(default="localhost", description="L01 Data Layer host")
+    l01_port: int = Field(default=8002, description="L01 Data Layer port")
+
     @property
     def redis_url(self) -> str:
         """Construct Redis URL."""

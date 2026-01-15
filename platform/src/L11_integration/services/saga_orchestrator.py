@@ -7,6 +7,7 @@ Multi-step workflow orchestration with automatic compensation (rollback).
 import asyncio
 import logging
 from typing import Dict, Optional, Any
+from datetime import datetime
 
 from .request_orchestrator import RequestOrchestrator
 from ..models import (
@@ -32,14 +33,16 @@ class SagaOrchestrator:
     compensation (rollback) on failure.
     """
 
-    def __init__(self, request_orchestrator: RequestOrchestrator):
+    def __init__(self, request_orchestrator: RequestOrchestrator, l11_bridge=None):
         """
         Initialize saga orchestrator.
 
         Args:
             request_orchestrator: RequestOrchestrator instance
+            l11_bridge: L11Bridge instance for recording to L01
         """
         self.request_orchestrator = request_orchestrator
+        self.l11_bridge = l11_bridge
         self._executions: Dict[str, SagaExecution] = {}
         self._lock = asyncio.Lock()
 
@@ -87,6 +90,17 @@ class SagaOrchestrator:
         try:
             # Start execution
             execution.start()
+
+            # Record saga execution in L01
+            if self.l11_bridge:
+                await self.l11_bridge.record_saga_execution(
+                    saga_id=execution.execution_id,
+                    saga_name=saga.saga_name,
+                    started_at=execution.started_at,
+                    steps_total=len(saga.steps),
+                    status="running",
+                    context=execution.context,
+                )
 
             # Execute steps sequentially
             for step_index, step in enumerate(saga.steps):
@@ -138,6 +152,16 @@ class SagaOrchestrator:
 
             # Saga completed successfully
             execution.complete()
+
+            # Update saga execution as completed in L01
+            if self.l11_bridge:
+                await self.l11_bridge.update_saga_execution(
+                    saga_id=execution.execution_id,
+                    status="completed",
+                    steps_completed=len(saga.steps),
+                    completed_at=execution.completed_at,
+                )
+
             logger.info(
                 f"Saga completed successfully: {saga.saga_name} "
                 f"(execution_id={execution.execution_id})"
@@ -174,6 +198,18 @@ class SagaOrchestrator:
 
         step.start()
 
+        # Record saga step in L01
+        step_id = f"{execution.execution_id}-step-{step.step_index}"
+        if self.l11_bridge:
+            await self.l11_bridge.record_saga_step(
+                step_id=step_id,
+                saga_id=execution.execution_id,
+                step_name=step.step_name,
+                step_index=step.step_index,
+                service_id=step.service_name or "local",
+                status="executing",
+            )
+
         # Retry loop
         while True:
             try:
@@ -206,6 +242,15 @@ class SagaOrchestrator:
                     # No action defined
                     step.complete()
 
+                # Update saga step in L01
+                if self.l11_bridge:
+                    await self.l11_bridge.update_saga_step(
+                        step_id=step_id,
+                        status="completed",
+                        completed_at=step.completed_at,
+                        response=step.output,
+                    )
+
                 logger.debug(f"Step completed: {step.step_name}")
                 break
 
@@ -224,6 +269,15 @@ class SagaOrchestrator:
                     logger.error(
                         f"Step exhausted retries: {step.step_name}"
                     )
+                    # Update saga step as failed in L01
+                    if self.l11_bridge:
+                        await self.l11_bridge.update_saga_step(
+                            step_id=step_id,
+                            status="failed",
+                            completed_at=datetime.utcnow(),
+                            error_message=str(e),
+                            retry_count=step.retry_count,
+                        )
                     raise
 
     async def _compensate_saga(
@@ -244,6 +298,14 @@ class SagaOrchestrator:
         )
 
         execution.start_compensation()
+
+        # Update saga to compensating mode in L01
+        if self.l11_bridge:
+            await self.l11_bridge.update_saga_execution(
+                saga_id=execution.execution_id,
+                status="compensating",
+                compensation_mode=True,
+            )
 
         # Get completed steps in reverse order
         completed_steps = execution.get_completed_steps()

@@ -33,8 +33,13 @@ class CircuitBreaker:
     is experiencing issues.
     """
 
-    def __init__(self):
-        """Initialize circuit breaker manager."""
+    def __init__(self, l11_bridge=None):
+        """Initialize circuit breaker manager.
+
+        Args:
+            l11_bridge: L11Bridge instance for recording to L01
+        """
+        self.l11_bridge = l11_bridge
         self._circuits: Dict[str, CircuitBreakerState] = {}
         self._lock = asyncio.Lock()
 
@@ -144,6 +149,19 @@ class CircuitBreaker:
                         f"{old_state.value} -> {circuit.state.value}"
                     )
 
+                    # Record state change in L01
+                    if self.l11_bridge:
+                        await self.l11_bridge.record_circuit_breaker_event(
+                            timestamp=datetime.now(timezone.utc),
+                            service_id=service_name,
+                            circuit_name=f"{service_name}_circuit",
+                            event_type="state_change",
+                            state_to=circuit.state.value,
+                            state_from=old_state.value,
+                            success_count=circuit.success_count,
+                            failure_count=circuit.failure_count,
+                        )
+
     async def record_failure(self, service_name: str) -> None:
         """
         Record a failed request.
@@ -162,6 +180,20 @@ class CircuitBreaker:
                         f"Circuit breaker state changed for {service_name}: "
                         f"{old_state.value} -> {circuit.state.value}"
                     )
+
+                    # Record state change in L01
+                    if self.l11_bridge:
+                        await self.l11_bridge.record_circuit_breaker_event(
+                            timestamp=datetime.now(timezone.utc),
+                            service_id=service_name,
+                            circuit_name=f"{service_name}_circuit",
+                            event_type="state_change",
+                            state_to=circuit.state.value,
+                            state_from=old_state.value,
+                            failure_count=circuit.failure_count,
+                            failure_threshold=circuit.config.failure_threshold,
+                            timeout_seconds=circuit.config.timeout_sec,
+                        )
 
     async def get_state(self, service_name: str) -> Optional[CircuitBreakerState]:
         """

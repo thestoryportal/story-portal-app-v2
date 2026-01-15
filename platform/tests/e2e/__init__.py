@@ -1,1 +1,1 @@
-"""E2E Test Suite for L01-L06 Layers."""
+"""End-to-end tests for Agentic AI Workforce platform."""

@@ -29,8 +29,13 @@ class ServiceRegistry:
     Maintains a registry of all layer services with health monitoring.
     """
 
-    def __init__(self):
-        """Initialize service registry."""
+    def __init__(self, l11_bridge=None):
+        """Initialize service registry.
+
+        Args:
+            l11_bridge: L11Bridge instance for recording to L01
+        """
+        self.l11_bridge = l11_bridge
         self._services: Dict[str, ServiceInfo] = {}
         self._health_check_tasks: Dict[str, asyncio.Task] = {}
         self._running = False
@@ -55,6 +60,20 @@ class ServiceRegistry:
 
             self._services[service.service_id] = service
             logger.info(f"Registered service: {service.service_name} ({service.service_id})")
+
+            # Record service registration in L01
+            if self.l11_bridge:
+                await self.l11_bridge.record_service_registry_event(
+                    timestamp=datetime.now(),
+                    service_id=service.service_id,
+                    event_type="registered",
+                    layer=service.layer,
+                    host=service.host,
+                    port=service.port,
+                    health_status=service.status.value,
+                    capabilities=service.capabilities,
+                    metadata=service.metadata,
+                )
 
             # Start health checking if configured
             if service.health_check and self._running:
@@ -85,6 +104,16 @@ class ServiceRegistry:
             service = self._services[service_id]
             del self._services[service_id]
             logger.info(f"Deregistered service: {service.service_name} ({service_id})")
+
+            # Record service deregistration in L01
+            if self.l11_bridge:
+                await self.l11_bridge.record_service_registry_event(
+                    timestamp=datetime.now(),
+                    service_id=service_id,
+                    event_type="deregistered",
+                    layer=service.layer,
+                    health_status="offline",
+                )
 
     async def get_service(self, service_id: str) -> ServiceInfo:
         """
@@ -160,8 +189,21 @@ class ServiceRegistry:
         """
         async with self._lock:
             if service_id in self._services:
-                self._services[service_id].update_health(status)
-                logger.debug(f"Updated health for {self._services[service_id].service_name}: {status.value}")
+                service = self._services[service_id]
+                old_status = service.status
+                service.update_health(status)
+                logger.debug(f"Updated health for {service.service_name}: {status.value}")
+
+                # Record health change in L01 if status changed
+                if old_status != status and self.l11_bridge:
+                    await self.l11_bridge.record_service_registry_event(
+                        timestamp=datetime.now(),
+                        service_id=service_id,
+                        event_type="health_change",
+                        layer=service.layer,
+                        health_status=status.value,
+                        metadata={"previous_status": old_status.value},
+                    )
 
     async def heartbeat(self, service_id: str) -> None:
         """

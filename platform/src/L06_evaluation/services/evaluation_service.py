@@ -21,6 +21,7 @@ from .cache_manager import CacheManager
 from .config_manager import ConfigManager
 from .audit_logger import AuditLogger
 from .query_engine import QueryEngine
+from .l01_bridge import L06Bridge
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,7 @@ class EvaluationService:
         redis_client: Optional[any] = None,
         postgres_conn: Optional[any] = None,
         slack_webhook_url: Optional[str] = None,
+        l01_bridge: Optional[L06Bridge] = None,
     ):
         """
         Initialize evaluation service.
@@ -53,12 +55,16 @@ class EvaluationService:
             redis_client: Redis client for caching (optional)
             postgres_conn: PostgreSQL connection for storage (optional)
             slack_webhook_url: Slack webhook for alerts (optional)
+            l01_bridge: L06Bridge for L01 Data Layer integration (optional)
         """
         # Initialize managers
         self.cache = CacheManager(redis_client)
         self.storage = StorageManager(redis_client, postgres_conn)
         self.config = ConfigManager()
         self.audit = AuditLogger(postgres_conn)
+
+        # Initialize L01 Data Layer bridge
+        self.l01_bridge = l01_bridge or L06Bridge()
 
         # Initialize core services
         self.validator = EventValidator()
@@ -78,6 +84,9 @@ class EvaluationService:
             return
 
         logger.info("Initializing L06 Evaluation Service")
+
+        # Initialize L01 bridge
+        await self.l01_bridge.initialize()
 
         # Initialize scorer (which creates scorers dict)
         await self.scorer.initialize()
@@ -121,6 +130,10 @@ class EvaluationService:
             metrics = await self.metrics.ingest_from_event(validated)
             logger.debug(f"Ingested {len(metrics)} metrics from event {event.id}")
 
+            # Record metrics in L01
+            for metric in metrics:
+                await self.l01_bridge.record_metric(metric)
+
             # 4. Compute quality score (if relevant event type)
             if event.type in ["task.completed", "agent.execution.finished"]:
                 agent_id = event.data.get("agent_id", "unknown")
@@ -135,12 +148,23 @@ class EvaluationService:
                         agent_id, tenant_id, (start, end)
                     )
 
+                    # Record quality score in L01
+                    await self.l01_bridge.record_quality_score(score)
+
                     # 5. Detect anomalies
                     anomaly = await self.anomaly.detect(score)
 
                     # 6. Send alert if anomaly detected
                     if anomaly:
+                        # Record anomaly in L01
+                        await self.l01_bridge.record_anomaly(anomaly)
+
                         alert = Alert.from_anomaly(anomaly)
+
+                        # Record alert in L01
+                        await self.l01_bridge.record_alert(alert)
+
+                        # Send alert to configured channels
                         await self.alerts.send_alert(alert)
 
                 except Exception as e:

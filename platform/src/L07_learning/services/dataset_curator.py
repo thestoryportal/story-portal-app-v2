@@ -5,13 +5,17 @@ Manages dataset versions, creates train/val/test splits, and computes statistics
 
 import logging
 import numpy as np
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, TYPE_CHECKING
 from datetime import datetime
+from uuid import UUID
 import json
 
 from ..models.dataset import Dataset, DatasetSplit, DatasetVersion, DatasetLineage, DatasetStatistics
 from ..models.training_example import TrainingExample
 from ..models.error_codes import LearningErrorCode, LearningLayerException
+
+if TYPE_CHECKING:
+    from .l01_bridge import L07Bridge
 
 logger = logging.getLogger(__name__)
 
@@ -21,18 +25,30 @@ class DatasetCurator:
 
     This service creates versioned datasets with train/validation/test splits,
     computes statistics, and handles incremental updates.
+
+    When L01Bridge is provided, datasets and training examples are persisted
+    to L01 Data Layer. Otherwise, falls back to local file storage and in-memory cache.
     """
 
-    def __init__(self, storage_path: str = "/tmp/l07_datasets"):
+    def __init__(
+        self,
+        storage_path: str = "/tmp/l07_datasets",
+        l01_bridge: Optional["L07Bridge"] = None
+    ):
         """Initialize Dataset Curator.
 
         Args:
-            storage_path: Path to store dataset metadata
+            storage_path: Path to store dataset metadata (fallback when bridge unavailable)
+            l01_bridge: Optional bridge to L01 Data Layer for persistent storage
         """
         self.storage_path = storage_path
+        self.l01_bridge = l01_bridge
         self.datasets: Dict[str, Dataset] = {}
 
-        logger.info(f"Initialized DatasetCurator with storage at {storage_path}")
+        logger.info(
+            f"Initialized DatasetCurator with storage at {storage_path} "
+            f"(L01Bridge={'enabled' if l01_bridge else 'disabled'})"
+        )
 
     async def create_dataset(
         self,
@@ -102,11 +118,18 @@ class DatasetCurator:
 
         # Store dataset
         self.datasets[dataset.dataset_id] = dataset
-        await self._persist_dataset(dataset)
+
+        # Persist dataset (with examples for L01 bridge)
+        l01_dataset_id = await self._persist_dataset(dataset, examples)
+        if l01_dataset_id:
+            # Store L01 ID for future reference
+            dataset.metadata = dataset.metadata or {}
+            dataset.metadata['l01_dataset_id'] = str(l01_dataset_id)
 
         logger.info(
             f"Created dataset {dataset.dataset_id} ({name}) v{dataset.version} "
-            f"with {len(dataset.example_ids)} examples"
+            f"with {len(dataset.example_ids)} examples "
+            f"(L01={'enabled' if l01_dataset_id else 'disabled'})"
         )
 
         return dataset
@@ -310,12 +333,42 @@ class DatasetCurator:
         dataset = self.datasets[dataset_id]
         return dataset.validate()
 
-    async def _persist_dataset(self, dataset: Dataset) -> None:
+    async def _persist_dataset(
+        self,
+        dataset: Dataset,
+        examples: Optional[List[TrainingExample]] = None
+    ) -> Optional[UUID]:
         """Persist dataset metadata to storage.
 
         Args:
             dataset: Dataset to persist
+            examples: Training examples to link to dataset (for L01 persistence)
+
+        Returns:
+            L01 dataset ID if persisted via bridge, None otherwise
         """
+        l01_dataset_id = None
+
+        # Try L01 Bridge first
+        if self.l01_bridge and examples:
+            try:
+                l01_dataset_id = await self.l01_bridge.create_dataset(
+                    dataset=dataset,
+                    examples=examples
+                )
+
+                if l01_dataset_id:
+                    logger.info(
+                        f"Persisted dataset {dataset.dataset_id} to L01 as {l01_dataset_id}"
+                    )
+                    return l01_dataset_id
+
+            except Exception as e:
+                logger.warning(
+                    f"Failed to persist dataset to L01, falling back to file storage: {e}"
+                )
+
+        # Fallback to file storage
         try:
             import os
             os.makedirs(self.storage_path, exist_ok=True)
@@ -327,8 +380,10 @@ class DatasetCurator:
             logger.debug(f"Persisted dataset {dataset.dataset_id} to {file_path}")
 
         except Exception as e:
-            logger.error(f"Failed to persist dataset: {e}")
+            logger.error(f"Failed to persist dataset to file storage: {e}")
             # Non-fatal - dataset still in memory
+
+        return l01_dataset_id
 
     def _increment_version(self, version: str) -> str:
         """Increment semantic version.

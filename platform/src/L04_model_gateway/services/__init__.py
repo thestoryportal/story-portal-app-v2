@@ -11,6 +11,7 @@ from .rate_limiter import RateLimiter
 from .circuit_breaker import CircuitBreaker
 from .request_queue import RequestQueue, Priority
 from .model_gateway import ModelGateway
+from .l01_bridge import L04Bridge
 
 __all__ = [
     "ModelRegistry",
@@ -20,5 +21,6 @@ __all__ = [
     "CircuitBreaker",
     "RequestQueue",
     "Priority",
-    "ModelGateway"
+    "ModelGateway",
+    "L04Bridge"
 ]

@@ -29,7 +29,9 @@ from .services import (
     ResponseFormatter,
     EventPublisher,
 )
+from .services.l01_bridge import L09Bridge
 from .errors import GatewayError, ErrorCode, ServerError
+from .routers.v1 import agents, goals, tasks
 
 
 class APIGateway:
@@ -68,12 +70,14 @@ class APIGateway:
         self.async_handler: Optional[AsyncHandler] = None
         self.response_formatter: Optional[ResponseFormatter] = None
         self.event_publisher: Optional[EventPublisher] = None
+        self.l09_bridge: Optional[L09Bridge] = None
 
         # Health tracking
         self.start_time = datetime.utcnow()
 
         # Register routes
         self._register_health_endpoints()
+        self._register_api_routes()
         self._register_gateway_routes()
 
     async def startup(self):
@@ -111,11 +115,17 @@ class APIGateway:
             log_sampling_rate=self.settings.log_sampling_rate,
         )
 
+        # Initialize L01 bridge
+        self.l09_bridge = L09Bridge(l01_base_url="http://localhost:8002")
+        await self.l09_bridge.initialize()
+
         # Load initial routes (would load from L01 in production)
         await self._load_routes()
 
     async def shutdown(self):
         """Cleanup on shutdown"""
+        if self.l09_bridge:
+            await self.l09_bridge.cleanup()
         if self.redis_client:
             await self.redis_client.close()
         if self.backend_executor:
@@ -200,6 +210,12 @@ class APIGateway:
 
             return JSONResponse(content=response.model_dump(mode='json'))
 
+    def _register_api_routes(self):
+        """Register v1 API routes that proxy to L01 Data Layer"""
+        self.app.include_router(agents.router)
+        self.app.include_router(goals.router)
+        self.app.include_router(tasks.router)
+
     def _register_gateway_routes(self):
         """Register main gateway route handler"""
 
@@ -224,6 +240,29 @@ class APIGateway:
                         context=context,
                         response=response,
                         latency_ms=latency_ms,
+                    )
+
+                # Record API request in L01
+                if self.l09_bridge:
+                    await self.l09_bridge.record_api_request(
+                        request_id=f"req-{context.trace_id}-{context.span_id}",
+                        trace_id=context.trace_id,
+                        span_id=context.span_id,
+                        timestamp=datetime.utcnow(),
+                        method=context.metadata.method,
+                        path=context.metadata.path,
+                        status_code=response.status_code,
+                        latency_ms=latency_ms,
+                        consumer_id=context.consumer_id,
+                        tenant_id=context.tenant_id,
+                        authenticated=context.consumer_id is not None,
+                        auth_method=getattr(context, 'auth_method', None),
+                        rate_limit_tier=context.rate_limit_tier,
+                        idempotency_key=str(context.idempotency_key) if context.idempotency_key else None,
+                        client_ip=context.metadata.client_ip,
+                        user_agent=context.metadata.user_agent,
+                        headers=context.metadata.headers,
+                        query_params=context.metadata.query_params,
                     )
 
                 # Convert to FastAPI response
@@ -318,6 +357,18 @@ class APIGateway:
         context.rate_limit_tier = consumer.rate_limit_tier.value
         context.oauth_scopes = consumer.oauth_scopes
 
+        # Record successful authentication in L01
+        if self.l09_bridge:
+            await self.l09_bridge.record_authentication_event(
+                timestamp=datetime.utcnow(),
+                auth_method=consumer.auth_method.value,
+                success=True,
+                consumer_id=consumer.consumer_id,
+                tenant_id=consumer.tenant_id,
+                client_ip=context.metadata.client_ip,
+                user_agent=context.metadata.user_agent,
+            )
+
         # 2. Check idempotency
         cached_response = await self.idempotency_handler.check_idempotency(context)
         if cached_response:
@@ -325,6 +376,23 @@ class APIGateway:
 
         # 3. Rate limit
         await self.rate_limiter.check_rate_limit(consumer, tokens_required=1)
+
+        # Record rate limit event in L01
+        if self.l09_bridge:
+            rate_limit_info = await self.rate_limiter.get_rate_limit_info(consumer)
+            await self.l09_bridge.record_rate_limit_event(
+                timestamp=datetime.utcnow(),
+                consumer_id=consumer.consumer_id,
+                rate_limit_tier=consumer.rate_limit_tier.value,
+                tokens_remaining=rate_limit_info.get('remaining', 0),
+                tokens_limit=rate_limit_info.get('limit', 0),
+                window_start=datetime.fromtimestamp(rate_limit_info.get('reset', 0) - 3600),  # Approximate
+                window_end=datetime.fromtimestamp(rate_limit_info.get('reset', 0)),
+                tenant_id=consumer.tenant_id,
+                endpoint=context.metadata.path,
+                tokens_requested=1,
+                exceeded=False,
+            )
 
         # 4. Route request
         route_match = await self.request_router.match_route(context)
