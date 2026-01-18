@@ -1,53 +1,42 @@
 """
-api gateway - Placeholder Implementation
+L09 API Gateway - Main Entry Point
+
+This module provides the FastAPI application instance for the L09 API Gateway.
+The gateway implements:
+- Authentication (JWT, API Keys)
+- Authorization (RBAC)
+- Rate Limiting (Redis-based)
+- Request Routing (to backend services)
+- CORS Configuration
+- Health Checks
+
+For development usage:
+    uvicorn L09_api_gateway.main:app --host 0.0.0.0 --port 8009 --reload
+
+For production usage (in Docker):
+    uvicorn L09_api_gateway.main:app --host 0.0.0.0 --port 8009
 """
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-import logging
+from .gateway import APIGateway
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Create gateway instance
+gateway = APIGateway()
+app = gateway.app
 
-app = FastAPI(
-    title="api gateway",
-    description="Placeholder implementation for api gateway",
-    version="0.1.0"
-)
-
-# CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@app.get("/health/live")
-async def health_live():
-    """Liveness probe"""
-    return {"status": "alive"}
-
-@app.get("/health/ready")
-async def health_ready():
-    """Readiness probe"""
-    return {"status": "ready"}
-
-@app.get("/")
-async def root():
-    """Root endpoint"""
-    return {
-        "service": "api gateway",
-        "status": "placeholder",
-        "message": "Service placeholder - implementation pending"
-    }
 
 @app.on_event("startup")
-async def startup():
-    logger.info("api gateway starting...")
-    logger.info("api gateway started (placeholder)")
+async def startup_event():
+    """Initialize gateway services on startup"""
+    await gateway.startup()
+    print("✅ L09 API Gateway started successfully on port 8009")
+
 
 @app.on_event("shutdown")
-async def shutdown():
-    logger.info("api gateway shutting down...")
+async def shutdown_event():
+    """Clean up gateway resources on shutdown"""
+    await gateway.shutdown()
+    print("🛑 L09 API Gateway shutdown complete")
+
+
+# Export app for uvicorn
+__all__ = ["app"]

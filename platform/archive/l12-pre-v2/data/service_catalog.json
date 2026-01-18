@@ -1,0 +1,515 @@
+{
+  "AgentRegistry": {
+    "service_name": "AgentRegistry",
+    "layer": "L01",
+    "module_path": "L01_data_layer.services.agent_registry",
+    "class_name": "AgentRegistry",
+    "description": "Registry for agent metadata management and lifecycle tracking",
+    "keywords": ["agent", "registry", "metadata", "tracking"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "ConfigStore": {
+    "service_name": "ConfigStore",
+    "layer": "L01",
+    "module_path": "L01_data_layer.services.config_store",
+    "class_name": "ConfigStore",
+    "description": "Configuration key-value store with versioning support",
+    "keywords": ["config", "configuration", "store", "key-value"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "DatasetService": {
+    "service_name": "DatasetService",
+    "layer": "L01",
+    "module_path": "L01_data_layer.services.dataset_service",
+    "class_name": "DatasetService",
+    "description": "Training dataset CRUD operations and split management",
+    "keywords": ["dataset", "training", "data", "split"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "DocumentStore": {
+    "service_name": "DocumentStore",
+    "layer": "L01",
+    "module_path": "L01_data_layer.services.document_store",
+    "class_name": "DocumentStore",
+    "description": "Document persistence and retrieval service",
+    "keywords": ["document", "store", "persistence", "retrieval"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "EvaluationStore": {
+    "service_name": "EvaluationStore",
+    "layer": "L01",
+    "module_path": "L01_data_layer.services.evaluation_store",
+    "class_name": "EvaluationStore",
+    "description": "Evaluation results storage and analysis",
+    "keywords": ["evaluation", "results", "metrics", "store"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "EventStore": {
+    "service_name": "EventStore",
+    "layer": "L01",
+    "module_path": "L01_data_layer.services.event_store",
+    "class_name": "EventStore",
+    "description": "Event sourcing store for audit trails and replay",
+    "keywords": ["event", "sourcing", "audit", "trail"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "FeedbackStore": {
+    "service_name": "FeedbackStore",
+    "layer": "L01",
+    "module_path": "L01_data_layer.services.feedback_store",
+    "class_name": "FeedbackStore",
+    "description": "Feedback and correction storage for learning",
+    "keywords": ["feedback", "correction", "learning", "store"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "GoalStore": {
+    "service_name": "GoalStore",
+    "layer": "L01",
+    "module_path": "L01_data_layer.services.goal_store",
+    "class_name": "GoalStore",
+    "description": "Goal and objective persistence service",
+    "keywords": ["goal", "objective", "store", "persistence"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "PlanStore": {
+    "service_name": "PlanStore",
+    "layer": "L01",
+    "module_path": "L01_data_layer.services.plan_store",
+    "class_name": "PlanStore",
+    "description": "Execution plan storage and retrieval",
+    "keywords": ["plan", "execution", "store", "strategy"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "SessionService": {
+    "service_name": "SessionService",
+    "layer": "L01",
+    "module_path": "L01_data_layer.services.session_service",
+    "class_name": "SessionService",
+    "description": "Session lifecycle management and tracking",
+    "keywords": ["session", "lifecycle", "tracking", "management"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "ToolRegistry": {
+    "service_name": "ToolRegistry",
+    "layer": "L01",
+    "module_path": "L01_data_layer.services.tool_registry",
+    "class_name": "ToolRegistry",
+    "description": "Tool definition and metadata registry",
+    "keywords": ["tool", "registry", "definition", "metadata"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "TrainingExampleService": {
+    "service_name": "TrainingExampleService",
+    "layer": "L01",
+    "module_path": "L01_data_layer.services.training_example_service",
+    "class_name": "TrainingExampleService",
+    "description": "Training example CRUD operations and management",
+    "keywords": ["training", "example", "data", "learning"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "AgentExecutor": {
+    "service_name": "AgentExecutor",
+    "layer": "L02",
+    "module_path": "L02_runtime.services.agent_executor",
+    "class_name": "AgentExecutor",
+    "description": "Code execution engine with tool support and sandboxing",
+    "keywords": ["agent", "executor", "execute", "run", "code"],
+    "dependencies": ["ToolRegistry", "SandboxManager"],
+    "requires_async_init": true,
+    "methods": []
+  },
+  "FleetManager": {
+    "service_name": "FleetManager",
+    "layer": "L02",
+    "module_path": "L02_runtime.services.fleet_manager",
+    "class_name": "FleetManager",
+    "description": "Agent fleet scaling orchestration and autoscaling",
+    "keywords": ["fleet", "scaling", "autoscale", "orchestration"],
+    "dependencies": ["LifecycleManager", "ResourceManager"],
+    "requires_async_init": true,
+    "methods": []
+  },
+  "LifecycleManager": {
+    "service_name": "LifecycleManager",
+    "layer": "L02",
+    "module_path": "L02_runtime.services.lifecycle_manager",
+    "class_name": "LifecycleManager",
+    "description": "Agent spawn, terminate, and recovery management",
+    "keywords": ["lifecycle", "spawn", "terminate", "recovery", "manage"],
+    "dependencies": ["AgentRegistry", "RuntimeBackend"],
+    "requires_async_init": true,
+    "methods": []
+  },
+  "ResourceManager": {
+    "service_name": "ResourceManager",
+    "layer": "L02",
+    "module_path": "L02_runtime.services.resource_manager",
+    "class_name": "ResourceManager",
+    "description": "CPU and memory quota enforcement with monitoring",
+    "keywords": ["resource", "quota", "memory", "cpu", "limits"],
+    "dependencies": [],
+    "requires_async_init": true,
+    "methods": []
+  },
+  "SandboxManager": {
+    "service_name": "SandboxManager",
+    "layer": "L02",
+    "module_path": "L02_runtime.services.sandbox_manager",
+    "class_name": "SandboxManager",
+    "description": "Runtime sandbox configuration and isolation",
+    "keywords": ["sandbox", "isolation", "security", "environment"],
+    "dependencies": [],
+    "requires_async_init": true,
+    "methods": []
+  },
+  "StateManager": {
+    "service_name": "StateManager",
+    "layer": "L02",
+    "module_path": "L02_runtime.services.state_manager",
+    "class_name": "StateManager",
+    "description": "Checkpoint and recovery state management",
+    "keywords": ["state", "checkpoint", "recovery", "persistence"],
+    "dependencies": [],
+    "requires_async_init": true,
+    "methods": []
+  },
+  "WorkflowEngine": {
+    "service_name": "WorkflowEngine",
+    "layer": "L02",
+    "module_path": "L02_runtime.services.workflow_engine",
+    "class_name": "WorkflowEngine",
+    "description": "Graph-based workflow execution engine",
+    "keywords": ["workflow", "graph", "execution", "orchestration"],
+    "dependencies": ["AgentExecutor"],
+    "requires_async_init": true,
+    "methods": []
+  },
+  "ToolComposer": {
+    "service_name": "ToolComposer",
+    "layer": "L03",
+    "module_path": "L03_tool_execution.services.tool_composer",
+    "class_name": "ToolComposer",
+    "description": "Multi-tool workflow composition and chaining",
+    "keywords": ["tool", "compose", "workflow", "chain"],
+    "dependencies": ["ToolExecutor"],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "ToolExecutor": {
+    "service_name": "ToolExecutor",
+    "layer": "L03",
+    "module_path": "L03_tool_execution.services.tool_executor",
+    "class_name": "ToolExecutor",
+    "description": "Sandboxed tool execution engine with result caching",
+    "keywords": ["tool", "execute", "sandbox", "invoke"],
+    "dependencies": ["ToolRegistry", "SandboxManager"],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "ModelGateway": {
+    "service_name": "ModelGateway",
+    "layer": "L04",
+    "module_path": "L04_model_gateway.services.model_gateway",
+    "class_name": "ModelGateway",
+    "description": "Main LLM gateway orchestrator with routing and caching",
+    "keywords": ["model", "gateway", "llm", "inference", "routing"],
+    "dependencies": ["ModelRegistry", "LLMRouter", "SemanticCache"],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "LLMRouter": {
+    "service_name": "LLMRouter",
+    "layer": "L04",
+    "module_path": "L04_model_gateway.services.llm_router",
+    "class_name": "LLMRouter",
+    "description": "Capability-aware model routing and selection",
+    "keywords": ["llm", "router", "routing", "model", "selection"],
+    "dependencies": ["ModelRegistry"],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "SemanticCache": {
+    "service_name": "SemanticCache",
+    "layer": "L04",
+    "module_path": "L04_model_gateway.services.semantic_cache",
+    "class_name": "SemanticCache",
+    "description": "Embedding-based LLM result caching",
+    "keywords": ["cache", "semantic", "embedding", "similarity"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "PlanningService": {
+    "service_name": "PlanningService",
+    "layer": "L05",
+    "module_path": "L05_planning.services.planning_service",
+    "class_name": "PlanningService",
+    "description": "Strategic planning coordinator for goal decomposition and execution",
+    "keywords": ["planning", "plan", "goal", "decompose", "strategy"],
+    "dependencies": ["GoalDecomposer", "TaskOrchestrator", "AgentExecutor", "ModelGateway"],
+    "requires_async_init": true,
+    "methods": [
+      {
+        "name": "create_plan",
+        "description": "Create execution plan from goal",
+        "parameters": [
+          {
+            "name": "goal",
+            "type": "Goal",
+            "required": true,
+            "description": "Goal object to decompose"
+          }
+        ],
+        "returns": "ExecutionPlan",
+        "async_method": true
+      },
+      {
+        "name": "execute_plan",
+        "description": "Execute a decomposed plan",
+        "parameters": [
+          {
+            "name": "plan",
+            "type": "ExecutionPlan",
+            "required": true,
+            "description": "Plan to execute"
+          }
+        ],
+        "returns": "PlanExecutionResult",
+        "async_method": true
+      }
+    ]
+  },
+  "GoalDecomposer": {
+    "service_name": "GoalDecomposer",
+    "layer": "L05",
+    "module_path": "L05_planning.services.goal_decomposer",
+    "class_name": "GoalDecomposer",
+    "description": "Goal-to-plan decomposition using cache, templates, and LLM",
+    "keywords": ["goal", "decompose", "plan", "breakdown", "tasks"],
+    "dependencies": ["PlanCache", "ModelGateway"],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "TaskOrchestrator": {
+    "service_name": "TaskOrchestrator",
+    "layer": "L05",
+    "module_path": "L05_planning.services.task_orchestrator",
+    "class_name": "TaskOrchestrator",
+    "description": "Parallel task execution and coordination",
+    "keywords": ["task", "orchestrate", "parallel", "execute", "coordinate"],
+    "dependencies": ["AgentAssigner", "ExecutionMonitor"],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "AgentAssigner": {
+    "service_name": "AgentAssigner",
+    "layer": "L05",
+    "module_path": "L05_planning.services.agent_assigner",
+    "class_name": "AgentAssigner",
+    "description": "Task-to-agent assignment engine with capability matching",
+    "keywords": ["agent", "assign", "task", "match", "capability"],
+    "dependencies": ["AgentRegistry"],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "EvaluationService": {
+    "service_name": "EvaluationService",
+    "layer": "L06",
+    "module_path": "L06_evaluation.services.evaluation_service",
+    "class_name": "EvaluationService",
+    "description": "Quality assessment and metrics aggregation orchestrator",
+    "keywords": ["evaluation", "quality", "assessment", "metrics", "scoring"],
+    "dependencies": ["MetricsEngine", "ComplianceValidator"],
+    "requires_async_init": true,
+    "methods": []
+  },
+  "MetricsEngine": {
+    "service_name": "MetricsEngine",
+    "layer": "L06",
+    "module_path": "L06_evaluation.services.metrics_engine",
+    "class_name": "MetricsEngine",
+    "description": "Time-windowed statistics aggregation engine",
+    "keywords": ["metrics", "statistics", "aggregation", "window", "analysis"],
+    "dependencies": ["CacheManager", "StorageManager"],
+    "requires_async_init": true,
+    "methods": []
+  },
+  "AlertManager": {
+    "service_name": "AlertManager",
+    "layer": "L06",
+    "module_path": "L06_evaluation.services.alert_manager",
+    "class_name": "AlertManager",
+    "description": "Multi-channel alert routing and delivery",
+    "keywords": ["alert", "notify", "notification", "warning"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "LearningService": {
+    "service_name": "LearningService",
+    "layer": "L07",
+    "module_path": "L07_learning.services.learning_service",
+    "class_name": "LearningService",
+    "description": "Model training and optimization orchestrator",
+    "keywords": ["learning", "training", "model", "optimize", "fine-tune"],
+    "dependencies": ["FineTuningEngine", "DatasetService", "ModelValidator"],
+    "requires_async_init": true,
+    "methods": []
+  },
+  "FineTuningEngine": {
+    "service_name": "FineTuningEngine",
+    "layer": "L07",
+    "module_path": "L07_learning.services.finetuning_engine",
+    "class_name": "FineTuningEngine",
+    "description": "LoRA-based supervised fine-tuning engine",
+    "keywords": ["finetune", "training", "lora", "supervised"],
+    "dependencies": ["DatasetService"],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "DatasetCurator": {
+    "service_name": "DatasetCurator",
+    "layer": "L07",
+    "module_path": "L07_learning.services.dataset_curator",
+    "class_name": "DatasetCurator",
+    "description": "Training dataset curation and quality filtering",
+    "keywords": ["dataset", "curate", "filter", "quality", "training"],
+    "dependencies": ["ExampleQualityFilter"],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "AuthenticationHandler": {
+    "service_name": "AuthenticationHandler",
+    "layer": "L09",
+    "module_path": "L09_api_gateway.services.authentication",
+    "class_name": "AuthenticationHandler",
+    "description": "Multi-method authentication (API key, OAuth 2.0, SAML)",
+    "keywords": ["authentication", "auth", "login", "identity", "security"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "AuthorizationEngine": {
+    "service_name": "AuthorizationEngine",
+    "layer": "L09",
+    "module_path": "L09_api_gateway.services.authorization",
+    "class_name": "AuthorizationEngine",
+    "description": "RBAC and ABAC authorization enforcement",
+    "keywords": ["authorization", "access", "rbac", "abac", "permissions"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "RequestRouter": {
+    "service_name": "RequestRouter",
+    "layer": "L09",
+    "module_path": "L09_api_gateway.services.request_router",
+    "class_name": "RequestRouter",
+    "description": "Glob-pattern path routing to backend services",
+    "keywords": ["router", "routing", "path", "request", "dispatch"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "DashboardService": {
+    "service_name": "DashboardService",
+    "layer": "L10",
+    "module_path": "L10_human_interface.services.dashboard_service",
+    "class_name": "DashboardService",
+    "description": "Real-time system state aggregation for web dashboard",
+    "keywords": ["dashboard", "ui", "interface", "monitoring", "visualization"],
+    "dependencies": ["AgentRegistry", "GoalStore"],
+    "requires_async_init": true,
+    "methods": []
+  },
+  "ControlService": {
+    "service_name": "ControlService",
+    "layer": "L10",
+    "module_path": "L10_human_interface.services.control_service",
+    "class_name": "ControlService",
+    "description": "Agent operation controls (start, stop, pause, resume)",
+    "keywords": ["control", "operate", "start", "stop", "manage"],
+    "dependencies": ["LifecycleManager"],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "WebSocketGateway": {
+    "service_name": "WebSocketGateway",
+    "layer": "L10",
+    "module_path": "L10_human_interface.services.websocket_gateway",
+    "class_name": "WebSocketGateway",
+    "description": "Real-time client updates via WebSocket connections",
+    "keywords": ["websocket", "realtime", "stream", "events", "push"],
+    "dependencies": ["EventBusManager"],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "SagaOrchestrator": {
+    "service_name": "SagaOrchestrator",
+    "layer": "L11",
+    "module_path": "L11_integration.services.saga_orchestrator",
+    "class_name": "SagaOrchestrator",
+    "description": "Multi-step saga orchestration with compensation",
+    "keywords": ["saga", "orchestrate", "transaction", "compensation", "distributed"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "RequestOrchestrator": {
+    "service_name": "RequestOrchestrator",
+    "layer": "L11",
+    "module_path": "L11_integration.services.request_orchestrator",
+    "class_name": "RequestOrchestrator",
+    "description": "Cross-layer request routing and orchestration",
+    "keywords": ["orchestrate", "request", "routing", "integration", "cross-layer"],
+    "dependencies": ["ServiceRegistry"],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "EventBusManager": {
+    "service_name": "EventBusManager",
+    "layer": "L11",
+    "module_path": "L11_integration.services.event_bus_manager",
+    "class_name": "EventBusManager",
+    "description": "Redis Pub/Sub event broker for cross-layer communication",
+    "keywords": ["event", "bus", "pubsub", "message", "broker"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "ServiceRegistry": {
+    "service_name": "ServiceRegistry",
+    "layer": "L11",
+    "module_path": "L11_integration.services.service_registry",
+    "class_name": "ServiceRegistry",
+    "description": "Layer service discovery and health tracking",
+    "keywords": ["service", "registry", "discovery", "health", "tracking"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  }
+}

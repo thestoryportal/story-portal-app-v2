@@ -11,7 +11,7 @@ Environment Variables:
     L12_FUZZY_THRESHOLD: Fuzzy match threshold 0-1 (default: 0.7)
     L12_USE_SEMANTIC_MATCHING: Enable semantic matching (default: true)
     L12_HTTP_HOST: HTTP API host (default: 0.0.0.0)
-    L12_HTTP_PORT: HTTP API port (default: 8012)
+    L12_HTTP_PORT: HTTP API port (default: 8005)
     L12_MCP_SOCKET_PATH: MCP socket path (default: /tmp/l12_mcp.sock)
     L12_ENABLE_MEMORY_MONITOR: Enable memory monitoring (default: true)
     L12_MEMORY_LIMIT_MB: Per-session memory limit in MB (default: 500)
@@ -116,8 +116,8 @@ class L12Settings(BaseSettings):
         description="HTTP API host address",
     )
     http_port: int = Field(
-        default=8012,
-        description="HTTP API port number (V2: 8012, avoid L05 conflict)",
+        default=8005,
+        description="HTTP API port number",
         gt=0,
         lt=65536,
     )
@@ -146,56 +146,14 @@ class L12Settings(BaseSettings):
         le=3600,  # Max 1 hour
     )
 
-    # External Service URLs (V2 Deployment)
+    # External Service URLs
     l01_base_url: str = Field(
-        default="http://localhost:8001",
-        description="L01 Data Layer base URL for usage tracking",
-    )
-    l02_base_url: str = Field(
         default="http://localhost:8002",
-        description="L02 Agent Runtime base URL",
-    )
-    l03_base_url: str = Field(
-        default="http://localhost:8003",
-        description="L03 Tool Execution base URL",
+        description="L01 Data Layer base URL for usage tracking",
     )
     l04_base_url: str = Field(
         default="http://localhost:8004",
         description="L04 Model Gateway base URL for semantic matching",
-    )
-    l05_base_url: str = Field(
-        default="http://localhost:8005",
-        description="L05 Planning base URL",
-    )
-    l06_base_url: str = Field(
-        default="http://localhost:8006",
-        description="L06 Evaluation base URL",
-    )
-    l07_base_url: str = Field(
-        default="http://localhost:8007",
-        description="L07 Learning base URL",
-    )
-    l09_base_url: str = Field(
-        default="http://localhost:8009",
-        description="L09 API Gateway base URL",
-    )
-    l10_base_url: str = Field(
-        default="http://localhost:8010",
-        description="L10 Human Interface base URL",
-    )
-    l11_base_url: str = Field(
-        default="http://localhost:8011",
-        description="L11 Integration base URL",
-    )
-
-    # V2 Deployment Configuration
-    deployment_mode: str = Field(
-        default="v2",
-        description="Deployment mode: 'v2' (containerized) or 'standalone'",
-    )
-    enable_distributed_sessions: bool = Field(
-        default=False,
-        description="Enable Redis-based distributed sessions (future feature)",
     )
 
     # L01 Bridge Configuration
@@ -295,18 +253,7 @@ class L12Settings(BaseSettings):
 
         return v
 
-    @field_validator(
-        "l01_base_url",
-        "l02_base_url",
-        "l03_base_url",
-        "l04_base_url",
-        "l05_base_url",
-        "l06_base_url",
-        "l07_base_url",
-        "l09_base_url",
-        "l10_base_url",
-        "l11_base_url",
-    )
+    @field_validator("l01_base_url", "l04_base_url")
     @classmethod
     def validate_base_url(cls, v: str) -> str:
         """Validate external service base URLs.

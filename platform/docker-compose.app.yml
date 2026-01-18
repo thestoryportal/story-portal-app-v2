@@ -263,6 +263,69 @@ services:
     networks:
       - agentic-network
 
+  # L12 Service Hub (Natural Language Interface)
+  l12-service-hub:
+    image: l12-service-hub:latest
+    container_name: l12-service-hub
+    ports:
+      - "8012:8012"
+    environment:
+      - L01_URL=http://l01-data-layer:8001
+      - L02_URL=http://l02-runtime:8002
+      - L03_URL=http://l03-tool-execution:8003
+      - L04_URL=http://l04-model-gateway:8004
+      - L05_URL=http://l05-planning:8005
+      - L06_URL=http://l06-evaluation:8006
+      - L07_URL=http://l07-learning:8007
+      - L09_URL=http://l09-api-gateway:8009
+      - L10_URL=http://l10-human-interface:8010
+      - L11_URL=http://l11-integration:8011
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentic_platform
+      - REDIS_URL=redis://redis:6379
+      - L12_HTTP_PORT=8012
+      - L12_USE_SEMANTIC_MATCHING=true
+      - L12_SESSION_TTL_SECONDS=3600
+      - L12_ENABLE_L01_BRIDGE=true
+      - L12_DEPLOYMENT_MODE=v2
+    depends_on:
+      l01-data-layer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8012/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - agentic-network
+
+  # Platform Control Center UI
+  platform-ui:
+    image: platform-ui:latest
+    container_name: platform-ui
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_GATEWAY_URL=http://localhost:8009
+      - VITE_WS_URL=ws://localhost:8010
+    depends_on:
+      l09-api-gateway:
+        condition: service_healthy
+      l10-human-interface:
+        condition: service_healthy
+      l12-service-hub:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - agentic-network
+
 networks:
   agentic-network:
     driver: bridge
