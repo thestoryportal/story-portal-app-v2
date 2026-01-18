@@ -26,9 +26,12 @@ from ..models import (
     ToolExecutionError,
 )
 
-# Import L02 bridges
-from ...L02_runtime.services.document_bridge import DocumentBridge
-from ...L02_runtime.services.session_bridge import SessionBridge
+# TODO: Replace direct imports with HTTP client for L02
+# Cross-layer imports between containers don't work - need HTTP-based communication
+# from ...L02_runtime.services.document_bridge import DocumentBridge
+# from ...L02_runtime.services.session_bridge import SessionBridge
+DocumentBridge = None  # Placeholder until HTTP client is implemented
+SessionBridge = None   # Placeholder until HTTP client is implemented
 
 logger = logging.getLogger(__name__)
 
@@ -60,16 +63,20 @@ class MCPToolBridge:
         self.context_server_enabled = context_server_enabled
 
         # Initialize L02 bridges
-        self.document_bridge: Optional[DocumentBridge] = None
-        self.session_bridge: Optional[SessionBridge] = None
+        self.document_bridge = None
+        self.session_bridge = None
 
-        if self.document_server_enabled:
+        if self.document_server_enabled and DocumentBridge is not None:
             self.document_bridge = DocumentBridge(config=document_bridge_config)
             logger.info("DocumentBridge instantiated")
+        elif self.document_server_enabled:
+            logger.warning("DocumentBridge requested but not available (requires HTTP client for L02)")
 
-        if self.context_server_enabled:
+        if self.context_server_enabled and SessionBridge is not None:
             self.session_bridge = SessionBridge(config=session_bridge_config)
             logger.info("SessionBridge instantiated")
+        elif self.context_server_enabled:
+            logger.warning("SessionBridge requested but not available (requires HTTP client for L02)")
 
     async def initialize(self):
         """Initialize MCP server connections"""

@@ -1,7 +1,7 @@
 FROM python:3.11-slim
 
-# Install curl for health checks
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+# Install curl for health checks and libpq for PostgreSQL client
+RUN apt-get update && apt-get install -y curl libpq5 && rm -rf /var/lib/apt/lists/*
 
 # Set working directory to parent for package imports
 WORKDIR /app/src

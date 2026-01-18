@@ -1,0 +1,181 @@
+version: '3.8'
+
+services:
+  # Supporting services
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: agentic-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: agentic_platform
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - agentic-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: agentic-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - agentic-network
+
+  # L01 Data Layer
+  l01-data-layer:
+    image: l01-data-layer:latest
+    container_name: l01-data-layer
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentic_platform
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - agentic-network
+
+  # L02 Runtime Layer
+  l02-runtime:
+    image: l02-runtime:latest
+    container_name: l02-runtime
+    ports:
+      - "8002:8002"
+    environment:
+      - L01_URL=http://l01-data-layer:8001
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentic_platform
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      l01-data-layer:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - agentic-network
+
+  # L03 Tool Execution Layer
+  l03-tool-execution:
+    image: l03-tool-execution:latest
+    container_name: l03-tool-execution
+    ports:
+      - "8003:8003"
+    environment:
+      - L01_URL=http://l01-data-layer:8001
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentic_platform
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      l01-data-layer:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - agentic-network
+
+  # L04 Model Gateway Layer
+  l04-model-gateway:
+    image: l04-model-gateway:latest
+    container_name: l04-model-gateway
+    ports:
+      - "8004:8004"
+    environment:
+      - L01_URL=http://l01-data-layer:8001
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentic_platform
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      l01-data-layer:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - agentic-network
+
+  # L09 API Gateway Layer
+  l09-api-gateway:
+    image: l09-api-gateway:latest
+    container_name: l09-api-gateway
+    ports:
+      - "8009:8009"
+    environment:
+      - L01_URL=http://l01-data-layer:8001
+      - L02_URL=http://l02-runtime:8002
+      - L03_URL=http://l03-tool-execution:8003
+      - L04_URL=http://l04-model-gateway:8004
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentic_platform
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      l01-data-layer:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8009/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - agentic-network
+
+  # L11 Integration Layer
+  l11-integration:
+    image: l11-integration:latest
+    container_name: l11-integration
+    ports:
+      - "8011:8011"
+    environment:
+      - L01_URL=http://l01-data-layer:8001
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentic_platform
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      l01-data-layer:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8011/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - agentic-network
+
+networks:
+  agentic-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

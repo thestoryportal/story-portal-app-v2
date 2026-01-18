@@ -12,7 +12,7 @@ from typing import Optional
 from uuid import UUID
 from datetime import datetime
 
-from ...L01_data_layer.client import L01Client
+from shared.clients import L01Client
 from ..models.tool_result import (
     ToolInvokeRequest,
     ToolInvokeResponse,
