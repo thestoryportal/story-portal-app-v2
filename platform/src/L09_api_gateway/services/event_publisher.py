@@ -88,7 +88,11 @@ class EventPublisher:
             }
 
             # Publish to L01 Event Store
-            await self.event_store.publish_event(event)
+            if self.event_store is not None:
+                await self.event_store.publish_event(event)
+            else:
+                # Event store not configured, skip event publication
+                pass
 
         # Emit metrics (always, regardless of sampling)
         await self._emit_metrics(context, response, latency_ms, error_code)
@@ -119,7 +123,8 @@ class EventPublisher:
         }
 
         # Publish to L01 Event Store (immutable, time-locked)
-        await self.event_store.publish_audit_event(event)
+        if self.event_store is not None:
+            await self.event_store.publish_audit_event(event)
 
     async def _emit_metrics(
         self,
@@ -204,7 +209,8 @@ class EventPublisher:
             "reason": reason,
         }
 
-        await self.event_store.publish_event(event)
+        if self.event_store is not None:
+            await self.event_store.publish_event(event)
 
     async def emit_webhook_delivery_event(
         self,
@@ -223,4 +229,5 @@ class EventPublisher:
             "error": error,
         }
 
-        await self.event_store.publish_event(event)
+        if self.event_store is not None:
+            await self.event_store.publish_event(event)

@@ -108,6 +108,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Unauthenticated health check endpoint (before authentication middleware)
+@app.get("/health/live", tags=["Health"])
+async def health_live():
+    """Unauthenticated liveness check for monitoring and load balancers."""
+    return {"status": "alive"}
+
 # Add Authentication middleware
 # Note: Authentication can be disabled by setting L01_AUTH_DISABLED=true
 import os

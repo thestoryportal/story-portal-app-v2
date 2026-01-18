@@ -9,12 +9,15 @@ WORKDIR /app/src
 # Install base FastAPI/uvicorn first
 RUN pip install --no-cache-dir fastapi uvicorn httpx pydantic python-dotenv structlog
 
+# Copy shared library first
+COPY shared /app/shared
+
 # Copy and install layer-specific requirements if they exist
-COPY requirements.txt* ./L01_data_layer/
+COPY src/L01_data_layer/requirements.txt* ./L01_data_layer/
 RUN if [ -f L01_data_layer/requirements.txt ]; then pip install --no-cache-dir -r L01_data_layer/requirements.txt; fi
 
 # Copy application
-COPY . ./L01_data_layer/
+COPY src/L01_data_layer ./L01_data_layer/
 
 # Expose port
 EXPOSE 8001

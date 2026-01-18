@@ -116,7 +116,9 @@ class APIGateway:
         )
 
         # Initialize L01 bridge
-        self.l09_bridge = L09Bridge(l01_base_url="http://localhost:8002")
+        import os
+        l01_url = os.getenv("L01_URL", "http://l01-data-layer:8001")
+        self.l09_bridge = L09Bridge(l01_base_url=l01_url)
         await self.l09_bridge.initialize()
 
         # Load initial routes (would load from L01 in production)
