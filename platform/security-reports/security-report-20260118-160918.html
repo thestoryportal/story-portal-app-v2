@@ -1,0 +1,81 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Security Scan Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; }
+        h1 { color: #333; }
+        .summary { background: #e8f4f8; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        .severity-critical { color: #d9534f; font-weight: bold; }
+        .severity-high { color: #f0ad4e; font-weight: bold; }
+        .severity-medium { color: #5bc0de; font-weight: bold; }
+        .severity-low { color: #5cb85c; }
+        .issue { border-left: 4px solid #ddd; padding: 10px; margin: 10px 0; }
+        .issue-critical { border-left-color: #d9534f; }
+        .issue-high { border-left-color: #f0ad4e; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f0f0f0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Security Scan Report</h1>
+        <p><strong>Generated:</strong> 2026-01-18 16:09:18</p>
+        <p><strong>Platform:</strong> Story Portal V2 Platform</p>
+
+        <div class="summary">
+            <h2>Executive Summary</h2>
+            <p><strong>Total Issues Found:</strong> 131</p>
+        </div>
+
+        <h2>Scan Results</h2>
+        <table>
+            <tr>
+                <th>Scan Type</th>
+                <th>Status</th>
+                <th>Duration</th>
+                <th>Issues</th>
+            </tr>
+
+            <tr>
+                <td>Dependency Python</td>
+                <td>❌ Failed</td>
+                <td>0.00s</td>
+                <td>0</td>
+            </tr>
+
+            <tr>
+                <td>Dependency Npm</td>
+                <td>✅ Success</td>
+                <td>0.00s</td>
+                <td>0</td>
+            </tr>
+
+            <tr>
+                <td>Static Analysis Bandit</td>
+                <td>✅ Success</td>
+                <td>2.06s</td>
+                <td>0</td>
+            </tr>
+
+            <tr>
+                <td>Secret Detection</td>
+                <td>✅ Success</td>
+                <td>54.07s</td>
+                <td>131</td>
+            </tr>
+
+            <tr>
+                <td>Container Trivy</td>
+                <td>❌ Failed</td>
+                <td>0.00s</td>
+                <td>0</td>
+            </tr>
+
+        </table>
+    </div>
+</body>
+</html>
