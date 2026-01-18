@@ -1,0 +1,27 @@
+=== SYSTEM STATE ===
+Date: Sun Jan 18 10:26:45 MST 2026
+Working Directory: /Volumes/Extreme SSD/projects/story-portal-app
+User: robertrhu
+
+CONTAINER ID   IMAGE                                          COMMAND                  CREATED          STATUS                    PORTS                                         NAMES
+a890bf0d33b5   platform-ui:latest                             "/docker-entrypoint.…"   22 minutes ago   Up 21 minutes (healthy)   0.0.0.0:3000->80/tcp, [::]:3000->80/tcp       platform-ui
+8bb0fec7c6a5   l06-evaluation:latest                          "uvicorn L06_evaluat…"   22 minutes ago   Up 22 minutes (healthy)   0.0.0.0:8006->8006/tcp, [::]:8006->8006/tcp   l06-evaluation
+73c95338c1dc   l12-service-hub:latest                         "uvicorn L12_nl_inte…"   22 minutes ago   Up 22 minutes (healthy)   0.0.0.0:8012->8012/tcp, [::]:8012->8012/tcp   l12-service-hub
+5df1ff2391ec   l05-planning:latest                            "uvicorn L05_plannin…"   22 minutes ago   Up 22 minutes (healthy)   0.0.0.0:8005->8005/tcp, [::]:8005->8005/tcp   l05-planning
+7728b2c80e4a   l02-runtime:latest                             "uvicorn L02_runtime…"   22 minutes ago   Up 22 minutes (healthy)   0.0.0.0:8002->8002/tcp, [::]:8002->8002/tcp   l02-runtime
+df2d194c2528   l11-integration:latest                         "uvicorn L11_integra…"   22 minutes ago   Up 22 minutes (healthy)   0.0.0.0:8011->8011/tcp, [::]:8011->8011/tcp   l11-integration
+cb1895b84f5a   l10-human-interface:latest                     "uvicorn L10_human_i…"   22 minutes ago   Up 22 minutes (healthy)   0.0.0.0:8010->8010/tcp, [::]:8010->8010/tcp   l10-human-interface
+40b0631ae2b8   l03-tool-execution:latest                      "uvicorn L03_tool_ex…"   22 minutes ago   Up 22 minutes (healthy)   0.0.0.0:8003->8003/tcp, [::]:8003->8003/tcp   l03-tool-execution
+38d27e0724be   l07-learning:latest                            "uvicorn L07_learnin…"   22 minutes ago   Up 22 minutes (healthy)   0.0.0.0:8007->8007/tcp, [::]:8007->8007/tcp   l07-learning
+133343dfa9a7   l04-model-gateway:latest                       "uvicorn L04_model_g…"   22 minutes ago   Up 22 minutes (healthy)   0.0.0.0:8004->8004/tcp, [::]:8004->8004/tcp   l04-model-gateway
+a24bb5b36208   l09-api-gateway:latest                         "uvicorn L09_api_gat…"   22 minutes ago   Up 22 minutes (healthy)   0.0.0.0:8009->8009/tcp, [::]:8009->8009/tcp   l09-api-gateway
+8915fe293c1f   postgres:16                                    "docker-entrypoint.s…"   22 minutes ago   Up 22 minutes             5432/tcp                                      agentic-db-tools
+73e485b3fee1   l01-data-layer:latest                          "uvicorn L01_data_la…"   22 minutes ago   Up 22 minutes (healthy)   0.0.0.0:8001->8001/tcp, [::]:8001->8001/tcp   l01-data-layer
+f4efb718e2e2   oliver006/redis_exporter:latest                "/redis_exporter"        22 minutes ago   Up 22 minutes             0.0.0.0:9121->9121/tcp, [::]:9121->9121/tcp   agentic-redis-exporter
+c310aa446fc4   prometheuscommunity/postgres-exporter:latest   "/bin/postgres_expor…"   22 minutes ago   Up 22 minutes             0.0.0.0:9187->9187/tcp, [::]:9187->9187/tcp   agentic-postgres-exporter
+6671ee79f6ad   grafana/grafana:latest                         "/run.sh"                22 minutes ago   Up 22 minutes             0.0.0.0:3001->3000/tcp, [::]:3001->3000/tcp   agentic-grafana
+2d385c16ff2f   redis:7-alpine                                 "docker-entrypoint.s…"   22 minutes ago   Up 22 minutes (healthy)   0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp   agentic-redis
+34951c259d2c   pgvector/pgvector:pg16                         "docker-entrypoint.s…"   22 minutes ago   Up 22 minutes (healthy)   0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp   agentic-postgres
+381fde6e85ad   prom/prometheus:latest                         "/bin/prometheus --c…"   22 minutes ago   Up 22 minutes             0.0.0.0:9090->9090/tcp, [::]:9090->9090/tcp   agentic-prometheus
+3e83c27b2ee2   gcr.io/cadvisor/cadvisor:latest                "/usr/bin/cadvisor -…"   22 minutes ago   Up 22 minutes (healthy)   0.0.0.0:8080->8080/tcp, [::]:8080->8080/tcp   agentic-cadvisor
+df9b207eb45a   prom/node-exporter:latest                      "/bin/node_exporter …"   22 minutes ago   Up 22 minutes             0.0.0.0:9100->9100/tcp, [::]:9100->9100/tcp   agentic-node-exporter
