@@ -1,0 +1,10 @@
+# Load Testing Dependencies
+# Install: pip install -r requirements-loadtest.txt
+
+locust>=2.17.0
+requests>=2.31.0
+faker>=20.0.0
+psutil>=5.9.6
+
+# Optional for advanced metrics
+locust-plugins>=4.3.0

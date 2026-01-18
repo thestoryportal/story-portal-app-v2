@@ -1,0 +1,170 @@
+# Load Test Configuration
+# ======================
+
+# Performance Thresholds
+thresholds:
+  # Maximum acceptable 95th percentile response time in milliseconds
+  max_response_time_ms: 500
+
+  # Maximum acceptable error rate as percentage
+  max_error_rate_percent: 1.0
+
+  # Minimum acceptable throughput in requests per second
+  min_requests_per_second: 100
+
+# Test Scenarios Configuration
+scenarios:
+  smoke_test:
+    name: "Smoke Test - Quick Validation"
+    users: 10
+    spawn_rate: 2
+    duration: "30s"
+    description: "Quick validation that platform is functional"
+    expected_results:
+      max_response_time_ms: 200
+      max_error_rate_percent: 0
+      min_requests_per_second: 10
+
+  load_test:
+    name: "Load Test - Normal Traffic"
+    users: 100
+    spawn_rate: 10
+    duration: "5m"
+    description: "Validate platform under normal production load"
+    expected_results:
+      max_response_time_ms: 500
+      max_error_rate_percent: 0.5
+      min_requests_per_second: 100
+
+  stress_test:
+    name: "Stress Test - Peak Traffic"
+    users: 500
+    spawn_rate: 50
+    duration: "10m"
+    description: "Find platform limits and degradation points"
+    expected_results:
+      max_response_time_ms: 1000
+      max_error_rate_percent: 2.0
+      min_requests_per_second: 200
+
+  endurance_test:
+    name: "Endurance Test - Sustained Load"
+    users: 200
+    spawn_rate: 20
+    duration: "30m"
+    description: "Validate stability over extended period"
+    expected_results:
+      max_response_time_ms: 500
+      max_error_rate_percent: 1.0
+      min_requests_per_second: 100
+
+  spike_test:
+    name: "Spike Test - Traffic Burst"
+    phases:
+      - users: 10
+        spawn_rate: 1
+        duration: "1m"
+      - users: 500
+        spawn_rate: 100
+        duration: "2m"
+      - users: 10
+        spawn_rate: 50
+        duration: "2m"
+    description: "Validate recovery from sudden traffic increases"
+
+# Service Endpoints
+services:
+  l01_data_layer:
+    port: 8001
+    weight: 2
+  l02_runtime:
+    port: 8002
+    weight: 1
+  l03_tool_execution:
+    port: 8003
+    weight: 2
+  l04_model_gateway:
+    port: 8004
+    weight: 1
+  l05_planning:
+    port: 8005
+    weight: 1
+  l06_evaluation:
+    port: 8006
+    weight: 1
+  l07_learning:
+    port: 8007
+    weight: 1
+  l09_api_gateway:
+    port: 8009
+    weight: 3
+  l10_human_interface:
+    port: 8010
+    weight: 2
+  l11_integration:
+    port: 8011
+    weight: 1
+  l12_nl_interface:
+    port: 8012
+    weight: 2
+
+# Baseline Test Schedule
+baseline_tests:
+  - name: "Light Load Baseline"
+    scenario: "smoke_test"
+    users: 10
+    duration: "5m"
+    purpose: "Establish minimum performance baseline"
+
+  - name: "Normal Load Baseline"
+    scenario: "load_test"
+    users: 100
+    duration: "10m"
+    purpose: "Validate target production load"
+
+  - name: "Peak Load Baseline"
+    scenario: "stress_test"
+    users: 500
+    duration: "15m"
+    purpose: "Validate peak hour capacity"
+
+  - name: "Endurance Baseline"
+    scenario: "endurance_test"
+    users: 200
+    duration: "60m"
+    purpose: "Validate stability over time"
+
+# Success Criteria Matrix
+success_criteria:
+  production_ready:
+    - criteria: "Smoke test passes with 0% errors"
+      required: true
+    - criteria: "Load test (100 users) meets all thresholds"
+      required: true
+    - criteria: "Stress test (500 users) shows graceful degradation"
+      required: true
+    - criteria: "Endurance test (60 min) shows stable performance"
+      required: true
+    - criteria: "All baselines documented"
+      required: true
+    - criteria: "Performance monitoring alerts configured"
+      required: true
+
+# Reporting Configuration
+reporting:
+  html_report: true
+  csv_export: true
+  json_metrics: true
+  alert_on_failure: true
+  slack_webhook: "${SLACK_WEBHOOK_URL}"  # Optional
+  email_recipients:  # Optional
+    - "platform-team@example.com"
+
+# CI/CD Integration
+ci_cd:
+  run_on_commit: false
+  run_on_merge: true
+  run_on_schedule: true
+  schedule_cron: "0 2 * * *"  # Daily at 2 AM
+  fail_build_on_threshold_breach: true
+  
