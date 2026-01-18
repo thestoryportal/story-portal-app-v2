@@ -11,7 +11,7 @@ import logging
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 
-from ...L01_data_layer.client import L01Client
+from shared.clients import L01Client
 from ..models.quality_score import QualityScore
 from ..models.metric import MetricPoint
 from ..models.anomaly import Anomaly

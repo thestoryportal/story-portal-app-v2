@@ -125,6 +125,75 @@ services:
     networks:
       - agentic-network
 
+  # L05 Planning Layer
+  l05-planning:
+    image: l05-planning:latest
+    container_name: l05-planning
+    ports:
+      - "8005:8005"
+    environment:
+      - L01_URL=http://l01-data-layer:8001
+      - L02_URL=http://l02-runtime:8002
+      - L03_URL=http://l03-tool-execution:8003
+      - L04_URL=http://l04-model-gateway:8004
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentic_platform
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      l01-data-layer:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - agentic-network
+
+  # L06 Evaluation Layer
+  l06-evaluation:
+    image: l06-evaluation:latest
+    container_name: l06-evaluation
+    ports:
+      - "8006:8006"
+    environment:
+      - L01_URL=http://l01-data-layer:8001
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentic_platform
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      l01-data-layer:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8006/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - agentic-network
+
+  # L07 Learning Layer
+  l07-learning:
+    image: l07-learning:latest
+    container_name: l07-learning
+    ports:
+      - "8007:8007"
+    environment:
+      - L01_URL=http://l01-data-layer:8001
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentic_platform
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      l01-data-layer:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8007/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - agentic-network
+
   # L09 API Gateway Layer
   l09-api-gateway:
     image: l09-api-gateway:latest
@@ -143,6 +212,28 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8009/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - agentic-network
+
+  # L10 Human Interface Layer
+  l10-human-interface:
+    image: l10-human-interface:latest
+    container_name: l10-human-interface
+    ports:
+      - "8010:8010"
+    environment:
+      - L01_URL=http://l01-data-layer:8001
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentic_platform
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      l01-data-layer:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8010/health/live"]
       interval: 10s
       timeout: 5s
       retries: 5

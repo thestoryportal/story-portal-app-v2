@@ -11,7 +11,7 @@ import logging
 from typing import Optional, Dict, Any
 from datetime import datetime
 
-from L01_data_layer.client import L01Client
+from shared.clients import L01Client
 from ..models.goal import Goal
 from ..models.plan import ExecutionPlan, PlanStatus
 from ..models.task import Task

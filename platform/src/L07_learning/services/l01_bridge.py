@@ -11,7 +11,7 @@ import logging
 from typing import List, Dict, Any, Optional
 from uuid import UUID
 
-from ...L01_data_layer.client import L01Client
+from shared.clients import L01Client
 from ..models.training_example import TrainingExample, ExampleSource, TaskType
 from ..models.dataset import Dataset, DatasetSplit
 
