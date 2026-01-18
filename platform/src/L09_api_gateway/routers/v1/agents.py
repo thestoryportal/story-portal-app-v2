@@ -9,7 +9,7 @@ from typing import Optional, List
 from uuid import UUID
 from pydantic import BaseModel
 
-from L01_data_layer.client import L01Client
+from shared.clients import L01Client
 
 router = APIRouter(prefix="/api/v1/agents", tags=["agents"])
 

@@ -10,7 +10,7 @@ from typing import Optional, List
 from datetime import datetime
 from uuid import uuid4
 
-from L01_data_layer.client import L01Client
+from shared.clients import L01Client
 
 logger = logging.getLogger(__name__)
 

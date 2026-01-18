@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional
 from uuid import UUID
 from datetime import datetime
 
-from L01_data_layer.client import L01Client
+from shared.clients import L01Client
 from ..models import AgentState, SpawnResult, AgentInstance
 
 logger = logging.getLogger(__name__)

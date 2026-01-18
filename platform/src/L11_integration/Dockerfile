@@ -9,18 +9,21 @@ WORKDIR /app/src
 # Install base FastAPI/uvicorn first
 RUN pip install --no-cache-dir fastapi uvicorn httpx pydantic python-dotenv structlog
 
+# Copy shared clients for inter-layer communication (from platform root)
+COPY shared /app/shared
+
 # Copy and install layer-specific requirements if they exist
-COPY requirements.txt* ./L11_integration/
+COPY src/L11_integration/requirements.txt* ./L11_integration/
 RUN if [ -f L11_integration/requirements.txt ]; then pip install --no-cache-dir -r L11_integration/requirements.txt; fi
 
 # Copy application
-COPY . ./L11_integration/
+COPY src/L11_integration ./L11_integration/
 
 # Expose port
 EXPOSE 8011
 
-# Set Python path so package imports work
-ENV PYTHONPATH=/app/src
+# Set Python path so package imports work (include both /app and /app/src)
+ENV PYTHONPATH=/app:/app/src
 
 # Run as a package module
 CMD ["uvicorn", "L11_integration.main:app", "--host", "0.0.0.0", "--port", "8011"]
