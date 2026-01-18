@@ -2,15 +2,15 @@
 
 ## Executive Summary
 
-Successfully fixed cross-layer import errors affecting 6 out of 10 application layers. The root cause was direct Python imports between Docker containers, which has been resolved by implementing a shared HTTP client library.
+Successfully fixed cross-layer import errors and deployed all 10 application layers. The root cause was direct Python imports between Docker containers, which has been resolved by implementing a shared HTTP client library.
 
-**Status:** ✅ **6/6 layers now operational** (100% success rate)
+**Status:** ✅ **10/10 application layers operational** (100% success rate)
 
 ## Problem Statement
 
 **Original Issue:**
-- 6 layers failed: L02, L03, L04, L07, L09, L11
-- 4 layers worked: L01, L05, L06, L10
+- 6 layers initially failed: L02, L03, L04, L07, L09, L11
+- 4 layers needed configuration: L01, L05, L06, L10
 - Root cause: Anti-pattern of direct Python imports between layers
   ```python
   # BROKEN: Direct import between containers
@@ -35,24 +35,30 @@ from shared.clients import L01Client
 client = L01Client(base_url='http://l01-data-layer:8001')
 ```
 
-### 2. Updated All Failing Layers
+### 2. Updated All Application Layers
 
-**Python Files Modified (7 files):**
+**Python Files Modified (11 files):**
 - `src/L02_runtime/services/l01_bridge.py`
+- `src/L03_tool_execution/services/l01_bridge.py`
+- `src/L03_tool_execution/services/mcp_tool_bridge.py`
 - `src/L04_model_gateway/services/l01_bridge.py`
+- `src/L05_planning/services/l01_bridge.py`
+- `src/L06_evaluation/services/l01_bridge.py`
+- `src/L07_learning/services/l01_bridge.py`
 - `src/L09_api_gateway/services/l01_bridge.py`
 - `src/L09_api_gateway/routers/v1/agents.py`
 - `src/L09_api_gateway/routers/v1/goals.py`
 - `src/L09_api_gateway/routers/v1/tasks.py`
+- `src/L10_human_interface/services/l01_bridge.py`
 - `src/L11_integration/services/l01_bridge.py`
 
-**Dockerfiles Modified (6 files):**
+**Dockerfiles Modified (9 files):**
 - Updated build context to platform root
 - Added `COPY shared /app/shared`
 - Updated PYTHONPATH: `ENV PYTHONPATH=/app:/app/src`
 - Modified COPY paths to use `src/LXX_layer/` prefix
 
-**Layers:** L02, L03, L04, L07, L09, L11
+**Layers:** L02, L03, L04, L05, L06, L07, L09, L10, L11 (L01 uses old build pattern)
 
 ### 3. Created Docker Compose Configuration
 
@@ -75,7 +81,11 @@ client = L01Client(base_url='http://l01-data-layer:8001')
 | L02 Runtime | l02-runtime | 8002 | ✅ Running | ✅ Healthy | ✅ Pass |
 | L03 Tool Execution | l03-tool-execution | 8003 | ✅ Running | ✅ Healthy | ✅ Pass |
 | L04 Model Gateway | l04-model-gateway | 8004 | ✅ Running | ✅ Healthy | ✅ Pass |
+| L05 Planning | l05-planning | 8005 | ✅ Running | ✅ Healthy | ✅ Pass |
+| L06 Evaluation | l06-evaluation | 8006 | ✅ Running | ✅ Healthy | ✅ Pass |
+| L07 Learning | l07-learning | 8007 | ✅ Running | ✅ Healthy | ✅ Pass |
 | L09 API Gateway | l09-api-gateway | 8009 | ✅ Running | ✅ Healthy | ✅ Pass |
+| L10 Human Interface | l10-human-interface | 8010 | ✅ Running | ✅ Healthy | ✅ Pass |
 | L11 Integration | l11-integration | 8011 | ✅ Running | ✅ Healthy | ✅ Pass |
 
 **Supporting Services:**
@@ -89,7 +99,11 @@ client = L01Client(base_url='http://l01-data-layer:8001')
 ✅ L02: Import OK
 ✅ L03: Import OK
 ✅ L04: Import OK
+✅ L05: Import OK
+✅ L06: Import OK
+✅ L07: Import OK
 ✅ L09: Import OK
+✅ L10: Import OK
 ✅ L11: Import OK
 ```
 
@@ -99,7 +113,11 @@ client = L01Client(base_url='http://l01-data-layer:8001')
 ✅ Port 8002 (L02): Healthy
 ✅ Port 8003 (L03): Healthy
 ✅ Port 8004 (L04): Healthy
+✅ Port 8005 (L05): Healthy
+✅ Port 8006 (L06): Healthy
+✅ Port 8007 (L07): Healthy
 ✅ Port 8009 (L09): Healthy
+✅ Port 8010 (L10): Healthy
 ✅ Port 8011 (L11): Healthy
 ```
 
@@ -133,13 +151,18 @@ Containers must be built from the platform root:
 ```bash
 cd /Volumes/Extreme\ SSD/projects/story-portal-app/platform
 
-# Build individual layers
+# Build all application layers (uses platform root as build context)
 docker build -t l02-runtime:latest -f src/L02_runtime/Dockerfile .
+docker build -t l03-tool-execution:latest -f src/L03_tool_execution/Dockerfile .
 docker build -t l04-model-gateway:latest -f src/L04_model_gateway/Dockerfile .
+docker build -t l05-planning:latest -f src/L05_planning/Dockerfile .
+docker build -t l06-evaluation:latest -f src/L06_evaluation/Dockerfile .
+docker build -t l07-learning:latest -f src/L07_learning/Dockerfile .
 docker build -t l09-api-gateway:latest -f src/L09_api_gateway/Dockerfile .
+docker build -t l10-human-interface:latest -f src/L10_human_interface/Dockerfile .
 docker build -t l11-integration:latest -f src/L11_integration/Dockerfile .
 
-# Build L01 (uses old build context)
+# Build L01 (uses old build context pattern)
 docker build -t l01-data-layer:latest -f src/L01_data_layer/Dockerfile src/L01_data_layer/
 ```
 
@@ -190,16 +213,64 @@ RUN apt-get update && apt-get install -y curl libpq5 && rm -rf /var/lib/apt/list
 
 **Result:** ✅ L03 container now starts successfully and passes all health checks
 
+## L05, L06, L07, L10 - Additional Layer Deployment ✅
+
+### Issue: Missing Layers in Deployment
+
+After fixing the initial 6 failing layers, L05 (Planning), L06 (Evaluation), L07 (Learning), and L10 (Human Interface) were not included in the docker-compose configuration, though they existed in the codebase.
+
+### Solutions Implemented:
+
+**1. Updated Dockerfiles** (L05, L06, L10):
+- Added `COPY shared /app/shared` for shared HTTP client library
+- Updated COPY paths from `.` to `src/LXX_layer/` pattern
+- Updated PYTHONPATH to include both `/app` and `/app/src`
+
+**2. Fixed L01 Imports** (all four layers):
+- Changed `src/L05_planning/services/l01_bridge.py`
+- Changed `src/L06_evaluation/services/l01_bridge.py`
+- Changed `src/L07_learning/services/l01_bridge.py`
+- Changed `src/L10_human_interface/services/l01_bridge.py`
+- From: `from L01_data_layer.client import L01Client` or `from ...L01_data_layer.client import L01Client`
+- To: `from shared.clients import L01Client`
+
+**3. Fixed L07 Dependencies**:
+- Added `numpy>=1.24.0` to `src/L07_learning/requirements.txt`
+- L07 code uses numpy for dataset curation and quality filtering
+
+**4. Added to docker-compose.app.yml**:
+- L05 Planning service (port 8005)
+- L06 Evaluation service (port 8006)
+- L07 Learning service (port 8007)
+- L10 Human Interface service (port 8010)
+- Configured environment variables, health checks, and dependencies
+
+**Files Modified:**
+- `docker-compose.app.yml` - Added 4 new service definitions
+- `src/L05_planning/Dockerfile` - Updated for shared client
+- `src/L05_planning/services/l01_bridge.py` - Fixed L01 import
+- `src/L06_evaluation/Dockerfile` - Updated for shared client
+- `src/L06_evaluation/services/l01_bridge.py` - Fixed L01 import
+- `src/L07_learning/Dockerfile` - Already updated (from initial fix)
+- `src/L07_learning/requirements.txt` - Added numpy
+- `src/L07_learning/services/l01_bridge.py` - Fixed L01 import
+- `src/L10_human_interface/Dockerfile` - Updated for shared client
+- `src/L10_human_interface/services/l01_bridge.py` - Fixed L01 import
+
+**Result:** ✅ All 10 application layers now deployed and operational
+
 ## Git History
 
 **Commits:**
 - `571f76b` - checkpoint: before import fix
 - `d2d3c34` - Fix cross-layer import errors by creating shared HTTP client library
+- `c9fbcd5` - Fix L03 Tool Execution layer - Complete cross-layer import resolution
+- `8d46fc3` - Add L05, L06, L07, L10 layers to deployment - Complete platform
 
-**Files Changed:**
-- 16 files modified
-- 1,877 lines added (mainly new shared client code)
-- 31 lines removed
+**Total Files Changed:**
+- 24+ files modified
+- Shared client library created (1,811 lines)
+- All 10 application layers configured and operational
 
 ## Architecture Changes
 
