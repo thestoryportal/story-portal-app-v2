@@ -20,6 +20,9 @@ const L01_URL = import.meta.env.VITE_L01_URL || 'http://localhost:8001'
 const L02_URL = import.meta.env.VITE_L02_URL || 'http://localhost:8002'
 const L10_URL = import.meta.env.VITE_L10_URL || 'http://localhost:8010'
 
+// Development API key - CHANGE IN PRODUCTION
+const DEV_API_KEY = 'dev_key_CHANGE_IN_PRODUCTION'
+
 class PlatformAPIClient {
   private client: AxiosInstance
 
@@ -34,7 +37,7 @@ class PlatformAPIClient {
 
     // Request interceptor for auth
     this.client.interceptors.request.use((config) => {
-      const token = localStorage.getItem('auth_token')
+      const token = localStorage.getItem('auth_token') || DEV_API_KEY
       if (token) {
         config.headers.Authorization = `Bearer ${token}`
       }
@@ -80,30 +83,43 @@ class PlatformAPIClient {
 
   // ========== Agent Management (L01 + L02) ==========
   async listAgents(filters?: { status?: string; type?: string }): Promise<Agent[]> {
-    const { data } = await axios.get(`${L01_URL}/agents`, { params: filters })
+    const { data } = await axios.get(`${L01_URL}/agents`, {
+      params: filters,
+      headers: { 'Authorization': `Bearer ${DEV_API_KEY}` }
+    })
     return data
   }
 
   async getAgent(agentId: string): Promise<Agent> {
-    const { data } = await axios.get(`${L01_URL}/agents/${agentId}`)
+    const { data } = await axios.get(`${L01_URL}/agents/${agentId}`, {
+      headers: { 'Authorization': `Bearer ${DEV_API_KEY}` }
+    })
     return data
   }
 
   async createAgent(config: AgentConfig): Promise<Agent> {
-    const { data } = await axios.post(`${L02_URL}/runtime/spawn`, config)
+    const { data } = await axios.post(`${L02_URL}/runtime/spawn`, config, {
+      headers: { 'Authorization': `Bearer ${DEV_API_KEY}` }
+    })
     return data
   }
 
   async pauseAgent(agentId: string): Promise<void> {
-    await axios.post(`${L10_URL}/control/pause`, { agent_id: agentId })
+    await axios.post(`${L10_URL}/control/pause`, { agent_id: agentId }, {
+      headers: { 'Authorization': `Bearer ${DEV_API_KEY}` }
+    })
   }
 
   async resumeAgent(agentId: string): Promise<void> {
-    await axios.post(`${L10_URL}/control/resume`, { agent_id: agentId })
+    await axios.post(`${L10_URL}/control/resume`, { agent_id: agentId }, {
+      headers: { 'Authorization': `Bearer ${DEV_API_KEY}` }
+    })
   }
 
   async terminateAgent(agentId: string): Promise<void> {
-    await axios.post(`${L10_URL}/control/stop`, { agent_id: agentId })
+    await axios.post(`${L10_URL}/control/stop`, { agent_id: agentId }, {
+      headers: { 'Authorization': `Bearer ${DEV_API_KEY}` }
+    })
   }
 
   // ========== Workflows (L12) ==========

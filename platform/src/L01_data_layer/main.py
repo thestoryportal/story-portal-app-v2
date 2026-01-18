@@ -108,7 +108,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Unauthenticated health check endpoint (before authentication middleware)
+# Unauthenticated health check endpoints (before authentication middleware)
+@app.get("/health", tags=["Health"])
+async def health():
+    """Basic health check endpoint."""
+    return {
+        "status": "healthy",
+        "service": "l01-data-layer",
+        "version": "2.0.0"
+    }
+
 @app.get("/health/live", tags=["Health"])
 async def health_live():
     """Unauthenticated liveness check for monitoring and load balancers."""

@@ -288,6 +288,14 @@ services:
     networks:
       - agentic-network
 
+  # ==========================================================================
+  # NOTE: L08 (Port 8008) is intentionally RESERVED for future implementation
+  # L08 will provide advanced microservices orchestration and service mesh
+  # capabilities in future versions (V3.0+). Current orchestration is handled
+  # by L09 API Gateway and L12 Service Hub.
+  # See docs/ARCHITECTURE.md for detailed explanation.
+  # ==========================================================================
+
   # L09 API Gateway Layer
   l09-api-gateway:
     image: l09-api-gateway:latest

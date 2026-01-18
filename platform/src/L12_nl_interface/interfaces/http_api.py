@@ -222,6 +222,16 @@ def create_app() -> FastAPI:
             active_sessions=active_sessions,
         )
 
+    @app.get("/health/live", tags=["Health"])
+    async def health_live():
+        """Liveness probe for monitoring and load balancers."""
+        return {"status": "alive"}
+
+    @app.get("/health/ready", tags=["Health"])
+    async def health_ready():
+        """Readiness probe - checks if service is ready to accept traffic."""
+        return {"status": "ready"}
+
     # Invoke service method endpoint
     @app.post("/v1/services/invoke", response_model=InvokeResponse, tags=["Services"])
     async def invoke_service(request: InvokeRequest):

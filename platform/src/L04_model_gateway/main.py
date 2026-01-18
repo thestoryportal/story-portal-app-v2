@@ -24,6 +24,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/health")
+async def health():
+    """Basic health check endpoint"""
+    return {
+        "status": "healthy",
+        "service": "l04-model-gateway",
+        "version": "2.0.0"
+    }
+
 @app.get("/health/live")
 async def health_live():
     """Liveness probe"""

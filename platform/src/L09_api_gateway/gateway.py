@@ -138,6 +138,17 @@ class APIGateway:
     def _register_health_endpoints(self):
         """Register health check endpoints"""
 
+        @self.app.get("/health")
+        async def health():
+            """Basic health check endpoint"""
+            return JSONResponse(
+                content={
+                    "status": "healthy",
+                    "service": "l09-api-gateway",
+                    "version": "2.0.0"
+                }
+            )
+
         @self.app.get("/health/live")
         async def liveness():
             """Liveness probe - is service alive?"""

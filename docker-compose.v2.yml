@@ -20,6 +20,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
   redis:
     image: redis:7-alpine
@@ -34,6 +42,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
 
   # ==========================================================================
   # APPLICATION LAYERS
@@ -66,6 +82,14 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   l02-runtime:
     build:
@@ -85,6 +109,14 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   l03-tool-execution:
     build:
@@ -98,6 +130,14 @@ services:
       - L02_URL=http://l02-runtime:8002
     depends_on:
       - l02-runtime
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   l04-model-gateway:
     build:
@@ -112,6 +152,14 @@ services:
       - DEFAULT_MODEL=llama3.2:3b
     depends_on:
       - l01-data-layer
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   l05-planning:
     build:
@@ -125,6 +173,14 @@ services:
       - L04_URL=http://l04-model-gateway:8004
     depends_on:
       - l04-model-gateway
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   l06-evaluation:
     build:
@@ -137,6 +193,14 @@ services:
       - L01_URL=http://l01-data-layer:8001
     depends_on:
       - l01-data-layer
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   l07-learning:
     build:
@@ -150,6 +214,22 @@ services:
       - L06_URL=http://l06-evaluation:8006
     depends_on:
       - l06-evaluation
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # ==========================================================================
+  # NOTE: L08 (Port 8008) is intentionally RESERVED for future implementation
+  # L08 will provide advanced microservices orchestration and service mesh
+  # capabilities in future versions (V3.0+). Current orchestration is handled
+  # by L09 API Gateway and L12 Service Hub.
+  # See docs/ARCHITECTURE.md for detailed explanation.
+  # ==========================================================================
 
   l09-api-gateway:
     build:
@@ -164,6 +244,14 @@ services:
       - REDIS_URL=redis://redis:6379
     depends_on:
       - l02-runtime
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   l10-human-interface:
     build:
@@ -177,6 +265,14 @@ services:
       - L09_URL=http://l09-api-gateway:8009
     depends_on:
       - l09-api-gateway
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   l11-integration:
     build:
@@ -189,6 +285,14 @@ services:
       - L01_URL=http://l01-data-layer:8001
     depends_on:
       - l01-data-layer
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   # ==========================================================================
   # MONITORING (Local Dev)
@@ -204,6 +308,14 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   grafana:
     image: grafana/grafana:10.0.0
@@ -218,6 +330,14 @@ services:
       - grafana-data:/var/lib/grafana
     depends_on:
       - prometheus
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
 
 volumes:
   agentic-postgres-data:

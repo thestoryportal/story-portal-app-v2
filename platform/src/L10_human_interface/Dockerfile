@@ -26,4 +26,4 @@ EXPOSE 8010
 ENV PYTHONPATH=/app:/app/src
 
 # Run as a package module
-CMD ["uvicorn", "L10_human_interface.main:app", "--host", "0.0.0.0", "--port", "8010"]
+CMD ["uvicorn", "L10_human_interface.app:app", "--host", "0.0.0.0", "--port", "8010"]

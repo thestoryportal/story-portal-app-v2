@@ -85,12 +85,34 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+platform/.env
+platform/services/**/.env
 credentials.json
 secrets.json
+*.secret
+*.secrets
+service-account.json
+
+# Keep example/template files
+!.env.example
+!.env.template
+!platform/.env.example
+
+# SSL/TLS Private Keys
 *.pem
 *.key
+*.p12
+*.pfx
+platform/ssl/*.pem
+platform/ssl/*.key
+platform/ssl/private.*
 id_rsa*
 id_ed25519*
+
+# Keep SSL certificates and docs (public)
+!platform/ssl/certificate.crt
+!platform/ssl/*.crt
+!platform/ssl/README.md
 
 # ===================
 # Logs

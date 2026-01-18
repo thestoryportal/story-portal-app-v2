@@ -308,38 +308,166 @@ trivy image l01-data-layer:latest
 
 ## Secrets Management
 
-### Environment Variables (Development)
+### ✅ P1-04: Secrets Management Implementation (2026-01-18)
 
+**Status:** COMPLETE - All secrets have been removed from version control and documented.
+
+### Environment Configuration Template
+
+A comprehensive `.env.example` template has been created at `platform/.env.example` with:
+- All configuration variables documented
+- Placeholder values for secrets (CHANGE_ME)
+- Instructions for generating strong secrets
+- Separate sections for different service types
+
+**Setup Process:**
 ```bash
-# .env file (NEVER commit to git)
-JWT_SECRET=<strong-random-value>
-POSTGRES_PASSWORD=<strong-password>
-REDIS_PASSWORD=<strong-password>
-API_ENCRYPTION_KEY=<256-bit-key>
+# 1. Copy example configuration
+cp platform/.env.example platform/.env
+
+# 2. Generate secure secrets
+openssl rand -hex 32  # For JWT_SECRET (256 bits)
+openssl rand -hex 32  # For API_KEY_SECRET
+openssl rand -hex 32  # For SESSION_SECRET
+
+# 3. Update .env with generated secrets
+# Edit platform/.env and replace all CHANGE_ME values
+
+# 4. Verify .env is in .gitignore
+git check-ignore platform/.env  # Should output: platform/.env
 ```
 
-### Docker Secrets (Production)
+### Environment Variables (Development)
+
+For local development, use `.env` file (NEVER commit to git):
+
+```bash
+# Database
+POSTGRES_PASSWORD=<strong-password>
+DATABASE_URL=postgresql://postgres:<password>@localhost:5432/agentic_platform
+
+# Authentication
+JWT_SECRET=<64-hex-chars>
+API_KEY_SECRET=<64-hex-chars>
+SESSION_SECRET=<64-hex-chars>
+
+# Redis
+REDIS_PASSWORD=<strong-password>  # Optional for dev
+
+# Monitoring
+GF_SECURITY_ADMIN_PASSWORD=<strong-password>
+```
+
+### Docker Secrets (Production - Recommended)
+
+For production deployments using Docker Swarm:
 
 ```bash
 # Create secrets
 echo "strong-jwt-secret" | docker secret create jwt_secret -
-echo "strong-db-password" | docker secret create db_password -
+echo "strong-db-password" | docker secret create postgres_password -
+echo "strong-api-key" | docker secret create api_key_secret -
 
 # Use in docker-compose.yml
+secrets:
+  jwt_secret:
+    external: true
+  postgres_password:
+    external: true
+
 services:
   l09-api-gateway:
     secrets:
       - jwt_secret
     environment:
       - JWT_SECRET_FILE=/run/secrets/jwt_secret
+
+  postgres:
+    secrets:
+      - postgres_password
+    environment:
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+```
+
+### HashiCorp Vault (Production - Enterprise)
+
+For production deployments with HashiCorp Vault:
+
+```bash
+# Store secrets in Vault
+vault kv put secret/story-portal/postgres password="<strong-password>"
+vault kv put secret/story-portal/jwt secret="<strong-jwt-secret>"
+vault kv put secret/story-portal/api-keys l09="<api-key>"
+
+# Retrieve in application
+import hvac
+client = hvac.Client(url='http://vault:8200', token='<token>')
+postgres_password = client.secrets.kv.v2.read_secret_version(
+    path='postgres',
+    mount_point='secret/story-portal'
+)['data']['data']['password']
+```
+
+### AWS Secrets Manager (Production - AWS)
+
+For AWS deployments:
+
+```python
+import boto3
+from botocore.exceptions import ClientError
+
+def get_secret(secret_name):
+    client = boto3.client('secretsmanager', region_name='us-west-2')
+    try:
+        response = client.get_secret_value(SecretId=secret_name)
+        return json.loads(response['SecretString'])
+    except ClientError as e:
+        raise e
+
+# Usage
+secrets = get_secret('story-portal/database')
+DATABASE_URL = f"postgresql://{secrets['username']}:{secrets['password']}@{secrets['host']}:5432/agentic_platform"
 ```
 
 ### Secrets Rotation Policy
 
-- **JWT Secrets:** Rotate quarterly
-- **Database Passwords:** Rotate bi-annually
+- **JWT Secrets:** Rotate quarterly (every 90 days)
+- **Database Passwords:** Rotate quarterly (every 90 days)
 - **API Keys:** Rotate on compromise or annually
-- **TLS Certificates:** Auto-renewal (Let's Encrypt 90 days)
+- **SSL/TLS Certificates:** Auto-renewal (Let's Encrypt 90 days)
+- **Monitoring Passwords:** Rotate bi-annually
+
+**Rotation Procedure:**
+```bash
+# 1. Generate new secret
+NEW_SECRET=$(openssl rand -hex 32)
+
+# 2. Update secrets manager
+docker secret create postgres_password_v2 - <<< "$NEW_SECRET"
+
+# 3. Update service configuration
+docker service update --secret-rm postgres_password --secret-add postgres_password_v2 postgres
+
+# 4. Verify service health
+docker ps | grep postgres
+
+# 5. Remove old secret (after verification period)
+docker secret rm postgres_password
+```
+
+### Security Best Practices
+
+**✅ Implemented:**
+- `.env.example` template with no real secrets
+- `.gitignore` updated to exclude all secret files
+- SSL private keys excluded from version control
+- Comprehensive secrets documentation
+
+**⚠️ For Production:**
+- Use secrets manager (Vault, AWS Secrets Manager, Docker Secrets)
+- Enable secret rotation automation
+- Implement secret access auditing
+- Use different secrets per environment (dev/staging/prod)
 
 ---
 
