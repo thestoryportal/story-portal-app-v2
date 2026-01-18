@@ -88,4 +88,23 @@ class RedisClient:
 
 
 # Global Redis instance
-redis_client = RedisClient()
+import os
+
+# Read from environment variables
+_redis_host = os.getenv("REDIS_HOST", "localhost")
+_redis_port = int(os.getenv("REDIS_PORT", "6379"))
+_redis_db = int(os.getenv("REDIS_DB", "0"))
+
+# Parse REDIS_URL if provided (overrides individual vars)
+_redis_url = os.getenv("REDIS_URL")
+if _redis_url:
+    # Parse redis://host:port/db
+    import re
+    match = re.match(r'redis://([^:]+):(\d+)(?:/(\d+))?', _redis_url)
+    if match:
+        _redis_host = match.group(1)
+        _redis_port = int(match.group(2))
+        if match.group(3):
+            _redis_db = int(match.group(3))
+
+redis_client = RedisClient(host=_redis_host, port=_redis_port, db=_redis_db)

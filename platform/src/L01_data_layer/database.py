@@ -847,4 +847,29 @@ class Database:
 
 
 # Global database instance
-db = Database()
+import os
+
+# Read from environment variables
+_db_host = os.getenv("POSTGRES_HOST", "localhost")
+_db_port = int(os.getenv("POSTGRES_PORT", "5432"))
+_db_name = os.getenv("POSTGRES_DB", "agentic")
+_db_user = os.getenv("POSTGRES_USER", "postgres")
+_db_password = os.getenv("POSTGRES_PASSWORD", "postgres")
+
+# Parse DATABASE_URL if provided (overrides individual vars)
+_db_url = os.getenv("DATABASE_URL")
+if _db_url:
+    # Parse postgresql://user:pass@host:port/dbname
+    import re
+    match = re.match(r'postgresql://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)', _db_url)
+    if match:
+        _db_user, _db_password, _db_host, _db_port, _db_name = match.groups()
+        _db_port = int(_db_port)
+
+db = Database(
+    host=_db_host,
+    port=_db_port,
+    database=_db_name,
+    user=_db_user,
+    password=_db_password
+)

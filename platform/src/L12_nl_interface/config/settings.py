@@ -19,6 +19,8 @@ Environment Variables:
     L12_L01_BASE_URL: L01 Data Layer base URL (default: http://localhost:8002)
     L12_L04_BASE_URL: L04 Model Gateway base URL (default: http://localhost:8004)
     L12_ENABLE_L01_BRIDGE: Enable L01 usage tracking (default: true)
+    L12_REDIS_HOST: Redis host (default: localhost)
+    L12_REDIS_PORT: Redis port (default: 6379)
     L12_LOG_LEVEL: Logging level (default: INFO)
 
 Example:
@@ -59,6 +61,8 @@ class L12Settings(BaseSettings):
         l01_base_url: L01 Data Layer base URL
         l04_base_url: L04 Model Gateway base URL
         enable_l01_bridge: Enable L01 usage tracking
+        redis_host: Redis host for WebSocket and command history
+        redis_port: Redis port number
         log_level: Logging level (DEBUG, INFO, WARNING, ERROR)
     """
 
@@ -156,6 +160,18 @@ class L12Settings(BaseSettings):
     enable_l01_bridge: bool = Field(
         default=True,
         description="Enable L01 usage tracking bridge",
+    )
+
+    # Redis Configuration
+    redis_host: str = Field(
+        default="localhost",
+        description="Redis host for WebSocket and command history",
+    )
+    redis_port: int = Field(
+        default=6379,
+        description="Redis port number",
+        gt=0,
+        lt=65536,
     )
 
     # Logging Configuration
@@ -391,6 +407,8 @@ class L12Settings(BaseSettings):
             "l01_base_url": self.l01_base_url,
             "l04_base_url": self.l04_base_url,
             "enable_l01_bridge": self.enable_l01_bridge,
+            "redis_host": self.redis_host,
+            "redis_port": self.redis_port,
             "log_level": self.log_level,
         }
 

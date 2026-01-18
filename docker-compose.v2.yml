@@ -1,0 +1,226 @@
+version: '3.8'
+
+services:
+  # ==========================================================================
+  # INFRASTRUCTURE
+  # ==========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: agentic-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: agentic
+    ports:
+      - "5432:5432"
+    volumes:
+      - agentic-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: agentic-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - agentic-redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================================================
+  # APPLICATION LAYERS
+  # ==========================================================================
+  l01-data-layer:
+    build:
+      context: ./platform/src/L01_data_layer
+      dockerfile: Dockerfile
+    container_name: l01-data-layer
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentic
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=agentic
+      - REDIS_URL=redis://redis:6379
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - LOG_LEVEL=INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  l02-runtime:
+    build:
+      context: ./platform/src/L02_runtime
+      dockerfile: Dockerfile
+    container_name: l02-runtime
+    ports:
+      - "8002:8002"
+    environment:
+      - L01_URL=http://l01-data-layer:8001
+      - OLLAMA_URL=http://host.docker.internal:11434
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - l01-data-layer
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  l03-tool-execution:
+    build:
+      context: ./platform/src/L03_tool_execution
+      dockerfile: Dockerfile
+    container_name: l03-tool-execution
+    ports:
+      - "8003:8003"
+    environment:
+      - L01_URL=http://l01-data-layer:8001
+      - L02_URL=http://l02-runtime:8002
+    depends_on:
+      - l02-runtime
+
+  l04-model-gateway:
+    build:
+      context: ./platform/src/L04_model_gateway
+      dockerfile: Dockerfile
+    container_name: l04-model-gateway
+    ports:
+      - "8004:8004"
+    environment:
+      - L01_URL=http://l01-data-layer:8001
+      - OLLAMA_URL=http://host.docker.internal:11434
+      - DEFAULT_MODEL=llama3.2:3b
+    depends_on:
+      - l01-data-layer
+
+  l05-planning:
+    build:
+      context: ./platform/src/L05_planning
+      dockerfile: Dockerfile
+    container_name: l05-planning
+    ports:
+      - "8005:8005"
+    environment:
+      - L01_URL=http://l01-data-layer:8001
+      - L04_URL=http://l04-model-gateway:8004
+    depends_on:
+      - l04-model-gateway
+
+  l06-evaluation:
+    build:
+      context: ./platform/src/L06_evaluation
+      dockerfile: Dockerfile
+    container_name: l06-evaluation
+    ports:
+      - "8006:8006"
+    environment:
+      - L01_URL=http://l01-data-layer:8001
+    depends_on:
+      - l01-data-layer
+
+  l07-learning:
+    build:
+      context: ./platform/src/L07_learning
+      dockerfile: Dockerfile
+    container_name: l07-learning
+    ports:
+      - "8007:8007"
+    environment:
+      - L01_URL=http://l01-data-layer:8001
+      - L06_URL=http://l06-evaluation:8006
+    depends_on:
+      - l06-evaluation
+
+  l09-api-gateway:
+    build:
+      context: ./platform/src/L09_api_gateway
+      dockerfile: Dockerfile
+    container_name: l09-api-gateway
+    ports:
+      - "8009:8009"
+    environment:
+      - L01_URL=http://l01-data-layer:8001
+      - L02_URL=http://l02-runtime:8002
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - l02-runtime
+
+  l10-human-interface:
+    build:
+      context: ./platform/src/L10_human_interface
+      dockerfile: Dockerfile
+    container_name: l10-human-interface
+    ports:
+      - "8010:8010"
+    environment:
+      - L01_URL=http://l01-data-layer:8001
+      - L09_URL=http://l09-api-gateway:8009
+    depends_on:
+      - l09-api-gateway
+
+  l11-integration:
+    build:
+      context: ./platform/src/L11_integration
+      dockerfile: Dockerfile
+    container_name: l11-integration
+    ports:
+      - "8011:8011"
+    environment:
+      - L01_URL=http://l01-data-layer:8001
+    depends_on:
+      - l01-data-layer
+
+  # ==========================================================================
+  # MONITORING (Local Dev)
+  # ==========================================================================
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: agentic-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./v2-deployment/configs/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: agentic-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+volumes:
+  agentic-postgres-data:
+  agentic-redis-data:
+  prometheus-data:
+  grafana-data:

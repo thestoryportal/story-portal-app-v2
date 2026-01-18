@@ -1,0 +1,46 @@
+{
+  "mcpServers": {
+    "platform-services": {
+      "command": "/Volumes/Extreme SSD/projects/story-portal-app/platform/run_l12_mcp.sh"
+    },
+    "document-consolidator": {
+      "command": "node",
+      "args": [
+        "/Volumes/Extreme SSD/projects/story-portal-app/platform/services/mcp-document-consolidator/dist/server.js"
+      ],
+      "env": {
+        "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/agentic_platform",
+        "POSTGRES_HOST": "localhost",
+        "POSTGRES_PORT": "5432",
+        "POSTGRES_DB": "agentic_platform",
+        "POSTGRES_USER": "postgres",
+        "POSTGRES_PASSWORD": "postgres",
+        "MCP_SCHEMA": "mcp_documents",
+        "OLLAMA_BASE_URL": "http://localhost:11434",
+        "OLLAMA_DEFAULT_MODEL": "llama3.1:8b",
+        "PYTHON_PATH": "/Volumes/Extreme SSD/projects/story-portal-app/platform/services/mcp-document-consolidator/python/venv/bin/python"
+      }
+    },
+    "context-orchestrator": {
+      "command": "node",
+      "args": [
+        "/Volumes/Extreme SSD/projects/story-portal-app/platform/services/mcp-context-orchestrator/dist/server.js"
+      ],
+      "env": {
+        "PROJECT_ID": "agentic-platform",
+        "CONTEXTS_DIR": ".claude/contexts",
+        "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/agentic_platform",
+        "POSTGRES_HOST": "localhost",
+        "POSTGRES_PORT": "5432",
+        "POSTGRES_DB": "agentic_platform",
+        "POSTGRES_USER": "postgres",
+        "POSTGRES_PASSWORD": "postgres",
+        "MCP_SCHEMA": "mcp_contexts",
+        "REDIS_URL": "redis://localhost:6379",
+        "REDIS_HOST": "localhost",
+        "REDIS_PORT": "6379",
+        "NEO4J_ENABLED": "false"
+      }
+    }
+  }
+}

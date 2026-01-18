@@ -1,0 +1,12 @@
+=== SYSTEM STATE ===
+Date: $(date)
+Working Directory: $(pwd)
+User: $(whoami)
+Sat Jan 17 18:18:02 MST 2026
+Working Directory: /Volumes/Extreme SSD/projects/story-portal-app
+User: robertrhu
+CONTAINER ID   IMAGE                    COMMAND                  CREATED          STATUS                      PORTS                                         NAMES
+8cd2719f8f3c   postgres:15-alpine       "docker-entrypoint.s…"   57 minutes ago   Exited (1) 54 minutes ago                                                 practical_chebyshev
+5c07fb324c88   ollama/ollama:latest     "/bin/ollama serve"      57 minutes ago   Up 57 minutes               11434/tcp                                     awesome_hypatia
+dd7417c1bf08   redis:7-alpine           "docker-entrypoint.s…"   3 days ago       Up 58 minutes (healthy)     0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp   agentic-redis
+9e82ceda21c7   pgvector/pgvector:pg16   "docker-entrypoint.s…"   3 days ago       Up 58 minutes (healthy)     0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp   agentic-postgres

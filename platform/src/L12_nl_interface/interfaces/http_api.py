@@ -20,7 +20,7 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -37,6 +37,7 @@ from ..routing.fuzzy_matcher import FuzzyMatcher, ServiceMatch
 from ..services.memory_monitor import MemoryMonitor
 from ..services.l01_bridge import L12Bridge
 from ..services.command_history import CommandHistory
+from .websocket_handler import get_manager as get_ws_manager
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +130,10 @@ async def lifespan(app: FastAPI):
     )
     await command_history.connect()
 
+    # Initialize WebSocket manager
+    ws_manager = get_ws_manager()
+    await ws_manager.start()
+
     # Initialize routing
     exact_matcher = ExactMatcher(registry)
     fuzzy_matcher = FuzzyMatcher(
@@ -151,6 +156,7 @@ async def lifespan(app: FastAPI):
     _app_state["command_router"] = command_router
     _app_state["l01_bridge"] = l01_bridge
     _app_state["command_history"] = command_history
+    _app_state["ws_manager"] = ws_manager
 
     logger.info(
         f"L12 HTTP API started: {len(registry.list_all_services())} services loaded"
@@ -160,6 +166,7 @@ async def lifespan(app: FastAPI):
 
     # Cleanup on shutdown
     logger.info("L12 HTTP API shutting down...")
+    await ws_manager.stop()
     await command_history.disconnect()
     await l01_bridge.stop()
     await session_manager.stop()
@@ -420,6 +427,51 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=500, detail="Session manager not initialized")
 
         return session_manager.get_global_metrics()
+
+    # WebSocket endpoint for real-time events
+    @app.websocket("/v1/ws/{session_id}")
+    async def websocket_endpoint(websocket: WebSocket, session_id: str = None):
+        """WebSocket endpoint for real-time event streaming.
+
+        Args:
+            websocket: WebSocket connection
+            session_id: Optional session ID to filter events (use "global" for all events)
+
+        Example:
+            ws://localhost:8005/v1/ws/session-123
+            ws://localhost:8005/v1/ws/global
+        """
+        ws_manager = _app_state.get("ws_manager")
+        if not ws_manager:
+            await websocket.close(code=1011, reason="WebSocket manager not initialized")
+            return
+
+        # Handle "global" as None for global connections
+        if session_id == "global":
+            session_id = None
+
+        await ws_manager.connect(websocket, session_id)
+
+        try:
+            # Keep connection alive and handle client messages
+            while True:
+                # Wait for messages from client (ping/pong, commands, etc.)
+                data = await websocket.receive_text()
+                logger.debug(f"WebSocket received: {data}")
+
+                # Echo back for now (can add command handling later)
+                await websocket.send_json({
+                    "type": "echo",
+                    "data": data,
+                    "session_id": session_id
+                })
+
+        except WebSocketDisconnect:
+            logger.info(f"WebSocket disconnected: session={session_id}")
+        except Exception as e:
+            logger.error(f"WebSocket error: {e}", exc_info=True)
+        finally:
+            ws_manager.disconnect(websocket, session_id)
 
     return app
 

@@ -22,6 +22,8 @@ from ..routing.command_router import CommandRouter
 from ..routing.exact_matcher import ExactMatcher
 from ..routing.fuzzy_matcher import FuzzyMatcher
 from ..services.memory_monitor import MemoryMonitor
+from ..services.workflow_templates import WorkflowTemplates
+from ..utils.service_categorizer import ServiceCategorizer
 
 # Configure logging to file (not stdout/stderr to avoid MCP protocol interference)
 logging.basicConfig(
@@ -72,6 +74,9 @@ class L12MCPServer:
                 self.fuzzy_matcher,
             )
 
+            # Initialize workflow templates
+            self.workflow_templates = WorkflowTemplates(self.registry, self.factory)
+
             self.session_id = DEFAULT_SESSION_ID
             self.running = False
 
@@ -98,7 +103,7 @@ class L12MCPServer:
         return {
             "protocolVersion": MCP_VERSION,
             "serverInfo": {
-                "name": "l12-platform",
+                "name": "platform-services",
                 "version": "1.0.0",
             },
             "capabilities": {
@@ -109,6 +114,24 @@ class L12MCPServer:
     def get_tools(self) -> list:
         """Get list of available MCP tools."""
         return [
+            {
+                "name": "browse_services",
+                "description": (
+                    "Browse all platform services organized by functional category. "
+                    "Services are grouped by usage (e.g., Data Storage, Agent Management, AI Models). "
+                    "Optionally filter by search term. "
+                    "Example: browse_services() or browse_services(search='planning')"
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "search": {
+                            "type": "string",
+                            "description": "Optional search term to filter services",
+                        }
+                    },
+                },
+            },
             {
                 "name": "invoke_service",
                 "description": (
@@ -222,6 +245,81 @@ class L12MCPServer:
                     "properties": {},
                 },
             },
+            {
+                "name": "list_workflows",
+                "description": (
+                    "List available workflow templates. Workflows are pre-defined multi-service "
+                    "operations for common tasks like testing, deployment, ETL, and monitoring. "
+                    "Optionally filter by category. "
+                    "Example: list_workflows() or list_workflows(category='testing')"
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "category": {
+                            "type": "string",
+                            "description": "Filter by category: testing, deployment, data_pipeline, or monitoring",
+                        }
+                    },
+                },
+            },
+            {
+                "name": "get_workflow_info",
+                "description": (
+                    "Get detailed information about a specific workflow template including steps, "
+                    "parameters, and dependencies. "
+                    "Example: get_workflow_info(workflow_name='testing.unit')"
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workflow_name": {
+                            "type": "string",
+                            "description": "Name of the workflow template",
+                        }
+                    },
+                    "required": ["workflow_name"],
+                },
+            },
+            {
+                "name": "execute_workflow",
+                "description": (
+                    "Execute a workflow template with optional parameters. "
+                    "Returns execution results for each step. "
+                    "Example: execute_workflow(workflow_name='testing.unit', parameters={'test_path': 'tests/'})"
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workflow_name": {
+                            "type": "string",
+                            "description": "Name of the workflow to execute",
+                        },
+                        "parameters": {
+                            "type": "object",
+                            "description": "Workflow parameters to override defaults",
+                        },
+                    },
+                    "required": ["workflow_name"],
+                },
+            },
+            {
+                "name": "search_workflows",
+                "description": (
+                    "Search for workflow templates by name, description, or tags. "
+                    "Example: search_workflows(query='deployment')"
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Search query",
+                        }
+                    },
+                    "required": ["query"],
+                },
+            },
         ]
 
     async def handle_tool_call(self, tool_name: str, arguments: Dict[str, Any]) -> str:
@@ -229,7 +327,9 @@ class L12MCPServer:
         try:
             logger.info(f"Handling tool call: {tool_name} with args: {arguments}")
 
-            if tool_name == "invoke_service":
+            if tool_name == "browse_services":
+                return await self._browse_services(arguments)
+            elif tool_name == "invoke_service":
                 return await self._invoke_service(arguments)
             elif tool_name == "search_services":
                 return await self._search_services(arguments)
@@ -241,12 +341,40 @@ class L12MCPServer:
                 return await self._list_methods(arguments)
             elif tool_name == "get_session_info":
                 return await self._get_session_info(arguments)
+            elif tool_name == "list_workflows":
+                return await self._list_workflows(arguments)
+            elif tool_name == "get_workflow_info":
+                return await self._get_workflow_info(arguments)
+            elif tool_name == "execute_workflow":
+                return await self._execute_workflow(arguments)
+            elif tool_name == "search_workflows":
+                return await self._search_workflows(arguments)
             else:
                 return f"❌ Unknown tool: {tool_name}"
 
         except Exception as e:
             logger.error(f"Error handling tool call: {e}", exc_info=True)
             return f"❌ Error: {str(e)}"
+
+    async def _browse_services(self, args: Dict[str, Any]) -> str:
+        """Browse services organized by functional category."""
+        search_term = args.get("search")
+
+        # Get all services or filter by search
+        if search_term:
+            # Use fuzzy matcher for search
+            matches = self.fuzzy_matcher.match(search_term, threshold=0.3, max_results=50)
+            services = [match.service for match in matches]
+        else:
+            services = self.registry.list_all_services()
+
+        if not services:
+            if search_term:
+                return f"No services found matching '{search_term}'"
+            return "No services available"
+
+        # Format services by category
+        return ServiceCategorizer.format_categorized_services(services, search_term)
 
     async def _invoke_service(self, args: Dict[str, Any]) -> str:
         """Execute a service method."""
@@ -383,6 +511,145 @@ class L12MCPServer:
             f"Memory usage: {metrics['memory_mb']:.2f} MB\n"
             f"Age: {metrics['age_seconds']:.1f} seconds\n"
         )
+
+    async def _list_workflows(self, args: Dict[str, Any]) -> str:
+        """List available workflow templates."""
+        from ..services.workflow_templates import WorkflowCategory
+
+        category_str = args.get("category")
+        category = None
+
+        if category_str:
+            try:
+                category = WorkflowCategory(category_str)
+            except ValueError:
+                return f"❌ Invalid category '{category_str}'. Valid categories: testing, deployment, data_pipeline, monitoring"
+
+        templates = self.workflow_templates.list_templates(category)
+
+        if not templates:
+            if category:
+                return f"No workflow templates found for category '{category_str}'"
+            return "No workflow templates available"
+
+        result = f"🔧 Available Workflow Templates ({len(templates)} total):\n\n"
+
+        # Group by category
+        by_category = {}
+        for template in templates:
+            cat = template.category.value
+            if cat not in by_category:
+                by_category[cat] = []
+            by_category[cat].append(template)
+
+        for cat, cat_templates in sorted(by_category.items()):
+            result += f"**{cat.upper()}**\n"
+            for template in cat_templates:
+                result += f"• **{template.name}**\n"
+                result += f"  {template.description}\n"
+                result += f"  Steps: {len(template.steps)}\n"
+                result += f"  Tags: {', '.join(template.tags)}\n\n"
+
+        return result
+
+    async def _get_workflow_info(self, args: Dict[str, Any]) -> str:
+        """Get detailed workflow template information."""
+        workflow_name = args.get("workflow_name")
+        template = self.workflow_templates.get_template(workflow_name)
+
+        if not template:
+            return f"❌ Workflow template '{workflow_name}' not found"
+
+        result = (
+            f"🔧 **{template.name}**\n\n"
+            f"**Description**: {template.description}\n"
+            f"**Category**: {template.category.value}\n"
+            f"**Tags**: {', '.join(template.tags)}\n\n"
+        )
+
+        if template.parameters:
+            result += "**Default Parameters**:\n"
+            for key, value in template.parameters.items():
+                result += f"• {key}: {value}\n"
+            result += "\n"
+
+        if template.steps:
+            result += f"**Workflow Steps** ({len(template.steps)} total):\n\n"
+            for i, step in enumerate(template.steps, 1):
+                result += f"{i}. **{step.step_id}**\n"
+                result += f"   Service: {step.service_name}.{step.method_name}\n"
+                if step.depends_on:
+                    result += f"   Depends on: {', '.join(step.depends_on)}\n"
+                if step.on_error != "abort":
+                    result += f"   On error: {step.on_error}\n"
+                if step.retry_count > 0:
+                    result += f"   Retries: {step.retry_count}\n"
+                result += "\n"
+
+        return result
+
+    async def _execute_workflow(self, args: Dict[str, Any]) -> str:
+        """Execute a workflow template."""
+        workflow_name = args.get("workflow_name")
+        parameters = args.get("parameters", {})
+
+        # Check if template exists
+        template = self.workflow_templates.get_template(workflow_name)
+        if not template:
+            return f"❌ Workflow template '{workflow_name}' not found"
+
+        # Execute workflow
+        result = await self.workflow_templates.execute_workflow(
+            workflow_name, parameters, self.session_id
+        )
+
+        # Format result
+        output = (
+            f"🔧 **Workflow Execution: {result.workflow_name}**\n\n"
+            f"Status: {result.status.value.upper()}\n"
+            f"Started: {result.started_at.isoformat()}\n"
+        )
+
+        if result.completed_at:
+            duration = (result.completed_at - result.started_at).total_seconds()
+            output += f"Duration: {duration:.2f} seconds\n"
+
+        output += "\n"
+
+        if result.error:
+            output += f"**Error**: {result.error}\n\n"
+
+        if result.step_results:
+            output += f"**Step Results** ({len(result.step_results)} steps):\n\n"
+            for step_id, step_result in result.step_results.items():
+                status = step_result.get("status", "unknown")
+                output += f"• **{step_id}**: {status}\n"
+                if step_result.get("error"):
+                    output += f"  Error: {step_result['error']}\n"
+                elif step_result.get("result"):
+                    output += f"  Result: {json.dumps(step_result['result'], indent=2)[:200]}...\n"
+                output += "\n"
+
+        return output
+
+    async def _search_workflows(self, args: Dict[str, Any]) -> str:
+        """Search for workflow templates."""
+        query = args.get("query")
+
+        matches = self.workflow_templates.search_templates(query)
+
+        if not matches:
+            return f"No workflow templates found matching '{query}'"
+
+        result = f"🔍 Found {len(matches)} workflow template(s) matching '{query}':\n\n"
+        for i, template in enumerate(matches, 1):
+            result += (
+                f"{i}. **{template.name}** ({template.category.value})\n"
+                f"   {template.description}\n"
+                f"   Steps: {len(template.steps)} | Tags: {', '.join(template.tags)}\n\n"
+            )
+
+        return result
 
     async def handle_message(self, message: Dict[str, Any]) -> Dict[str, Any]:
         """Handle incoming MCP message."""

@@ -1,0 +1,35 @@
+                  List of relations
+ Schema |          Name           | Type  |  Owner   
+--------+-------------------------+-------+----------
+ public | agents                  | table | postgres
+ public | alerts                  | table | postgres
+ public | anomalies               | table | postgres
+ public | api_requests            | table | postgres
+ public | authentication_events   | table | postgres
+ public | circuit_breaker_events  | table | postgres
+ public | compliance_results      | table | postgres
+ public | configurations          | table | postgres
+ public | control_operations      | table | postgres
+ public | dataset_examples        | table | postgres
+ public | datasets                | table | postgres
+ public | documents               | table | postgres
+ public | evaluations             | table | postgres
+ public | events                  | table | postgres
+ public | feedback_entries        | table | postgres
+ public | goals                   | table | postgres
+ public | metrics                 | table | postgres
+ public | model_usage             | table | postgres
+ public | plans                   | table | postgres
+ public | quality_scores          | table | postgres
+ public | rate_limit_events       | table | postgres
+ public | saga_executions         | table | postgres
+ public | saga_steps              | table | postgres
+ public | service_registry_events | table | postgres
+ public | sessions                | table | postgres
+ public | tasks                   | table | postgres
+ public | tool_executions         | table | postgres
+ public | tools                   | table | postgres
+ public | training_examples       | table | postgres
+ public | user_interactions       | table | postgres
+(30 rows)
+

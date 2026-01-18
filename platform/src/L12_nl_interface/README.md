@@ -12,9 +12,13 @@ L12 Natural Language Interface provides seamless access to all 60+ platform serv
 
 - ✅ **Exact Match**: Type "PlanningService" → direct service access
 - ✅ **Fuzzy Match**: Type "Let's Plan" → smart disambiguation
+- ✅ **Semantic Search**: Embedding-based similarity matching via Ollama
 - ✅ **60+ Services**: Access to all platform orchestrators, managers, engines
-- ✅ **Claude CLI Integration**: Native MCP server for Claude Code
+- ✅ **Service Categorization**: Browse services by functional category
+- ✅ **Workflow Templates**: Pre-defined multi-service operations
+- ✅ **Claude CLI Integration**: Native MCP server for Claude Code (10 tools)
 - ✅ **HTTP REST API**: External client access via FastAPI
+- ✅ **WebSocket Streaming**: Real-time event updates via Redis pub/sub
 - ✅ **Session Management**: Conversation-scoped service lifecycle
 - ✅ **Usage Tracking**: L01 integration for analytics
 - ✅ **Command History**: Replay commands per session
@@ -30,15 +34,20 @@ L12 Natural Language Interface (Port 8005)
 │   └── SessionManager - Conversation-scoped service lifecycle (1hr TTL)
 ├── Routing
 │   ├── ExactMatcher - O(1) hash lookup for "PlanningService"
-│   ├── FuzzyMatcher - Keyword matching for "Let's Plan"
+│   ├── FuzzyMatcher - Keyword + semantic matching for "Let's Plan"
 │   └── CommandRouter - Route commands to service methods
 ├── Interfaces
-│   ├── HTTP API - FastAPI REST interface (8 endpoints)
-│   └── MCP Server - Claude CLI integration (6 tools)
-└── Services
-    ├── L01Bridge - Usage tracking to Data Layer
-    ├── CommandHistory - Command replay per session
-    └── MemoryMonitor - Session memory tracking
+│   ├── HTTP API - FastAPI REST interface (9 endpoints)
+│   ├── WebSocket Handler - Real-time event streaming via Redis pub/sub
+│   └── MCP Server - Claude CLI integration (10 tools)
+├── Services
+│   ├── L01Bridge - Usage tracking to Data Layer
+│   ├── CommandHistory - Command replay per session
+│   ├── MemoryMonitor - Session memory tracking
+│   ├── EmbeddingService - Semantic similarity via Ollama
+│   └── WorkflowTemplates - Pre-defined multi-service workflows
+└── Utilities
+    └── ServiceCategorizer - Functional category grouping (12 categories)
 ```
 
 ## Quick Start
@@ -287,11 +296,103 @@ Get global metrics.
 }
 ```
 
+#### `WebSocket /v1/ws/{session_id}`
+
+WebSocket endpoint for real-time event streaming.
+
+**Parameters**:
+- `session_id`: Session ID to filter events, or "global" for all events
+
+**Connection Examples**:
+```javascript
+// Session-specific events
+const ws = new WebSocket('ws://localhost:8005/v1/ws/session-123');
+
+// All events
+const ws = new WebSocket('ws://localhost:8005/v1/ws/global');
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log('Event:', data);
+};
+```
+
+**Event Format**:
+```json
+{
+  "type": "service_invocation",
+  "channel": "platform:services",
+  "timestamp": "2026-01-15T14:30:00Z",
+  "session_id": "session-123",
+  "service_name": "PlanningService",
+  "method_name": "create_plan",
+  "status": "completed",
+  "execution_time_ms": 123.45
+}
+```
+
 ## MCP Server Tools
 
-The MCP Server provides 6 tools for Claude CLI integration:
+The MCP Server provides 10 tools for Claude CLI integration:
 
-### 1. `invoke_service`
+### Service Discovery Tools
+
+#### 1. `browse_services`
+
+Browse all platform services organized by functional category.
+
+**Input**:
+- `search` (optional): Search term to filter services
+
+**Output**: Services grouped by category (Data Storage, Agent Management, AI Models, etc.)
+
+**Example**:
+```bash
+browse_services()
+browse_services(search="planning")
+```
+
+#### 2. `search_services`
+
+Fuzzy search services using natural language with semantic matching.
+
+**Input**:
+- `query`: Search query (e.g., "create a plan")
+- `threshold`: Minimum match score (default: 0.7)
+- `max_results`: Maximum results (default: 10)
+
+**Output**: Ranked list of matching services with scores
+
+#### 3. `list_services`
+
+List all available services or filter by layer.
+
+**Input**:
+- `layer`: Optional layer filter (e.g., "L05")
+
+**Output**: List of services with descriptions and metadata
+
+#### 4. `get_service_info`
+
+Get detailed information about a specific service.
+
+**Input**:
+- `service_name`: Service name
+
+**Output**: Complete service metadata including methods
+
+#### 5. `list_methods`
+
+List all available methods for a service.
+
+**Input**:
+- `service_name`: Service name
+
+**Output**: List of method names with descriptions
+
+### Service Execution Tools
+
+#### 6. `invoke_service`
 
 Execute a service method with parameters.
 
@@ -302,45 +403,62 @@ Execute a service method with parameters.
 
 **Output**: Formatted execution result with emoji indicators
 
-### 2. `search_services`
+### Workflow Tools
 
-Fuzzy search services using natural language.
+#### 7. `list_workflows`
 
-**Input**:
-- `query`: Search query (e.g., "create a plan")
-- `threshold`: Minimum match score (default: 0.7)
-- `max_results`: Maximum results (default: 10)
-
-**Output**: Ranked list of matching services with scores
-
-### 3. `list_services`
-
-List all available services or filter by layer.
+List available workflow templates (testing, deployment, data pipeline, monitoring).
 
 **Input**:
-- `layer`: Optional layer filter (e.g., "L05")
+- `category` (optional): Filter by category (testing, deployment, data_pipeline, monitoring)
 
-**Output**: List of services with descriptions and metadata
+**Output**: Workflow templates grouped by category
 
-### 4. `get_service_info`
+**Example**:
+```bash
+list_workflows()
+list_workflows(category="testing")
+```
 
-Get detailed information about a specific service.
+#### 8. `get_workflow_info`
 
-**Input**:
-- `service_name`: Service name
-
-**Output**: Complete service metadata including methods
-
-### 5. `list_methods`
-
-List all available methods for a service.
+Get detailed information about a workflow template.
 
 **Input**:
-- `service_name`: Service name
+- `workflow_name`: Workflow name (e.g., "testing.unit")
 
-**Output**: List of method names with descriptions
+**Output**: Workflow steps, parameters, and dependencies
 
-### 6. `get_session_info`
+#### 9. `execute_workflow`
+
+Execute a workflow template with optional parameters.
+
+**Input**:
+- `workflow_name`: Workflow to execute (e.g., "testing.unit")
+- `parameters`: Workflow parameters (optional)
+
+**Output**: Execution results for each step
+
+**Example**:
+```bash
+execute_workflow(
+  workflow_name="testing.unit",
+  parameters={"test_path": "tests/"}
+)
+```
+
+#### 10. `search_workflows`
+
+Search for workflow templates by name, description, or tags.
+
+**Input**:
+- `query`: Search query
+
+**Output**: Matching workflow templates
+
+### Session Management Tools
+
+#### `get_session_info`
 
 Get information about the current MCP session.
 
@@ -365,8 +483,40 @@ settings.use_semantic_matching  # Enable semantic matching (default: True)
 settings.http_host  # HTTP API host (default: "0.0.0.0")
 settings.http_port  # HTTP API port (default: 8005)
 settings.l01_base_url  # L01 Data Layer URL (default: "http://localhost:8002")
+settings.redis_host  # Redis host for WebSocket/history (default: "localhost")
+settings.redis_port  # Redis port (default: 6379)
 settings.enable_memory_monitor  # Enable memory monitoring (default: True)
 settings.memory_limit_mb  # Memory limit per session (default: 500.0)
+settings.memory_snapshot_interval  # Memory snapshot interval (default: 60)
+```
+
+### Environment Variables
+
+```bash
+# L12 Configuration
+export L12_SERVICE_CATALOG_PATH="/path/to/service_catalog.json"
+export L12_SESSION_TTL_SECONDS=3600
+export L12_FUZZY_THRESHOLD=0.7
+export L12_USE_SEMANTIC_MATCHING=true
+
+# HTTP API
+export L12_HTTP_HOST="0.0.0.0"
+export L12_HTTP_PORT=8005
+
+# L01 Integration
+export L12_L01_BASE_URL="http://localhost:8002"
+
+# Redis (WebSocket & Command History)
+export L12_REDIS_HOST="localhost"
+export L12_REDIS_PORT=6379
+
+# Memory Monitoring
+export L12_ENABLE_MEMORY_MONITOR=true
+export L12_MEMORY_LIMIT_MB=500
+
+# Semantic Matching (Ollama)
+export OLLAMA_BASE_URL="http://localhost:11434"
+export OLLAMA_EMBEDDING_MODEL="nomic-embed-text"
 ```
 
 ## Service Catalog
@@ -476,18 +626,29 @@ if exact_matcher.is_exact_match("PlanningService"):
 
 ### FuzzyMatcher
 
-Keyword-based fuzzy matching with ranking.
+Keyword-based and semantic fuzzy matching with ranking.
 
 ```python
 from src.L12_nl_interface.routing.fuzzy_matcher import FuzzyMatcher
 
-fuzzy_matcher = FuzzyMatcher(registry, use_semantic=True)
+# Enable semantic matching with Ollama embeddings
+fuzzy_matcher = FuzzyMatcher(
+    registry,
+    use_semantic=True,  # Enable semantic matching
+    semantic_weight=0.5,  # Weight for semantic score
+    keyword_weight=0.5   # Weight for keyword score
+)
 
 # Fuzzy match with threshold
 matches = fuzzy_matcher.match("create a plan", threshold=0.7, max_results=10)
 
 for match in matches:
     print(f"{match.service.service_name}: {match.score:.2f} - {match.match_reason}")
+
+# Get matcher statistics
+stats = fuzzy_matcher.get_statistics()
+print(f"Semantic enabled: {stats['semantic_enabled']}")
+print(f"Total services: {stats['total_services']}")
 ```
 
 ### CommandRouter
@@ -577,6 +738,189 @@ if cmd:
 
 await history.disconnect()
 ```
+
+### EmbeddingService
+
+Semantic similarity matching using Ollama embeddings.
+
+```python
+from src.L12_nl_interface.services.embedding_service import EmbeddingService
+
+# Initialize with Ollama
+embedding_service = EmbeddingService(
+    ollama_base_url="http://localhost:11434",
+    embedding_model="nomic-embed-text",
+    timeout=10.0
+)
+
+await embedding_service.start()
+
+# Generate embeddings
+query_embedding = await embedding_service.generate_embedding("create a plan")
+service_embedding = await embedding_service.generate_embedding("Planning service for goal decomposition")
+
+# Calculate similarity
+similarity = EmbeddingService.cosine_similarity(query_embedding, service_embedding)
+print(f"Similarity: {similarity:.3f}")
+
+await embedding_service.stop()
+```
+
+### WorkflowTemplates
+
+Pre-defined multi-service workflows for common operations.
+
+```python
+from src.L12_nl_interface.services.workflow_templates import WorkflowTemplates, WorkflowCategory
+
+templates = WorkflowTemplates(registry, factory)
+
+# List all templates
+all_templates = templates.list_templates()
+print(f"Available templates: {len(all_templates)}")
+
+# List by category
+testing_templates = templates.list_templates(category=WorkflowCategory.TESTING)
+for template in testing_templates:
+    print(f"- {template.name}: {template.description}")
+
+# Get specific template
+template = templates.get_template("testing.unit")
+print(f"Steps: {len(template.steps)}")
+print(f"Parameters: {template.parameters}")
+
+# Execute workflow
+result = await templates.execute_workflow(
+    workflow_name="testing.unit",
+    parameters={"test_path": "tests/unit/"},
+    session_id="session-123"
+)
+
+print(f"Status: {result.status}")
+print(f"Steps completed: {len(result.step_results)}")
+
+if result.error:
+    print(f"Error: {result.error}")
+
+# Search workflows
+matches = templates.search_templates("deployment")
+for match in matches:
+    print(f"- {match.name}: {match.description}")
+```
+
+**Available Workflow Templates**:
+
+- **Testing Workflows**:
+  - `testing.unit` - Run unit tests with validation and reporting
+  - `testing.integration` - Run integration tests with environment setup
+
+- **Deployment Workflows**:
+  - `deployment.standard` - Build, test, and deploy workflow
+  - `deployment.canary` - Canary deployment with gradual rollout
+
+- **Data Pipeline Workflows**:
+  - `data_pipeline.etl` - Extract, transform, load pipeline with validation
+
+- **Monitoring Workflows**:
+  - `monitoring.health_check` - Comprehensive health check across services
+
+### WebSocketConnectionManager
+
+Real-time event streaming via WebSocket and Redis pub/sub.
+
+```python
+from src.L12_nl_interface.interfaces.websocket_handler import get_manager
+
+# Get WebSocket manager
+ws_manager = get_manager()
+
+# Start with Redis connection
+await ws_manager.start(redis_url="redis://localhost:6379")
+
+# Connect WebSocket client (handled by FastAPI)
+# ws://localhost:8005/v1/ws/{session_id}
+# ws://localhost:8005/v1/ws/global
+
+# Broadcast to specific session
+await ws_manager.broadcast_to_session(
+    session_id="session-123",
+    event={
+        "type": "service_invocation",
+        "service_name": "PlanningService",
+        "method_name": "create_plan",
+        "status": "completed"
+    }
+)
+
+# Broadcast to all connections
+await ws_manager.broadcast_global(
+    event={
+        "type": "system_alert",
+        "message": "System maintenance scheduled"
+    }
+)
+
+await ws_manager.stop()
+```
+
+**WebSocket Endpoint**:
+```bash
+# Connect to session-specific events
+ws://localhost:8005/v1/ws/session-123
+
+# Connect to all events
+ws://localhost:8005/v1/ws/global
+```
+
+**Event Channels** (Redis pub/sub):
+- `platform:events` - General platform events
+- `platform:services` - Service execution events
+- `platform:tasks` - Task progress events
+- `platform:agents` - Agent lifecycle events
+
+### ServiceCategorizer
+
+Functional categorization for service discovery.
+
+```python
+from src.L12_nl_interface.utils.service_categorizer import ServiceCategorizer
+
+# Get all categories
+categories = ServiceCategorizer.get_all_categories()
+for cat_id, cat_info in categories.items():
+    print(f"{cat_info['name']}: {cat_info['description']}")
+    print(f"  Services: {len(cat_info['services'])}")
+
+# Get category for service
+category = ServiceCategorizer.get_category("PlanningService")
+print(f"PlanningService is in: {category['name']}")
+
+# Format services by category
+services = registry.list_all_services()
+formatted = ServiceCategorizer.format_categorized_services(services)
+print(formatted)
+
+# With search filtering
+formatted = ServiceCategorizer.format_categorized_services(
+    services,
+    search_term="planning"
+)
+```
+
+**Service Categories**:
+
+1. **Data & Storage** - Persistent storage, registries, data management
+2. **Agent Management** - Agent lifecycle, execution, fleet coordination
+3. **Resource & Infrastructure** - Resource allocation, container management
+4. **Workflow & Orchestration** - Task coordination, pipeline management
+5. **Planning & Strategy** - Goal decomposition, strategic planning
+6. **Tool Execution** - Tool runtime, execution engine
+7. **AI & Models** - Model gateway, embeddings, inference
+8. **Evaluation & Monitoring** - Performance tracking, health checks
+9. **Learning & Training** - Reinforcement learning, feedback loops
+10. **Security & Access** - Authentication, authorization, secrets
+11. **Integration & Communication** - External APIs, messaging, webhooks
+12. **User Interface** - UI components, dashboards, visualization
 
 ## Error Handling
 
@@ -682,12 +1026,19 @@ print(f"Consecutive failures: {metrics['consecutive_failures']}")
 
 ## Future Enhancements
 
-- [ ] WorkflowTemplates: Pre-defined multi-service workflows
-- [ ] WebSocket Handler: Real-time event streaming
-- [ ] Semantic Matching: Enhanced L04 integration
-- [ ] Voice Interface: Voice command support
-- [ ] Multi-Language: Non-English language support
-- [ ] Visual UI: Web-based service explorer
+### Completed ✅
+- [x] **WorkflowTemplates**: Pre-defined multi-service workflows (testing, deployment, ETL, monitoring)
+- [x] **WebSocket Handler**: Real-time event streaming via Redis pub/sub
+- [x] **Semantic Matching**: Embedding-based similarity via Ollama
+- [x] **Service Categorization**: Functional category grouping (12 categories)
+
+### Planned
+- [ ] **Voice Interface**: Voice command support
+- [ ] **Multi-Language**: Non-English language support
+- [ ] **Visual UI**: Web-based service explorer dashboard
+- [ ] **Advanced Workflows**: User-defined custom workflows
+- [ ] **Workflow Versioning**: Version control for workflow templates
+- [ ] **GraphQL API**: Alternative query interface
 
 ## License
 

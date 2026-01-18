@@ -1,7 +1,6 @@
 {
   "mcpServers": {
     "document-consolidator": {
-      "type": "stdio",
       "command": "node",
       "args": [
         "/Volumes/Extreme SSD/projects/story-portal-app/platform/services/mcp-document-consolidator/dist/server.js"
@@ -20,7 +19,6 @@
       }
     },
     "context-orchestrator": {
-      "type": "stdio",
       "command": "node",
       "args": [
         "/Volumes/Extreme SSD/projects/story-portal-app/platform/services/mcp-context-orchestrator/dist/server.js"
@@ -40,6 +38,9 @@
         "REDIS_PORT": "6379",
         "NEO4J_ENABLED": "false"
       }
+    },
+    "platform-services": {
+      "command": "/Volumes/Extreme SSD/projects/story-portal-app/platform/run_l12_mcp.sh"
     }
   }
 }

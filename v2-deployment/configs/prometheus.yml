@@ -1,0 +1,32 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'platform-services'
+    static_configs:
+      - targets:
+        - 'l01-data-layer:8001'
+        - 'l02-runtime:8002'
+        - 'l03-tool-execution:8003'
+        - 'l04-model-gateway:8004'
+        - 'l05-planning:8005'
+        - 'l06-evaluation:8006'
+        - 'l07-learning:8007'
+        - 'l09-api-gateway:8009'
+        - 'l10-human-interface:8010'
+        - 'l11-integration:8011'
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']

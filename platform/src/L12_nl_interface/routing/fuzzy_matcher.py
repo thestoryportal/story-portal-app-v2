@@ -18,12 +18,14 @@ Example:
     ...     print(f"{match.service.service_name}: {match.score:.2f}")
 """
 
+import asyncio
 import logging
 from dataclasses import dataclass
-from typing import List, Optional, Set
+from typing import Dict, List, Optional, Set
 
 from ..core.service_registry import ServiceRegistry
 from ..models.service_metadata import ServiceMetadata
+from ..services.embedding_service import EmbeddingService
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +107,20 @@ class FuzzyMatcher:
         else:
             self.semantic_weight = 0.5
             self.keyword_weight = 0.5
+
+        # Initialize embedding service if semantic matching enabled
+        self.embedding_service: Optional[EmbeddingService] = None
+        self._service_embeddings_cache: Dict[str, List[float]] = {}
+
+        if self.use_semantic:
+            self.embedding_service = EmbeddingService()
+            # Start embedding service asynchronously
+            try:
+                loop = asyncio.get_event_loop()
+                loop.create_task(self.embedding_service.start())
+            except RuntimeError:
+                # No event loop, will start on first use
+                pass
 
         logger.info(
             f"FuzzyMatcher initialized: semantic={use_semantic}, "
@@ -214,11 +230,10 @@ class FuzzyMatcher:
         return matches
 
     def _semantic_match(self, query: str) -> List[ServiceMatch]:
-        """Perform semantic matching using L04 embeddings.
+        """Perform semantic matching using embeddings.
 
-        This method uses L04 ModelGateway to generate embeddings for
-        the query and service descriptions, then calculates cosine
-        similarity between them.
+        This method generates embeddings for the query and service descriptions,
+        then calculates cosine similarity to find semantically similar services.
 
         Args:
             query: Query string
@@ -227,22 +242,96 @@ class FuzzyMatcher:
             List of ServiceMatch objects with semantic scores
 
         Raises:
-            Exception: If L04 is unavailable or embedding fails
-
-        Note:
-            This is a placeholder. Actual implementation requires:
-            1. L04 ModelGateway integration
-            2. Embedding generation for query and service descriptions
-            3. Cosine similarity calculation
-            4. Caching for performance
+            Exception: If embedding service is unavailable or embedding fails
 
         Example:
             >>> matches = matcher._semantic_match("create a strategic plan")
         """
-        # Placeholder for semantic matching
-        # TODO: Implement in Agent R3
-        logger.debug("Semantic matching not yet implemented (Agent R3)")
-        return []
+        if not self.embedding_service:
+            logger.debug("Embedding service not initialized")
+            return []
+
+        try:
+            # Ensure embedding service is started
+            loop = asyncio.get_event_loop()
+            if not self.embedding_service._client:
+                loop.run_until_complete(self.embedding_service.start())
+
+            # Generate query embedding
+            query_embedding = loop.run_until_complete(
+                self.embedding_service.generate_embedding(query)
+            )
+
+            if not query_embedding:
+                logger.warning("Failed to generate query embedding")
+                return []
+
+            matches = []
+            all_services = self.registry.list_all_services()
+
+            for service in all_services:
+                # Get or generate service embedding
+                service_embedding = self._get_service_embedding(service)
+
+                if not service_embedding:
+                    continue
+
+                # Calculate cosine similarity
+                similarity = self.embedding_service.cosine_similarity(
+                    query_embedding, service_embedding
+                )
+
+                if similarity > 0.0:
+                    matches.append(
+                        ServiceMatch(
+                            service=service,
+                            score=similarity,
+                            match_reason=f"Semantic similarity: {similarity:.3f}",
+                        )
+                    )
+
+            logger.debug(f"Semantic match found {len(matches)} similar services")
+            return matches
+
+        except Exception as e:
+            logger.error(f"Semantic matching error: {e}", exc_info=True)
+            return []
+
+    def _get_service_embedding(self, service: ServiceMetadata) -> Optional[List[float]]:
+        """Get or generate embedding for a service.
+
+        Uses cache to avoid regenerating embeddings for the same service.
+
+        Args:
+            service: ServiceMetadata object
+
+        Returns:
+            Embedding vector or None if failed
+        """
+        # Check cache
+        if service.service_name in self._service_embeddings_cache:
+            return self._service_embeddings_cache[service.service_name]
+
+        # Generate embedding from service description and keywords
+        text = f"{service.service_name} {service.description} {' '.join(service.keywords)}"
+
+        try:
+            loop = asyncio.get_event_loop()
+            embedding = loop.run_until_complete(
+                self.embedding_service.generate_embedding(text)
+            )
+
+            if embedding:
+                # Cache for future use
+                self._service_embeddings_cache[service.service_name] = embedding
+
+            return embedding
+
+        except Exception as e:
+            logger.error(
+                f"Failed to generate embedding for {service.service_name}: {e}"
+            )
+            return None
 
     def _combine_scores(
         self, keyword_matches: List[ServiceMatch], semantic_matches: List[ServiceMatch]

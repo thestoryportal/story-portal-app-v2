@@ -1,0 +1,201 @@
+#!/usr/bin/env python3
+"""
+Story Portal Platform CLI
+Usage: portal <command> [options]
+"""
+
+import sys
+import json
+import subprocess
+from urllib.request import urlopen, Request
+from urllib.error import URLError
+
+API_BASE = "http://localhost:8009/v1"
+SERVICES = {
+    "L01 Data Layer": 8001,
+    "L02 Runtime": 8002,
+    "L03 Tool Execution": 8003,
+    "L04 Model Gateway": 8004,
+    "L05 Planning": 8005,
+    "L06 Evaluation": 8006,
+    "L07 Learning": 8007,
+    "L09 API Gateway": 8009,
+    "L10 Human Interface": 8010,
+    "L11 Integration": 8011,
+    "Prometheus": 9090,
+    "Grafana": 3000,
+}
+
+def http_get(url, timeout=5):
+    try:
+        with urlopen(url, timeout=timeout) as response:
+            return response.read().decode()
+    except:
+        return None
+
+def cmd_status():
+    """Show status of all services."""
+    print("\n" + "="*60)
+    print("  STORY PORTAL PLATFORM STATUS")
+    print("="*60 + "\n")
+
+    # Infrastructure
+    print("Infrastructure:")
+    print("-" * 40)
+
+    # PostgreSQL
+    try:
+        result = subprocess.run(["docker", "exec", "agentic-postgres", "psql", "-U", "postgres", "-c", "SELECT 1"],
+                                capture_output=True, timeout=5)
+        pg_status = "✓ Running" if result.returncode == 0 else "✗ Down"
+    except:
+        pg_status = "✗ Down"
+    print(f"  PostgreSQL (5432):  {pg_status}")
+
+    # Redis
+    try:
+        result = subprocess.run(["redis-cli", "ping"], capture_output=True, timeout=5)
+        redis_status = "✓ Running" if b"PONG" in result.stdout else "✗ Down"
+    except:
+        redis_status = "✗ Down"
+    print(f"  Redis (6379):       {redis_status}")
+
+    # Ollama
+    ollama = http_get("http://localhost:11434/api/version")
+    print(f"  Ollama (11434):     {'✓ Running' if ollama else '✗ Down'}")
+
+    print("\nApplication Layers:")
+    print("-" * 40)
+
+    running = 0
+    for name, port in SERVICES.items():
+        if port < 9000:  # Only app layers
+            resp = http_get(f"http://localhost:{port}/health/live")
+            status = "✓ Running" if resp else "✗ Down"
+            if resp:
+                running += 1
+            print(f"  {name:<25} ({port}): {status}")
+
+    print("\nMonitoring:")
+    print("-" * 40)
+    for name, port in SERVICES.items():
+        if port >= 9000 or port == 3000:
+            resp = http_get(f"http://localhost:{port}/-/healthy") or http_get(f"http://localhost:{port}/api/health")
+            status = "✓ Running" if resp else "✗ Down"
+            print(f"  {name:<25} ({port}): {status}")
+
+    print("\n" + "="*60)
+    print(f"  {running}/10 application services running")
+    print("="*60 + "\n")
+
+def cmd_agents():
+    """List deployed agents."""
+    resp = http_get(f"{API_BASE}/agents")
+    if resp:
+        agents = json.loads(resp)
+        print("\n" + "="*60)
+        print("  DEPLOYED AGENTS")
+        print("="*60 + "\n")
+        if agents:
+            for a in agents:
+                print(f"  [{a.get('id','?')[:8]}] {a.get('name','Unknown')}")
+                print(f"           Type: {a.get('type','?')} | Model: {a.get('model','?')} | Status: {a.get('status','?')}")
+                print()
+        else:
+            print("  No agents deployed yet.")
+            print("  Use: portal spawn <name> <type>")
+        print("="*60 + "\n")
+    else:
+        print("Error: Could not connect to API Gateway (port 8009)")
+
+def cmd_models():
+    """List available LLM models."""
+    resp = http_get("http://localhost:11434/api/tags")
+    if resp:
+        data = json.loads(resp)
+        models = data.get('models', [])
+        print("\n" + "="*60)
+        print("  AVAILABLE MODELS (Ollama)")
+        print("="*60 + "\n")
+        for m in models:
+            size_gb = m.get('size', 0) / 1e9
+            print(f"  {m['name']:<30} {size_gb:.1f} GB")
+        print("\n" + "="*60 + "\n")
+    else:
+        print("Error: Ollama not running (port 11434)")
+
+def cmd_spawn(name, agent_type, model="llama3.2:3b"):
+    """Spawn a new agent."""
+    import urllib.request
+    data = json.dumps({
+        "name": name,
+        "type": agent_type,
+        "model": model,
+        "config": {"temperature": 0.3}
+    }).encode()
+
+    req = Request(f"{API_BASE}/agents", data=data, headers={"Content-Type": "application/json"})
+    try:
+        with urlopen(req, timeout=10) as resp:
+            result = json.loads(resp.read().decode())
+            print(f"✓ Agent spawned: {result.get('id', 'unknown')}")
+    except URLError as e:
+        print(f"✗ Failed to spawn agent: {e}")
+
+def cmd_logs(service="all"):
+    """Show recent logs."""
+    print(f"Showing logs for: {service}")
+    if service == "all":
+        subprocess.run(["docker-compose", "-f", "docker-compose.v2.yml", "logs", "--tail=50"])
+    else:
+        subprocess.run(["docker-compose", "-f", "docker-compose.v2.yml", "logs", "--tail=50", service])
+
+def cmd_help():
+    """Show help."""
+    print("""
+Story Portal Platform CLI
+
+Usage: portal <command> [options]
+
+Commands:
+  status              Show status of all services
+  agents              List deployed agents
+  models              List available LLM models
+  spawn <n> <t> [m]   Spawn agent with name, type, and optional model
+  logs [service]      Show logs (all or specific service)
+  help                Show this help
+
+Examples:
+  portal status
+  portal spawn my-agent researcher llama3.1:8b
+  portal logs l01-data-layer
+""")
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        cmd_help()
+        sys.exit(0)
+
+    command = sys.argv[1].lower()
+
+    if command == "status":
+        cmd_status()
+    elif command == "agents":
+        cmd_agents()
+    elif command == "models":
+        cmd_models()
+    elif command == "spawn":
+        if len(sys.argv) < 4:
+            print("Usage: portal spawn <name> <type> [model]")
+            sys.exit(1)
+        model = sys.argv[4] if len(sys.argv) > 4 else "llama3.2:3b"
+        cmd_spawn(sys.argv[2], sys.argv[3], model)
+    elif command == "logs":
+        service = sys.argv[2] if len(sys.argv) > 2 else "all"
+        cmd_logs(service)
+    elif command in ["help", "-h", "--help"]:
+        cmd_help()
+    else:
+        print(f"Unknown command: {command}")
+        cmd_help()
+        sys.exit(1)

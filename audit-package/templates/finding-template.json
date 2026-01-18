@@ -1,0 +1,40 @@
+{
+  "finding": {
+    "id": "AUD-XXX-NNN",
+    "agent": "AUD-XXX",
+    "timestamp": "2026-01-01T00:00:00Z",
+    "category": "category-name",
+    "severity": "Critical|High|Medium|Low",
+    "priority": "P1|P2|P3|P4",
+    "title": "Short descriptive title",
+    "description": "Detailed description of the finding",
+    "evidence": {
+      "command": "command that was run",
+      "output": "relevant output",
+      "file_path": "path/to/relevant/file"
+    },
+    "impact": {
+      "security": "none|low|medium|high|critical",
+      "reliability": "none|low|medium|high|critical",
+      "performance": "none|low|medium|high|critical",
+      "maintainability": "none|low|medium|high|critical"
+    },
+    "recommendation": {
+      "action": "What should be done",
+      "effort": "S|M|L|XL",
+      "dependencies": ["list", "of", "dependencies"]
+    },
+    "affected_components": [
+      "L01_data_layer",
+      "component-name"
+    ],
+    "references": [
+      {
+        "type": "specification",
+        "name": "Document name",
+        "section": "Section reference"
+      }
+    ],
+    "status": "new|acknowledged|in_progress|resolved|deferred"
+  }
+}

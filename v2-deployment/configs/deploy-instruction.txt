@@ -1,0 +1,16 @@
+Read and execute the deployment instructions in v2-deployment-package/MASTER-DEPLOYMENT-PROMPT.md
+
+Execute ALL phases autonomously without stopping for confirmation:
+- Phase 0: Initialization
+- Phase 1: Infrastructure Verification
+- Phase 2: Database Initialization
+- Phase 3: Application Services Deployment
+- Phase 4: Service Health Verification
+- Phase 5: CLI Tooling Creation
+- Phase 6: Multi-Agent Deployment
+- Phase 7: Backup Configuration
+- Phase 8: Final Report
+
+Continue even if individual steps fail - log errors and proceed.
+Save all outputs to the v2-deployment/ directory.
+Generate a final deployment summary when complete.

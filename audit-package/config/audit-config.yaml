@@ -1,0 +1,135 @@
+# =============================================================================
+# Story Portal Platform Audit Configuration
+# =============================================================================
+# Modify these settings to customize the audit behavior.
+# =============================================================================
+
+audit:
+  name: "Story Portal Platform V2 Audit"
+  version: "1.0.0"
+  target: "story-portal-app-v2"
+  
+# Output configuration
+output:
+  base_directory: "./audit"
+  findings_dir: "findings"
+  reports_dir: "reports"
+  logs_dir: "logs"
+  checkpoints_dir: "checkpoints"
+  consolidated_dir: "consolidated"
+  
+# Service endpoints (modify if using non-default ports)
+services:
+  postgresql:
+    host: "localhost"
+    port: 5432
+    user: "postgres"
+    password: "postgres"
+    database: "agentic"
+    
+  redis:
+    host: "localhost"
+    port: 6379
+    
+  ollama:
+    host: "localhost"
+    port: 11434
+    
+  # Application layer ports (L01-L11)
+  layers:
+    L01_data_layer: 8001
+    L02_runtime: 8002
+    L03_tool_execution: 8003
+    L04_model_gateway: 8004
+    L05_planning: 8005
+    L06_evaluation: 8006
+    L07_learning: 8007
+    L09_api_gateway: 8009
+    L10_human_interface: 8010
+    L11_integration: 8011
+
+# Monitoring services (optional)
+monitoring:
+  prometheus:
+    host: "localhost"
+    port: 9090
+    
+  grafana:
+    host: "localhost"
+    port: 3000
+
+# Audit behavior
+behavior:
+  # Continue even if individual checks fail
+  continue_on_error: true
+  
+  # Save partial results on failure
+  save_partial_results: true
+  
+  # Verbose logging
+  verbose: false
+  
+  # Maximum lines to capture per command
+  max_output_lines: 100
+  
+  # Timeout for individual checks (seconds)
+  check_timeout: 30
+
+# Severity thresholds
+severity:
+  critical:
+    description: "Blocks production, security vulnerability"
+    response_time: "Immediate"
+    
+  high:
+    description: "Significant gap affecting reliability"
+    response_time: "1 week"
+    
+  medium:
+    description: "Missing best practice"
+    response_time: "2-4 weeks"
+    
+  low:
+    description: "Enhancement opportunity"
+    response_time: "Backlog"
+
+# Agents to run (comment out to skip)
+agents:
+  # Phase 0: Infrastructure
+  - AUD-019  # Docker/Container
+  - AUD-020  # LLM/Model
+  - AUD-021  # PostgreSQL Deep
+  
+  # Phase 1: Service Discovery
+  - AUD-010  # Service Health
+  - AUD-011  # CLI Tooling
+  - AUD-012  # MCP Services
+  - AUD-013  # Configuration
+  
+  # Phase 2: Security
+  - AUD-002  # Security
+  - AUD-014  # Token Management
+  - AUD-023  # Network/TLS
+  - AUD-024  # Backup/Recovery
+  
+  # Phase 3: Data
+  - AUD-004  # Database Schema
+  - AUD-015  # Redis State
+  - AUD-017  # Event Flow
+  
+  # Phase 4: Integration
+  - AUD-005  # Integration
+  - AUD-016  # API Endpoints
+  - AUD-018  # Error Handling
+  - AUD-022  # Observability
+  - AUD-025  # External Dependencies
+  
+  # Phase 5: Quality
+  - AUD-003  # QA/Test Coverage
+  - AUD-006  # Performance
+  - AUD-007  # Code Quality
+  - AUD-008  # UI/UX
+  - AUD-009  # DevEx
+  
+  # Phase 6: Consolidation
+  - AUD-001  # Orchestrator
