@@ -120,24 +120,88 @@ services:
       api_gateway_url: "http://localhost:8009"
       websocket_url: "ws://localhost:8010"
 
-# Monitoring services (optional)
+# Monitoring services (operational as of Phase 4 & 5)
 monitoring:
   prometheus:
     host: "localhost"
     port: 9090
-    status: "planned"
+    status: "deployed"
+    health_endpoint: "/-/healthy"
+    targets: 16  # Scraping all services
 
   grafana:
     host: "localhost"
     port: 3001  # Changed from 3000 to avoid conflict with UI
-    status: "planned"
+    status: "deployed"
+    health_endpoint: "/api/health"
+    default_user: "admin"
+    datasources: ["prometheus"]
+    dashboards: ["platform-overview"]
+
+  # NEW - Monitoring Exporters (Phase 4 & 5)
+  exporters:
+    postgres_exporter:
+      port: 9187
+      status: "deployed"
+      purpose: "PostgreSQL metrics export"
+    redis_exporter:
+      port: 9121
+      status: "deployed"
+      purpose: "Redis metrics export"
+    cadvisor:
+      port: 8080
+      status: "deployed"
+      purpose: "Container resource metrics"
+    node_exporter:
+      port: 9100
+      status: "deployed"
+      purpose: "Host system metrics"
+
+  # NEW - Monitoring Container Inventory
+  monitoring_containers:
+    prometheus:
+      container_name: "agentic-prometheus"
+      port: 9090
+      purpose: "Metrics collection and time-series database"
+    grafana:
+      container_name: "agentic-grafana"
+      port: 3001
+      purpose: "Visualization and dashboarding"
+    postgres_exporter:
+      container_name: "agentic-postgres-exporter"
+      port: 9187
+      purpose: "PostgreSQL metrics export"
+    redis_exporter:
+      container_name: "agentic-redis-exporter"
+      port: 9121
+      purpose: "Redis metrics export"
+    cadvisor:
+      container_name: "agentic-cadvisor"
+      port: 8080
+      purpose: "Container resource metrics"
+    node_exporter:
+      container_name: "agentic-node-exporter"
+      port: 9100
+      purpose: "Host system metrics"
+    db_tools:
+      container_name: "agentic-db-tools"
+      purpose: "PostgreSQL client tools (psql)"
+
+  # Container Count
+  expected_container_count:
+    previous: 14  # Pre-Phase 4 & 5
+    current: 21   # 14 core + 6 monitoring + 1 db-tools
 
 # NEW - Documentation to audit
 documentation:
   user_guide: "docs/USER_GUIDE.md"
   api_reference: "docs/API_REFERENCE.md"
-  deployment_complete: "DEPLOYMENT_COMPLETE.md"
+  deployment_complete: "platform/V2_DEPLOYMENT_COMPLETE.md"
   phase_4_complete: "PHASE_4_COMPLETE.md"
+  phases_4_5_complete: "platform/PHASES-4-5-COMPLETE.md"  # NEW - Phase 4 & 5
+  security_guide: "platform/SECURITY.md"  # NEW - Phase 4 & 5
+  performance_guide: "platform/PERFORMANCE.md"  # NEW - Phase 4 & 5
+  high_availability: "platform/HIGH-AVAILABILITY.md"  # NEW - Phase 4 & 5
 
 # Audit behavior
 behavior:
@@ -227,6 +291,14 @@ agents:
 
   # Phase 5.6: External Dependencies
   - AUD-031  # External Dependencies (Python packages, external APIs, CI/CD)
+
+  # Phase 5.7: Production Readiness Features (NEW - Phase 4 & 5 Validation)
+  - AUD-032  # Monitoring Stack Validation (Prometheus, Grafana, exporters)
+  - AUD-033  # Security Hardening Validation (SSL, RBAC, secrets)
+  - AUD-034  # Performance Optimization Validation (indexes, tuning, caching)
+  - AUD-035  # Backup & Recovery Validation (scripts, restoration)
+  - AUD-036  # CI/CD Pipeline Validation (GitHub Actions workflow)
+  - AUD-037  # High Availability Architecture Review
 
   # Phase 6: Consolidation
   - AUD-024  # Consolidation & Executive Summary

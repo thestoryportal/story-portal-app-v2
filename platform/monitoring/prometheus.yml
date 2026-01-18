@@ -34,104 +34,116 @@ scrape_configs:
           service: 'redis'
           layer: 'infrastructure'
 
-  # L01 Data Layer
-  - job_name: 'l01-data-layer'
-    metrics_path: '/metrics'
-    static_configs:
-      - targets: ['l01-data-layer:8001']
-        labels:
-          service: 'l01-data-layer'
-          layer: 'L01'
+  # =============================================================================
+  # Service Layer Metrics (L01-L12) - FUTURE IMPLEMENTATION
+  # =============================================================================
+  # Status: Service layers do not yet expose Prometheus /metrics endpoints
+  # Issue: L01, L09 return HTTP 401 (auth required), others return HTTP 404
+  # Action Required: Implement Prometheus metrics middleware in each service
+  # Timeline: Phase 6 enhancement
+  #
+  # Uncomment and enable these targets after implementing /metrics endpoints
+  # in each service layer. Services currently monitored via health checks only.
+  # =============================================================================
 
-  # L02 Runtime Layer
-  - job_name: 'l02-runtime'
-    metrics_path: '/metrics'
-    static_configs:
-      - targets: ['l02-runtime:8002']
-        labels:
-          service: 'l02-runtime'
-          layer: 'L02'
+  # # L01 Data Layer
+  # - job_name: 'l01-data-layer'
+  #   metrics_path: '/metrics'
+  #   static_configs:
+  #     - targets: ['l01-data-layer:8001']
+  #       labels:
+  #         service: 'l01-data-layer'
+  #         layer: 'L01'
 
-  # L03 Tool Execution Layer
-  - job_name: 'l03-tool-execution'
-    metrics_path: '/metrics'
-    static_configs:
-      - targets: ['l03-tool-execution:8003']
-        labels:
-          service: 'l03-tool-execution'
-          layer: 'L03'
+  # # L02 Runtime Layer
+  # - job_name: 'l02-runtime'
+  #   metrics_path: '/metrics'
+  #   static_configs:
+  #     - targets: ['l02-runtime:8002']
+  #       labels:
+  #         service: 'l02-runtime'
+  #         layer: 'L02'
 
-  # L04 Model Gateway
-  - job_name: 'l04-model-gateway'
-    metrics_path: '/metrics'
-    static_configs:
-      - targets: ['l04-model-gateway:8004']
-        labels:
-          service: 'l04-model-gateway'
-          layer: 'L04'
+  # # L03 Tool Execution Layer
+  # - job_name: 'l03-tool-execution'
+  #   metrics_path: '/metrics'
+  #   static_configs:
+  #     - targets: ['l03-tool-execution:8003']
+  #       labels:
+  #         service: 'l03-tool-execution'
+  #         layer: 'L03'
 
-  # L05 Planning Layer
-  - job_name: 'l05-planning'
-    metrics_path: '/metrics'
-    static_configs:
-      - targets: ['l05-planning:8005']
-        labels:
-          service: 'l05-planning'
-          layer: 'L05'
+  # # L04 Model Gateway
+  # - job_name: 'l04-model-gateway'
+  #   metrics_path: '/metrics'
+  #   static_configs:
+  #     - targets: ['l04-model-gateway:8004']
+  #       labels:
+  #         service: 'l04-model-gateway'
+  #         layer: 'L04'
 
-  # L06 Evaluation Layer
-  - job_name: 'l06-evaluation'
-    metrics_path: '/metrics'
-    static_configs:
-      - targets: ['l06-evaluation:8006']
-        labels:
-          service: 'l06-evaluation'
-          layer: 'L06'
+  # # L05 Planning Layer
+  # - job_name: 'l05-planning'
+  #   metrics_path: '/metrics'
+  #   static_configs:
+  #     - targets: ['l05-planning:8005']
+  #       labels:
+  #         service: 'l05-planning'
+  #         layer: 'L05'
 
-  # L07 Learning Layer
-  - job_name: 'l07-learning'
-    metrics_path: '/metrics'
-    static_configs:
-      - targets: ['l07-learning:8007']
-        labels:
-          service: 'l07-learning'
-          layer: 'L07'
+  # # L06 Evaluation Layer
+  # - job_name: 'l06-evaluation'
+  #   metrics_path: '/metrics'
+  #   static_configs:
+  #     - targets: ['l06-evaluation:8006']
+  #       labels:
+  #         service: 'l06-evaluation'
+  #         layer: 'L06'
 
-  # L09 API Gateway
-  - job_name: 'l09-api-gateway'
-    metrics_path: '/metrics'
-    static_configs:
-      - targets: ['l09-api-gateway:8009']
-        labels:
-          service: 'l09-api-gateway'
-          layer: 'L09'
+  # # L07 Learning Layer
+  # - job_name: 'l07-learning'
+  #   metrics_path: '/metrics'
+  #   static_configs:
+  #     - targets: ['l07-learning:8007']
+  #       labels:
+  #         service: 'l07-learning'
+  #         layer: 'L07'
 
-  # L10 Human Interface
-  - job_name: 'l10-human-interface'
-    metrics_path: '/metrics'
-    static_configs:
-      - targets: ['l10-human-interface:8010']
-        labels:
-          service: 'l10-human-interface'
-          layer: 'L10'
+  # # L09 API Gateway
+  # - job_name: 'l09-api-gateway'
+  #   metrics_path: '/metrics'
+  #   static_configs:
+  #     - targets: ['l09-api-gateway:8009']
+  #       labels:
+  #         service: 'l09-api-gateway'
+  #         layer: 'L09'
 
-  # L11 Integration Layer
-  - job_name: 'l11-integration'
-    metrics_path: '/metrics'
-    static_configs:
-      - targets: ['l11-integration:8011']
-        labels:
-          service: 'l11-integration'
-          layer: 'L11'
+  # # L10 Human Interface
+  # - job_name: 'l10-human-interface'
+  #   metrics_path: '/metrics'
+  #   static_configs:
+  #     - targets: ['l10-human-interface:8010']
+  #       labels:
+  #         service: 'l10-human-interface'
+  #         layer: 'L10'
 
-  # L12 Service Hub
-  - job_name: 'l12-service-hub'
-    metrics_path: '/metrics'
-    static_configs:
-      - targets: ['l12-service-hub:8012']
-        labels:
-          service: 'l12-service-hub'
-          layer: 'L12'
+  # # L11 Integration Layer
+  # - job_name: 'l11-integration'
+  #   metrics_path: '/metrics'
+  #   static_configs:
+  #     - targets: ['l11-integration:8011']
+  #       labels:
+  #         service: 'l11-integration'
+  #         layer: 'L11'
+
+  # # L12 Service Hub
+  # - job_name: 'l12-service-hub'
+  #   metrics_path: '/metrics'
+  #   static_configs:
+  #     - targets: ['l12-service-hub:8012']
+  #       labels:
+  #         service: 'l12-service-hub'
+  #         layer: 'L12'
 
   # Docker container metrics via cAdvisor
   - job_name: 'cadvisor'
