@@ -52,6 +52,23 @@ services:
     networks:
       - agentic-network
 
+  # Database Tools - PostgreSQL CLI access
+  db-tools:
+    image: postgres:16
+    container_name: agentic-db-tools
+    environment:
+      - PGHOST=postgres
+      - PGPORT=5432
+      - PGUSER=postgres
+      - PGPASSWORD=postgres
+      - PGDATABASE=agentic_platform
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - agentic-network
+    command: tail -f /dev/null
+
   # L01 Data Layer
   l01-data-layer:
     image: l01-data-layer:latest
@@ -153,6 +170,11 @@ services:
       - L01_URL=http://l01-data-layer:8001
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentic_platform
       - REDIS_URL=redis://redis:6379
+      - OLLAMA_URL=http://host.docker.internal:11434
+      - DEFAULT_MODEL=mistral:7b
+      - ALTERNATIVE_MODELS=llama3.1:8b,llama3.2:latest,llama3.2:3b,llama3.2:1b
+      - EMBEDDING_MODEL=nomic-embed-text
+      - VISION_MODEL=llava-llama3:latest
     depends_on:
       l01-data-layer:
         condition: service_healthy
@@ -438,6 +460,159 @@ services:
     networks:
       - agentic-network
 
+  # Monitoring - Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: agentic-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    networks:
+      - agentic-network
+    restart: unless-stopped
+
+  # Monitoring - Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: agentic-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+      - GF_INSTALL_PLUGINS=redis-datasource
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    networks:
+      - agentic-network
+    restart: unless-stopped
+
+  # Monitoring - PostgreSQL Exporter
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: agentic-postgres-exporter
+    environment:
+      - DATA_SOURCE_NAME=postgresql://postgres:postgres@postgres:5432/agentic_platform?sslmode=disable
+    ports:
+      - "9187:9187"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.05'
+          memory: 32M
+    networks:
+      - agentic-network
+    restart: unless-stopped
+
+  # Monitoring - Redis Exporter
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: agentic-redis-exporter
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+    ports:
+      - "9121:9121"
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.05'
+          memory: 32M
+    networks:
+      - agentic-network
+    restart: unless-stopped
+
+  # Monitoring - cAdvisor (Container metrics)
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: agentic-cadvisor
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    networks:
+      - agentic-network
+    restart: unless-stopped
+
+  # Monitoring - Node Exporter (Host metrics)
+  # Note: Limited functionality on macOS due to filesystem restrictions
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: agentic-node-exporter
+    ports:
+      - "9100:9100"
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    pid: host
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.05'
+          memory: 32M
+    networks:
+      - agentic-network
+    restart: unless-stopped
+
 networks:
   agentic-network:
     driver: bridge
@@ -445,3 +620,5 @@ networks:
 volumes:
   postgres_data:
   redis_data:
+  prometheus_data:
+  grafana_data:

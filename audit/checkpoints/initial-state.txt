@@ -2,11 +2,23 @@
 Date: $(date)
 Working Directory: $(pwd)
 User: $(whoami)
-Sat Jan 17 18:18:02 MST 2026
+Date: Sat Jan 17 23:47:30 MST 2026
 Working Directory: /Volumes/Extreme SSD/projects/story-portal-app
 User: robertrhu
-CONTAINER ID   IMAGE                    COMMAND                  CREATED          STATUS                      PORTS                                         NAMES
-8cd2719f8f3c   postgres:15-alpine       "docker-entrypoint.s…"   57 minutes ago   Exited (1) 54 minutes ago                                                 practical_chebyshev
-5c07fb324c88   ollama/ollama:latest     "/bin/ollama serve"      57 minutes ago   Up 57 minutes               11434/tcp                                     awesome_hypatia
-dd7417c1bf08   redis:7-alpine           "docker-entrypoint.s…"   3 days ago       Up 58 minutes (healthy)     0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp   agentic-redis
-9e82ceda21c7   pgvector/pgvector:pg16   "docker-entrypoint.s…"   3 days ago       Up 58 minutes (healthy)     0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp   agentic-postgres
+CONTAINER ID   IMAGE                        COMMAND                  CREATED             STATUS                         PORTS                                         NAMES
+d8fbf5d33970   platform-ui:latest           "/docker-entrypoint.…"   About an hour ago   Up About an hour (unhealthy)   0.0.0.0:3000->80/tcp, [::]:3000->80/tcp       platform-ui
+16b257a1d271   l09-api-gateway:latest       "uvicorn L09_api_gat…"   2 hours ago         Up 2 hours (healthy)           0.0.0.0:8009->8009/tcp, [::]:8009->8009/tcp   l09-api-gateway
+af551062f281   l12-service-hub:latest       "uvicorn L12_nl_inte…"   2 hours ago         Up 2 hours (healthy)           0.0.0.0:8012->8012/tcp, [::]:8012->8012/tcp   l12-service-hub
+93fb9872a4d3   l07-learning:latest          "uvicorn L07_learnin…"   3 hours ago         Up 3 hours (healthy)           0.0.0.0:8007->8007/tcp, [::]:8007->8007/tcp   l07-learning
+24c7867957a1   l10-human-interface:latest   "uvicorn L10_human_i…"   3 hours ago         Up 3 hours (healthy)           0.0.0.0:8010->8010/tcp, [::]:8010->8010/tcp   l10-human-interface
+35a5d028a5cb   l05-planning:latest          "uvicorn L05_plannin…"   3 hours ago         Up 3 hours (healthy)           0.0.0.0:8005->8005/tcp, [::]:8005->8005/tcp   l05-planning
+a7c9c42633b4   l06-evaluation:latest        "uvicorn L06_evaluat…"   3 hours ago         Up 3 hours (healthy)           0.0.0.0:8006->8006/tcp, [::]:8006->8006/tcp   l06-evaluation
+fd8bb21e066b   l03-tool-execution:latest    "uvicorn L03_tool_ex…"   3 hours ago         Up 3 hours (healthy)           0.0.0.0:8003->8003/tcp, [::]:8003->8003/tcp   l03-tool-execution
+d5963e45a9db   l02-runtime:latest           "uvicorn L02_runtime…"   3 hours ago         Up 3 hours (healthy)           0.0.0.0:8002->8002/tcp, [::]:8002->8002/tcp   l02-runtime
+ea740c53c5e3   l11-integration:latest       "uvicorn L11_integra…"   3 hours ago         Up 3 hours (healthy)           0.0.0.0:8011->8011/tcp, [::]:8011->8011/tcp   l11-integration
+569df0924e7b   l04-model-gateway:latest     "uvicorn L04_model_g…"   3 hours ago         Up 3 hours (healthy)           0.0.0.0:8004->8004/tcp, [::]:8004->8004/tcp   l04-model-gateway
+f467ba1614d8   l01-data-layer:latest        "uvicorn L01_data_la…"   3 hours ago         Up 3 hours (healthy)           0.0.0.0:8001->8001/tcp, [::]:8001->8001/tcp   l01-data-layer
+5e073cdac91d   redis:7-alpine               "docker-entrypoint.s…"   3 hours ago         Up 3 hours (healthy)           0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp   agentic-redis
+ee55e3737d80   pgvector/pgvector:pg16       "docker-entrypoint.s…"   3 hours ago         Up 3 hours (healthy)           0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp   agentic-postgres
+8cd2719f8f3c   postgres:15-alpine           "docker-entrypoint.s…"   6 hours ago         Exited (1) 5 hours ago                                                       practical_chebyshev
+5c07fb324c88   ollama/ollama:latest         "/bin/ollama serve"      6 hours ago         Exited (0) 4 hours ago                                                       awesome_hypatia

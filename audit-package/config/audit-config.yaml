@@ -1,14 +1,17 @@
 # =============================================================================
-# Story Portal Platform Audit Configuration
+# Story Portal Platform V2 Audit Configuration - Post-Deployment Validation
 # =============================================================================
-# Modify these settings to customize the audit behavior.
+# Updated: 2026-01-17 (Post V2 Deployment)
+# Previous Audit: 2026-01-17T18:18:00-07:00 (Baseline: 65/100 health score)
 # =============================================================================
 
 audit:
-  name: "Story Portal Platform V2 Audit"
-  version: "1.0.0"
+  name: "Story Portal Platform V2 Audit - Post-Deployment"
+  version: "2.0.0"
   target: "story-portal-app-v2"
-  
+  baseline_audit_date: "2026-01-17T18:18:00-07:00"
+  baseline_health_score: 65
+
 # Output configuration
 output:
   base_directory: "./audit"
@@ -17,7 +20,8 @@ output:
   logs_dir: "logs"
   checkpoints_dir: "checkpoints"
   consolidated_dir: "consolidated"
-  
+  evidence_dir: "evidence"
+
 # Service endpoints (modify if using non-default ports)
 services:
   postgresql:
@@ -25,111 +29,222 @@ services:
     port: 5432
     user: "postgres"
     password: "postgres"
-    database: "agentic"
-    
+    database: "agentic_platform"  # Updated from "agentic"
+    connection_string: "postgresql://postgres:postgres@localhost:5432/agentic_platform"
+
   redis:
     host: "localhost"
     port: 6379
-    
+
   ollama:
     host: "localhost"
     port: 11434
-    
-  # Application layer ports (L01-L11)
+    status: "optional"  # Not strictly required for V2
+
+  # Application layer ports (L01-L12) - COMPLETE V2 DEPLOYMENT
   layers:
-    L01_data_layer: 8001
-    L02_runtime: 8002
-    L03_tool_execution: 8003
-    L04_model_gateway: 8004
-    L05_planning: 8005
-    L06_evaluation: 8006
-    L07_learning: 8007
-    L09_api_gateway: 8009
-    L10_human_interface: 8010
-    L11_integration: 8011
+    L01_data_layer:
+      port: 8001
+      health_endpoint: "/health/live"
+      services: 13  # AgentRegistry, EventBus, ConfigStore, etc.
+
+    L02_runtime:
+      port: 8002
+      health_endpoint: "/health/live"
+      services: 4  # AgentRuntime, Sandbox, ResourceManager, etc.
+
+    L03_tool_execution:
+      port: 8003
+      health_endpoint: "/health/live"
+      services: 5  # ToolCatalog, ToolExecutor, Cache, etc.
+
+    L04_model_gateway:
+      port: 8004
+      health_endpoint: "/health/live"
+      services: 4  # ModelRouter, Cache, RateLimiter, etc.
+
+    L05_planning:
+      port: 8005
+      health_endpoint: "/health/live"
+      services: 4  # GoalDecomposer, TaskPlanner, etc.
+
+    L06_evaluation:
+      port: 8006
+      health_endpoint: "/health/live"
+      services: 3  # QualityMetrics, TrainingEvaluator, etc.
+
+    L07_learning:
+      port: 8007
+      health_endpoint: "/health/live"
+      services: 3  # TrainingManager, ModelFinetuner, etc.
+
+    L09_api_gateway:
+      port: 8009
+      health_endpoint: "/health/live"
+      features: ["authentication", "rate_limiting", "routing", "cors"]
+      routes_to: ["l01", "l02", "l03", "l04", "l05", "l06", "l07", "l10", "l11", "l12"]
+
+    L10_human_interface:
+      port: 8010
+      health_endpoint: "/health/live"
+      websocket_endpoint: "/ws"
+      services: 4  # Dashboard, WebSocketManager, etc.
+
+    L11_integration:
+      port: 8011
+      health_endpoint: "/health/live"
+      services: 4  # SagaOrchestrator, CircuitBreaker, etc.
+
+    L12_service_hub:  # NEW - Added for V2
+      port: 8012
+      health_endpoint: "/health"
+      features: ["service_discovery", "fuzzy_search", "workflow_execution"]
+      services: 44  # Total services across all layers
+
+  # NEW - Platform Control Center UI
+  ui:
+    platform_control_center:
+      port: 3000
+      protocol: "http"
+      base_url: "http://localhost:3000"
+      technology: "React 18 + TypeScript + Vite"
+      server: "nginx"
+      health_check: "/"
+      routes:
+        - "/dashboard"
+        - "/agents"
+        - "/services"
+        - "/workflows"
+        - "/goals"
+        - "/monitoring"
+      api_gateway_url: "http://localhost:8009"
+      websocket_url: "ws://localhost:8010"
 
 # Monitoring services (optional)
 monitoring:
   prometheus:
     host: "localhost"
     port: 9090
-    
+    status: "planned"
+
   grafana:
     host: "localhost"
-    port: 3000
+    port: 3001  # Changed from 3000 to avoid conflict with UI
+    status: "planned"
+
+# NEW - Documentation to audit
+documentation:
+  user_guide: "docs/USER_GUIDE.md"
+  api_reference: "docs/API_REFERENCE.md"
+  deployment_complete: "DEPLOYMENT_COMPLETE.md"
+  phase_4_complete: "PHASE_4_COMPLETE.md"
 
 # Audit behavior
 behavior:
   # Continue even if individual checks fail
   continue_on_error: true
-  
+
   # Save partial results on failure
   save_partial_results: true
-  
+
   # Verbose logging
   verbose: false
-  
+
   # Maximum lines to capture per command
   max_output_lines: 100
-  
+
   # Timeout for individual checks (seconds)
   check_timeout: 30
+
+  # NEW - Compare with baseline audit
+  compare_with_baseline: true
+  baseline_audit_path: "./audit/archive/audit-2026-01-17-pre-v2/EXECUTIVE-SUMMARY.md"
 
 # Severity thresholds
 severity:
   critical:
     description: "Blocks production, security vulnerability"
     response_time: "Immediate"
-    
+
   high:
     description: "Significant gap affecting reliability"
     response_time: "1 week"
-    
+
   medium:
     description: "Missing best practice"
     response_time: "2-4 weeks"
-    
+
   low:
     description: "Enhancement opportunity"
     response_time: "Backlog"
 
-# Agents to run (comment out to skip)
+# Agents to run in execution order (30 agents total)
 agents:
-  # Phase 0: Infrastructure
-  - AUD-019  # Docker/Container
-  - AUD-020  # LLM/Model
-  - AUD-021  # PostgreSQL Deep
-  
-  # Phase 1: Service Discovery
-  - AUD-010  # Service Health
-  - AUD-011  # CLI Tooling
-  - AUD-012  # MCP Services
-  - AUD-013  # Configuration
-  
-  # Phase 2: Security
-  - AUD-002  # Security
-  - AUD-014  # Token Management
-  - AUD-023  # Network/TLS
-  - AUD-024  # Backup/Recovery
-  
-  # Phase 3: Data
-  - AUD-004  # Database Schema
-  - AUD-015  # Redis State
-  - AUD-017  # Event Flow
-  
-  # Phase 4: Integration
-  - AUD-005  # Integration
-  - AUD-016  # API Endpoints
-  - AUD-018  # Error Handling
-  - AUD-022  # Observability
-  - AUD-025  # External Dependencies
-  
-  # Phase 5: Quality
-  - AUD-003  # QA/Test Coverage
-  - AUD-006  # Performance
-  - AUD-007  # Code Quality
-  - AUD-008  # UI/UX
-  - AUD-009  # DevEx
-  
+  # Phase 0: Infrastructure Discovery
+  - AUD-019  # Docker/Container Infrastructure
+  - AUD-020  # LLM/Model Infrastructure (Ollama)
+
+  # Phase 1: Service Discovery (All Layers)
+  - AUD-001  # PostgreSQL Deep Dive
+  - AUD-002  # Redis Cache & Pub/Sub
+  - AUD-003  # L01 Data Layer (13 services)
+  - AUD-004  # L02 Runtime (4 services)
+  - AUD-005  # L03 Tool Execution (5 services)
+  - AUD-006  # L04 Model Gateway (4 services)
+  - AUD-007  # L05 Planning (4 services)
+  - AUD-008  # L06 Evaluation (3 services)
+  - AUD-009  # L07 Learning (3 services)
+  - AUD-025  # L09 API Gateway (NEW - enhanced audit)
+  - AUD-010  # L10 Human Interface (4 services + WebSocket)
+  - AUD-011  # L11 Integration (4 services)
+  - AUD-026  # L12 Service Hub (NEW - 44 services, fuzzy search)
+
+  # Phase 1.5: UI Audit (NEW)
+  - AUD-027  # Platform Control Center UI (React app)
+  - AUD-028  # nginx Configuration Audit
+  - AUD-029  # UI-Backend Integration (API Gateway + WebSocket)
+
+  # Phase 2: Security & Compliance
+  - AUD-012  # Security Scan (containers, code, dependencies)
+  - AUD-013  # Secrets Management
+  - AUD-014  # Docker Security
+
+  # Phase 3: Data & State
+  - AUD-015  # Database Integrity (schema, migrations, data)
+  - AUD-016  # Event Bus & State Management
+
+  # Phase 4: Integration & API
+  - AUD-017  # API Surface & Integration Tests
+  - AUD-018  # Service Health & Dependencies
+
+  # Phase 5: Quality & Experience
+  - AUD-021  # Code Quality & Test Coverage
+  - AUD-022  # Performance & Benchmarks
+  - AUD-023  # Observability (logging, metrics, monitoring)
+
+  # Phase 5.5: Documentation Audit (NEW)
+  - AUD-030  # Documentation Completeness & Accuracy
+
+  # Phase 5.6: External Dependencies
+  - AUD-031  # External Dependencies (Python packages, external APIs, CI/CD)
+
   # Phase 6: Consolidation
-  - AUD-001  # Orchestrator
+  - AUD-024  # Consolidation & Executive Summary
+
+# Expected Improvements from Baseline (for comparison)
+expected_improvements:
+  overall_health:
+    baseline: 65
+    target: "85-90"
+  operations:
+    baseline: 20
+    target: "85-90"
+  security:
+    baseline: 45
+    target: "70-75"
+  code_quality:
+    baseline: 95
+    target: "95-98"
+  test_coverage:
+    baseline: 98
+    target: "98-100"

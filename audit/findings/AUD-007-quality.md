@@ -1,11 +1,9 @@
 # Code Quality Audit
 ## Type Hint Coverage
-Functions with return type hints: 54500
-Functions without return type hints: 233988
-
+Functions with return type hints: 54666
+Functions without return type hints: 234267
 ## Docstring Coverage
-Docstring markers found: 182634
-
+Docstring markers found: 183276
 ## TODO/FIXME Comments
 ./platform/src/L02_runtime/backends/local_runtime.py:189:            return "bridge"  # TODO: Add iptables rules for egress filtering
 ./platform/src/L02_runtime/services/agent_executor.py:274:        # TODO: Integrate with ModelBridge for LLM inference
@@ -17,6 +15,7 @@ Docstring markers found: 182634
 ./platform/src/L02_runtime/services/warm_pool_manager.py:210:        # TODO: Apply configuration to allocated instance if provided
 ./platform/src/L02_runtime/services/workflow_engine.py:380:        # TODO: Implement proper condition evaluation
 ./platform/src/L02_runtime/services/workflow_engine.py:404:        # TODO: Integrate with actual agent executor
+./platform/src/L03_tool_execution/services/mcp_tool_bridge.py:29:# TODO: Replace direct imports with HTTP client for L02
 ./platform/src/L03_tool_execution/services/tool_executor.py:179:        # TODO: Validate against agent parent limits (BC-1)
 ./platform/src/L03_tool_execution/services/tool_executor.py:247:            # TODO: Validate result against tool manifest result_schema (Gap G-010)
 ./platform/src/L03_tool_execution/services/tool_executor.py:292:        # TODO: Create MCP Task for async execution
@@ -36,8 +35,6 @@ Docstring markers found: 182634
 ./platform/src/L05_planning/services/context_injector.py:287:        # TODO: Implement RBAC validation
 ./platform/src/L05_planning/services/agent_assigner.py:300:        # TODO: Integrate with L02 Agent Registry
 ./platform/src/L05_planning/services/execution_monitor.py:278:        # TODO: Integrate with L08 Supervision Layer for human escalation
-./platform/src/L05_planning/services/execution_monitor.py:332:        # TODO: Integrate with L01 Event Store
-
 ## Large Files (>500 lines)
    65538 ./platform/.venv/lib/python3.12/site-packages/faker/decode/codes.py
    22375 ./platform/services/mcp-document-consolidator/python/venv/lib/python3.12/site-packages/torch/testing/_internal/common_methods_invocations.py

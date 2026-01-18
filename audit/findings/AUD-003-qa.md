@@ -50,12 +50,9 @@
 ./platform/tests/e2e/test_l06_l01_bridge.py
 ./platform/tests/e2e/test_l09_l01_bridge.py
 ./platform/tests/e2e/test_l10_l01_bridge.py
-
 ## Test Function Count
 Found 45472 test functions
-
 ## pytest Configuration
 No pytest config found
-
 ## Coverage Configuration
 No coverage config found

@@ -1,8 +1,8 @@
 # Performance Audit
 ## Async Pattern Usage
-Async patterns found: 9542
-
+Async patterns found: 10061
 ## Connection Pool Configuration
+./platform/archive/l12-pre-v2/routing/command_router.py:433:            # Sync method - run in thread pool to avoid blocking
 ./platform/src/L02_runtime/backends/local_runtime.py:49:            # Run in thread pool since docker-py is synchronous
 ./platform/src/L02_runtime/models/fleet_models.py:42:    warm_pool_size: int = 0
 ./platform/src/L02_runtime/models/fleet_models.py:50:            "warm_pool_size": self.warm_pool_size,
@@ -22,30 +22,27 @@ Async patterns found: 9542
 ./platform/src/L02_runtime/services/state_manager.py:119:                self._pg_pool = await asyncpg.create_pool(
 ./platform/src/L02_runtime/services/state_manager.py:124:                logger.info("PostgreSQL connection pool initialized")
 ./platform/src/L02_runtime/services/state_manager.py:131:                self._pg_pool = None
-./platform/src/L02_runtime/services/state_manager.py:153:        if not self._pg_pool:
-
 ## Caching Patterns
-./platform/output/L01_data/enhanced_context_service.py:46:        First checks Redis cache, falls back to PostgreSQL if not cached.
-./platform/output/L01_data/enhanced_context_service.py:55:        cache_key = f"context:{context_id}:{version or 'latest'}"
-./platform/output/L01_data/enhanced_context_service.py:57:        # Try cache first
-./platform/output/L01_data/enhanced_context_service.py:58:        cached = await self.redis.get(cache_key)
-./platform/output/L01_data/enhanced_context_service.py:59:        if cached:
-./platform/output/L01_data/enhanced_context_service.py:60:            return json.loads(cached)
-./platform/output/L01_data/enhanced_context_service.py:90:                cache_key,
-./platform/output/L01_data/enhanced_context_service.py:148:        # Update cache
-./platform/output/L01_data/enhanced_context_service.py:149:        cache_key = f"context:{context_id}:latest"
-./platform/output/L01_data/enhanced_context_service.py:150:        await self.redis.setex(cache_key, 3600, json.dumps(context_data))
-./platform/output/L01_data/enhanced_context_service.py:152:        # Invalidate version-specific cache
-./platform/src/L02_runtime/services/document_bridge.py:50:                - cache_ttl_seconds: Cache TTL
-./platform/src/L02_runtime/services/document_bridge.py:64:        self.cache_ttl = self.config.get("cache_ttl_seconds", 300)
-./platform/src/L02_runtime/services/document_bridge.py:84:        # Query cache: query_key -> (result, expiry_time)
-./platform/src/L02_runtime/services/document_bridge.py:85:        self._cache: Dict[str, tuple] = {}
-./platform/src/L02_runtime/services/document_bridge.py:112:        use_cache: bool = True
-./platform/src/L02_runtime/services/document_bridge.py:120:            use_cache: Whether to use cached results
-./platform/src/L02_runtime/services/document_bridge.py:130:        # Check cache
-./platform/src/L02_runtime/services/document_bridge.py:131:        cache_key = self._get_cache_key(query, filters)
-./platform/src/L02_runtime/services/document_bridge.py:132:        if use_cache:
-
+./platform/shared/clients/l01_client.py:460:        cached_tokens: int = 0,
+./platform/shared/clients/l01_client.py:463:        cached: bool = False,
+./platform/shared/clients/l01_client.py:467:        cost_cached_cents: Optional[float] = None,
+./platform/shared/clients/l01_client.py:482:            "cached_tokens": cached_tokens,
+./platform/shared/clients/l01_client.py:484:            "cached": cached,
+./platform/shared/clients/l01_client.py:507:        if cost_cached_cents is not None:
+./platform/shared/clients/l01_client.py:508:            payload["cost_cached_cents"] = cost_cached_cents
+./platform/shared/clients/l01_client.py:585:        cache_hit: bool = False,
+./platform/shared/clients/l01_client.py:603:            "cache_hit": cache_hit,
+./platform/shared/clients/l01_client.py:980:        cached: bool = False,
+./platform/shared/clients/l01_client.py:995:            "cached": cached,
+./platform/shared/clients/l01_client.py:1279:        idempotent_cache_hit: bool = False,
+./platform/shared/clients/l01_client.py:1301:            "idempotent_cache_hit": idempotent_cache_hit
+./platform/archive/l12-pre-v2/config/settings.py:29:    >>> print(f"Session TTL: {settings.session_ttl_seconds}s")
+./platform/archive/l12-pre-v2/config/settings.py:51:        session_ttl_seconds: Session time-to-live in seconds
+./platform/archive/l12-pre-v2/config/settings.py:88:    session_ttl_seconds: int = Field(
+./platform/archive/l12-pre-v2/config/settings.py:397:            "session_ttl_seconds": self.session_ttl_seconds,
+./platform/archive/l12-pre-v2/core/service_factory.py:45:    3. Services are instantiated only once per session (cached)
+./platform/archive/l12-pre-v2/core/service_factory.py:50:        session_cache: Dict mapping (session_id, service_name) -> instance
+./platform/archive/l12-pre-v2/core/service_factory.py:66:        self.session_cache: Dict[Tuple[str, str], Any] = {}
 ## Potential N+1 Query Patterns
 ./platform/src/L07_learning/services/example_quality_filter.py:323:                sampled.extend([items[i] for i in selected])
 ./platform/src/L07_learning/services/example_quality_filter.py:335:                sampled.extend([remaining_pool[i] for i in selected])

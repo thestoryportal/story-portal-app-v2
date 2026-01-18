@@ -16,30 +16,27 @@ process_id:662
 process_supervised:no
 run_id:e52a541c07395bcd54af9159b5ce001a895b5552
 tcp_port:6379
-server_time_usec:1768699605575759
-uptime_in_seconds:6603
+server_time_usec:1768720100925801
+uptime_in_seconds:27098
 uptime_in_days:0
 hz:10
-
 ## Key Patterns
-
 
 ## Key Statistics
 0
-
 ## Memory Usage
-used_memory:952208
-used_memory_human:929.89K
-used_memory_rss:1531904
-used_memory_rss_human:1.46M
-used_memory_peak:952208
-used_memory_peak_human:929.89K
-used_memory_peak_time:1768699605
-used_memory_peak_perc:100.02%
+used_memory:1026288
+used_memory_human:1002.23K
+used_memory_rss:1699840
+used_memory_rss_human:1.62M
+used_memory_peak:1026288
+used_memory_peak_human:1002.23K
+used_memory_peak_time:1768720106
+used_memory_peak_perc:100.01%
 used_memory_overhead:886024
 used_memory_startup:818224
-used_memory_dataset:66184
-used_memory_dataset_perc:49.40%
+used_memory_dataset:140264
+used_memory_dataset_perc:67.41%
 used_memory_lua:32768
 used_memory_vm_eval:32768
 used_memory_lua_human:32.00K
@@ -53,6 +50,5 @@ used_memory_scripts_human:216B
 maxmemory:0
 maxmemory_human:0B
 maxmemory_policy:noeviction
-
 ## Pub/Sub Channels
 

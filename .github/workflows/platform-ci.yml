@@ -1,0 +1,309 @@
+name: Story Portal V2 - CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'platform/**'
+      - '.github/workflows/platform-ci.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'platform/**'
+      - '.github/workflows/platform-ci.yml'
+
+env:
+  DOCKER_BUILD_ARGS: --load --cache-from=type=gha --cache-to=type=gha,mode=max
+
+jobs:
+  # Job 1: Build and test all Docker images
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    strategy:
+      fail-fast: false
+      matrix:
+        layer:
+          - l01-data-layer
+          - l02-runtime
+          - l03-tool-execution
+          - l04-model-gateway
+          - l05-planning
+          - l06-evaluation
+          - l07-learning
+          - l09-api-gateway
+          - l10-human-interface
+          - l11-integration
+          - l12-service-hub
+          - platform-ui
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ matrix.layer }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-${{ matrix.layer }}-
+            ${{ runner.os }}-buildx-
+
+      - name: Build ${{ matrix.layer }}
+        working-directory: ./platform
+        run: |
+          if [ "${{ matrix.layer }}" = "platform-ui" ]; then
+            docker build -t ${{ matrix.layer }}:latest ./ui
+          else
+            docker build -t ${{ matrix.layer }}:latest -f src/${{ matrix.layer }}/Dockerfile .
+          fi
+
+      - name: Save image artifact
+        run: |
+          docker save ${{ matrix.layer }}:latest | gzip > /tmp/${{ matrix.layer }}.tar.gz
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.layer }}-image
+          path: /tmp/${{ matrix.layer }}.tar.gz
+          retention-days: 1
+
+  # Job 2: Integration tests
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: agentic_platform
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all image artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: /tmp/images
+
+      - name: Load Docker images
+        run: |
+          for layer in l01-data-layer l02-runtime l03-tool-execution l04-model-gateway l05-planning l06-evaluation l07-learning l09-api-gateway l10-human-interface l11-integration l12-service-hub platform-ui; do
+            gunzip < /tmp/images/${layer}-image/${layer}.tar.gz | docker load
+          done
+
+      - name: Start services
+        working-directory: ./platform
+        run: |
+          # Start only app services (postgres/redis already running)
+          docker-compose -f docker-compose.app.yml up -d \
+            l01-data-layer l02-runtime l03-tool-execution l04-model-gateway \
+            l05-planning l06-evaluation l07-learning l09-api-gateway \
+            l10-human-interface l11-integration l12-service-hub platform-ui
+
+          # Wait for services to be healthy
+          echo "Waiting for services to be healthy..."
+          sleep 30
+
+      - name: Run integration tests
+        working-directory: ./platform
+        run: |
+          chmod +x integration-test.sh
+          ./integration-test.sh
+
+      - name: Show logs on failure
+        if: failure()
+        working-directory: ./platform
+        run: |
+          docker-compose -f docker-compose.app.yml logs --tail=100
+
+  # Job 3: Security scanning
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    timeout-minutes: 20
+
+    strategy:
+      matrix:
+        layer:
+          - l01-data-layer
+          - l09-api-gateway
+          - l12-service-hub
+
+    steps:
+      - name: Download image artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ matrix.layer }}-image
+          path: /tmp
+
+      - name: Load Docker image
+        run: |
+          gunzip < /tmp/${{ matrix.layer }}.tar.gz | docker load
+
+      - name: Run Trivy security scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ matrix.layer }}:latest
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Job 4: Performance benchmarks
+  performance:
+    runs-on: ubuntu-latest
+    needs: integration-tests
+    if: github.ref == 'refs/heads/main'
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | \
+            sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Download all image artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: /tmp/images
+
+      - name: Load Docker images and start services
+        working-directory: ./platform
+        run: |
+          for layer in l01-data-layer l09-api-gateway l12-service-hub; do
+            gunzip < /tmp/images/${layer}-image/${layer}.tar.gz | docker load
+          done
+          docker-compose -f docker-compose.app.yml up -d postgres redis
+          sleep 10
+          docker-compose -f docker-compose.app.yml up -d l01-data-layer l09-api-gateway l12-service-hub
+          sleep 20
+
+      - name: Run performance tests
+        working-directory: ./platform
+        run: |
+          # Create a basic k6 test if load-test.js doesn't exist
+          if [ ! -f load-test.js ]; then
+            cat > load-test.js <<'EOF'
+          import http from 'k6/http';
+          import { check } from 'k6';
+
+          export let options = {
+            stages: [
+              { duration: '1m', target: 10 },
+              { duration: '2m', target: 20 },
+              { duration: '1m', target: 0 },
+            ],
+            thresholds: {
+              http_req_duration: ['p(95)<1000'],
+              http_req_failed: ['rate<0.05'],
+            },
+          };
+
+          export default function () {
+            let res = http.get('http://localhost:8009/health/live');
+            check(res, { 'status is 200': (r) => r.status === 200 });
+          }
+          EOF
+          fi
+          k6 run load-test.js
+
+      - name: Upload performance results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: performance-results
+          path: platform/k6-results.json
+          retention-days: 30
+
+  # Job 5: Deploy (only on main branch)
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [integration-tests, security-scan]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure deployment
+        run: |
+          echo "Deployment would happen here"
+          echo "Options: Docker Registry push, k8s deployment, etc."
+          # Add actual deployment steps based on infrastructure
+
+      - name: Send deployment notification
+        if: always()
+        run: |
+          echo "Deployment ${{ job.status }}: ${{ github.sha }}"
+          # Add Slack/Discord/email notification here
+
+  # Job 6: Create release on tag
+  release:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Story Portal V2 ${{ github.ref }}
+          body: |
+            ## Changes in this Release
+            See CHANGELOG.md for details.
+
+            ## Deployment
+            1. Pull images: `docker-compose -f docker-compose.app.yml pull`
+            2. Start services: `docker-compose -f docker-compose.app.yml up -d`
+            3. Run integration tests: `./integration-test.sh`
+          draft: false
+          prerelease: false
