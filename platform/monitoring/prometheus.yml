@@ -11,6 +11,12 @@ alerting:
     - static_configs:
         - targets: []
 
+# Alert rules configuration
+# Rules are evaluated every 15s (evaluation_interval)
+# Based on baseline load testing (2026-01-18): P95 89ms, 99.997% availability
+rule_files:
+  - '/etc/prometheus/alerts/prometheus-alerts.yml'
+
 # Scrape configurations
 scrape_configs:
   # Prometheus self-monitoring

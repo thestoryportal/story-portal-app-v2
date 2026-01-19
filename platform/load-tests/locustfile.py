@@ -42,6 +42,10 @@ fake = Faker()
 # Configuration and Constants
 # ============================================================================
 
+# Test authentication token (for load testing only)
+# The gateway's mock consumer_lookup_fn accepts any token for testing
+TEST_API_KEY = "loadtest_api_key_12345"
+
 # Service endpoints
 SERVICES = {
     "l01_data_layer": ":8001",
@@ -459,6 +463,12 @@ class TestAPIGateway(HttpUser):
     wait_time = between(1, 3)  # Wait 1-3 seconds between tasks
     weight = 3
 
+    def on_start(self):
+        """Set up authentication headers for all requests."""
+        self.client.headers.update({
+            "Authorization": f"Bearer {TEST_API_KEY}"
+        })
+
 class TestDataLayer(HttpUser):
     """
     Test L01 Data Layer CRUD operations.
@@ -469,6 +479,12 @@ class TestDataLayer(HttpUser):
     tasks = [DataLayerTasks]
     wait_time = between(2, 5)
     weight = 2
+
+    def on_start(self):
+        """Set up authentication headers for all requests."""
+        self.client.headers.update({
+            "Authorization": f"Bearer {TEST_API_KEY}"
+        })
 
 class TestTaskExecution(HttpUser):
     """
@@ -481,6 +497,12 @@ class TestTaskExecution(HttpUser):
     wait_time = between(3, 7)
     weight = 2
 
+    def on_start(self):
+        """Set up authentication headers for all requests."""
+        self.client.headers.update({
+            "Authorization": f"Bearer {TEST_API_KEY}"
+        })
+
 class TestModelGateway(HttpUser):
     """
     Test L04 Model Gateway LLM requests.
@@ -491,6 +513,12 @@ class TestModelGateway(HttpUser):
     tasks = [ModelGatewayTasks]
     wait_time = between(5, 10)  # Longer wait time due to LLM latency
     weight = 1
+
+    def on_start(self):
+        """Set up authentication headers for all requests."""
+        self.client.headers.update({
+            "Authorization": f"Bearer {TEST_API_KEY}"
+        })
 
 class TestToolExecution(HttpUser):
     """
@@ -503,6 +531,12 @@ class TestToolExecution(HttpUser):
     wait_time = between(2, 5)
     weight = 2
 
+    def on_start(self):
+        """Set up authentication headers for all requests."""
+        self.client.headers.update({
+            "Authorization": f"Bearer {TEST_API_KEY}"
+        })
+
 class TestFullUserJourney(HttpUser):
     """
     Test complete user journey end-to-end.
@@ -512,6 +546,12 @@ class TestFullUserJourney(HttpUser):
     """
     wait_time = between(5, 10)
     weight = 1
+
+    def on_start(self):
+        """Set up authentication headers for all requests."""
+        self.client.headers.update({
+            "Authorization": f"Bearer {TEST_API_KEY}"
+        })
 
     @task
     def user_journey(self):

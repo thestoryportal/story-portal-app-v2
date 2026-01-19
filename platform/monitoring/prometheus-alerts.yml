@@ -1,0 +1,566 @@
+# Prometheus Alert Rules for V2 Platform
+# Documentation: https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/
+
+groups:
+  # ==================== Service Availability ====================
+  - name: service_availability
+    interval: 30s
+    rules:
+      - alert: ServiceDown
+        expr: up{job=~"l[0-9]{2}.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "{{ $labels.job }} on {{ $labels.instance }} has been down for more than 1 minute."
+          runbook_url: "https://docs.example.com/runbooks/service-down"
+          dashboard_url: "https://grafana.example.com/d/services"
+
+      - alert: ServiceDegraded
+        expr: up{job=~"l[0-9]{2}.*"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          category: availability
+        annotations:
+          summary: "Service {{ $labels.job }} degraded"
+          description: "{{ $labels.job }} has been showing issues for 5 minutes."
+
+      - alert: HighServiceRestartRate
+        expr: rate(process_start_time_seconds{job=~"l[0-9]{2}.*"}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          category: stability
+        annotations:
+          summary: "High restart rate for {{ $labels.job }}"
+          description: "{{ $labels.job }} is restarting frequently (> 6 times/hour)."
+
+  # ==================== API Performance ====================
+  # Thresholds based on baseline load testing (2026-01-18):
+  # - Baseline P95: 89ms (endurance test, 200 users, 60 minutes)
+  # - Alert threshold: 107ms (baseline + 20%)
+  # - Warning threshold: 150ms (early detection, ~68% above baseline)
+  # - Critical threshold: 500ms (severe degradation)
+  - name: api_performance
+    interval: 30s
+    rules:
+      - alert: ElevatedAPILatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="l09-api-gateway"}[5m])) > 0.107
+        for: 5m
+        labels:
+          severity: info
+          category: performance
+        annotations:
+          summary: "Elevated API latency detected"
+          description: "API Gateway p95 latency is {{ $value | humanizeDuration }} (baseline: 89ms, threshold: 107ms)."
+          runbook_url: "https://docs.example.com/runbooks/elevated-latency"
+
+      - alert: HighAPILatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="l09-api-gateway"}[5m])) > 0.150
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "High API latency detected"
+          description: "API Gateway p95 latency is {{ $value | humanizeDuration }} (threshold: 150ms, baseline: 89ms)."
+          runbook_url: "https://docs.example.com/runbooks/high-latency"
+
+      - alert: CriticalAPILatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="l09-api-gateway"}[5m])) > 0.5
+        for: 2m
+        labels:
+          severity: critical
+          category: performance
+        annotations:
+          summary: "CRITICAL: API latency exceeds 500ms"
+          description: "API Gateway p95 latency is {{ $value | humanizeDuration }}. Immediate investigation required."
+          runbook_url: "https://docs.example.com/runbooks/critical-latency"
+
+      - alert: SevereAPILatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="l09-api-gateway"}[5m])) > 2.0
+        for: 1m
+        labels:
+          severity: critical
+          category: performance
+        annotations:
+          summary: "SEVERE: API latency exceeds 2 seconds"
+          description: "API Gateway p95 latency is {{ $value | humanizeDuration }}. Service is severely degraded."
+          runbook_url: "https://docs.example.com/runbooks/severe-latency"
+
+      # Error Rate Alerts
+      # Baseline error rate: 0.0045% (endurance test, 607,926 total requests)
+      # Warning threshold: 1% (SLA requirement)
+      # Critical threshold: 5% (severe degradation)
+      - alert: ElevatedAPIErrorRate
+        expr: rate(http_requests_total{job="l09-api-gateway",status=~"5.."}[5m]) / rate(http_requests_total{job="l09-api-gateway"}[5m]) > 0.001
+        for: 5m
+        labels:
+          severity: info
+          category: reliability
+        annotations:
+          summary: "Elevated API error rate"
+          description: "API error rate is {{ $value | humanizePercentage }} (baseline: 0.0045%, threshold: 0.1%)."
+          runbook_url: "https://docs.example.com/runbooks/elevated-error-rate"
+
+      - alert: HighAPIErrorRate
+        expr: rate(http_requests_total{job="l09-api-gateway",status=~"5.."}[5m]) / rate(http_requests_total{job="l09-api-gateway"}[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          category: reliability
+        annotations:
+          summary: "High API error rate"
+          description: "API error rate is {{ $value | humanizePercentage }} (threshold: 1%, baseline: 0.0045%)."
+          runbook_url: "https://docs.example.com/runbooks/high-error-rate"
+
+      - alert: CriticalAPIErrorRate
+        expr: rate(http_requests_total{job="l09-api-gateway",status=~"5.."}[5m]) / rate(http_requests_total{job="l09-api-gateway"}[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          category: reliability
+        annotations:
+          summary: "CRITICAL: API error rate exceeds 5%"
+          description: "API error rate is {{ $value | humanizePercentage }}. Service is degraded."
+          runbook_url: "https://docs.example.com/runbooks/critical-error-rate"
+
+      # Availability Alerts
+      # Baseline availability: 99.997% (607,926 requests, 16 failures)
+      # SLA requirement: 99.9% availability
+      - alert: LowAPIAvailability
+        expr: (sum(rate(http_requests_total{job="l09-api-gateway",status!~"5.."}[5m])) / sum(rate(http_requests_total{job="l09-api-gateway"}[5m]))) < 0.999
+        for: 5m
+        labels:
+          severity: warning
+          category: reliability
+        annotations:
+          summary: "Low API availability"
+          description: "API availability is {{ $value | humanizePercentage }} (threshold: 99.9%, baseline: 99.997%)."
+          runbook_url: "https://docs.example.com/runbooks/low-availability"
+
+      - alert: CriticalAPIAvailability
+        expr: (sum(rate(http_requests_total{job="l09-api-gateway",status!~"5.."}[5m])) / sum(rate(http_requests_total{job="l09-api-gateway"}[5m]))) < 0.95
+        for: 2m
+        labels:
+          severity: critical
+          category: reliability
+        annotations:
+          summary: "CRITICAL: API availability below 95%"
+          description: "API availability is {{ $value | humanizePercentage }}. Service severely degraded."
+          runbook_url: "https://docs.example.com/runbooks/critical-availability"
+
+      - alert: HighAPITraffic
+        expr: rate(http_requests_total{job="l09-api-gateway"}[1m]) > 1000
+        for: 5m
+        labels:
+          severity: info
+          category: traffic
+        annotations:
+          summary: "High API traffic detected"
+          description: "API Gateway receiving {{ $value | humanize }} requests/second."
+
+  # ==================== Database Health ====================
+  - name: database_health
+    interval: 30s
+    rules:
+      - alert: PostgreSQLDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: database
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL database on {{ $labels.instance }} is down."
+          runbook_url: "https://docs.example.com/runbooks/postgresql-down"
+
+      - alert: HighDatabaseConnections
+        expr: sum(pg_stat_activity_count) > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "High number of database connections"
+          description: "Database has {{ $value }} active connections (threshold: 80)."
+          runbook_url: "https://docs.example.com/runbooks/high-db-connections"
+
+      - alert: CriticalDatabaseConnections
+        expr: sum(pg_stat_activity_count) > 95
+        for: 2m
+        labels:
+          severity: critical
+          category: database
+        annotations:
+          summary: "CRITICAL: Database connection limit near exhaustion"
+          description: "Database has {{ $value }} active connections. Approaching max_connections limit."
+          runbook_url: "https://docs.example.com/runbooks/critical-db-connections"
+
+      - alert: LongRunningQueries
+        expr: pg_stat_activity_max_tx_duration > 300
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "Long-running database queries detected"
+          description: "Query running for {{ $value | humanizeDuration }} on {{ $labels.instance }}."
+          runbook_url: "https://docs.example.com/runbooks/long-queries"
+
+      - alert: HighDatabaseQueryLatency
+        expr: histogram_quantile(0.95, rate(pg_stat_statements_mean_exec_time_bucket[5m])) > 100
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "High database query latency"
+          description: "Database p95 query time is {{ $value }}ms (threshold: 100ms)."
+
+      - alert: DatabaseReplicationLag
+        expr: pg_replication_lag > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "PostgreSQL replication lag detected"
+          description: "Replica {{ $labels.instance }} is {{ $value }} seconds behind primary."
+          runbook_url: "https://docs.example.com/runbooks/replication-lag"
+
+      - alert: DatabaseReplicationBroken
+        expr: pg_replication_lag > 300
+        for: 2m
+        labels:
+          severity: critical
+          category: database
+        annotations:
+          summary: "PostgreSQL replication broken"
+          description: "Replica {{ $labels.instance }} is {{ $value }} seconds behind. Replication may be broken."
+          runbook_url: "https://docs.example.com/runbooks/replication-broken"
+
+  # ==================== Redis Health ====================
+  - name: redis_health
+    interval: 30s
+    rules:
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: cache
+        annotations:
+          summary: "Redis is down"
+          description: "Redis instance {{ $labels.instance }} is down."
+          runbook_url: "https://docs.example.com/runbooks/redis-down"
+
+      - alert: HighRedisMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.80
+        for: 5m
+        labels:
+          severity: warning
+          category: cache
+        annotations:
+          summary: "High Redis memory usage"
+          description: "Redis memory usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}."
+          runbook_url: "https://docs.example.com/runbooks/redis-memory"
+
+      - alert: CriticalRedisMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.95
+        for: 2m
+        labels:
+          severity: critical
+          category: cache
+        annotations:
+          summary: "CRITICAL: Redis memory near exhaustion"
+          description: "Redis memory usage is {{ $value | humanizePercentage }}. Eviction or OOM imminent."
+          runbook_url: "https://docs.example.com/runbooks/redis-memory-critical"
+
+      - alert: RedisHighCommandRate
+        expr: rate(redis_commands_processed_total[1m]) > 10000
+        for: 5m
+        labels:
+          severity: info
+          category: cache
+        annotations:
+          summary: "High Redis command rate"
+          description: "Redis processing {{ $value | humanize }} commands/second."
+
+      - alert: RedisClusterNodeDown
+        expr: redis_cluster_state == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: cache
+        annotations:
+          summary: "Redis cluster node down"
+          description: "Redis cluster node {{ $labels.instance }} is down or unreachable."
+          runbook_url: "https://docs.example.com/runbooks/redis-cluster-node-down"
+
+  # ==================== Infrastructure Resources ====================
+  - name: infrastructure_resources
+    interval: 30s
+    rules:
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value | humanize }}% on {{ $labels.instance }}."
+          runbook_url: "https://docs.example.com/runbooks/high-cpu"
+
+      - alert: CriticalCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 95
+        for: 2m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "CRITICAL: CPU exhaustion"
+          description: "CPU usage is {{ $value | humanize }}% on {{ $labels.instance }}."
+
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.80
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}."
+          runbook_url: "https://docs.example.com/runbooks/high-memory"
+
+      - alert: CriticalMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.95
+        for: 2m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "CRITICAL: Memory exhaustion"
+          description: "Memory usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}. OOM imminent."
+
+      - alert: HighDiskUsage
+        expr: (1 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})) > 0.80
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "High disk usage"
+          description: "Disk usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}."
+          runbook_url: "https://docs.example.com/runbooks/high-disk"
+
+      - alert: CriticalDiskUsage
+        expr: (1 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})) > 0.95
+        for: 2m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "CRITICAL: Disk near full"
+          description: "Disk usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}. Service disruption imminent."
+
+      - alert: HighDiskIOWait
+        expr: rate(node_cpu_seconds_total{mode="iowait"}[5m]) > 0.10
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "High disk I/O wait"
+          description: "Disk I/O wait is {{ $value | humanizePercentage }} on {{ $labels.instance }}."
+
+  # ==================== Container Health ====================
+  - name: container_health
+    interval: 30s
+    rules:
+      - alert: ContainerRestarting
+        expr: rate(container_last_seen{name=~"agentic-.*"}[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          category: containers
+        annotations:
+          summary: "Container {{ $labels.name }} restarting"
+          description: "Container {{ $labels.name }} is restarting frequently."
+          runbook_url: "https://docs.example.com/runbooks/container-restart"
+
+      - alert: ContainerHighCPU
+        expr: rate(container_cpu_usage_seconds_total{name=~"agentic-.*"}[5m]) > 0.80
+        for: 5m
+        labels:
+          severity: warning
+          category: containers
+        annotations:
+          summary: "High CPU usage in container {{ $labels.name }}"
+          description: "Container {{ $labels.name }} using {{ $value | humanizePercentage }} CPU."
+
+      - alert: ContainerHighMemory
+        expr: container_memory_usage_bytes{name=~"agentic-.*"} / container_spec_memory_limit_bytes{name=~"agentic-.*"} > 0.80
+        for: 5m
+        labels:
+          severity: warning
+          category: containers
+        annotations:
+          summary: "High memory usage in container {{ $labels.name }}"
+          description: "Container {{ $labels.name }} using {{ $value | humanizePercentage }} of memory limit."
+
+      - alert: ContainerOOMKilled
+        expr: container_memory_failures_total{failure_type="oom_kill",name=~"agentic-.*"} > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: containers
+        annotations:
+          summary: "Container {{ $labels.name }} OOM killed"
+          description: "Container {{ $labels.name }} was killed due to out-of-memory condition."
+          runbook_url: "https://docs.example.com/runbooks/container-oom"
+
+  # ==================== Service Discovery ====================
+  - name: service_discovery
+    interval: 30s
+    rules:
+      - alert: ConsulDown
+        expr: consul_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Consul is down"
+          description: "Consul service discovery on {{ $labels.instance }} is down."
+          runbook_url: "https://docs.example.com/runbooks/consul-down"
+
+      - alert: EtcdDown
+        expr: etcd_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "etcd is down"
+          description: "etcd configuration store on {{ $labels.instance }} is down."
+          runbook_url: "https://docs.example.com/runbooks/etcd-down"
+
+      - alert: ServiceNotRegistered
+        expr: consul_catalog_service_node_healthy{service_name=~"l[0-9]{2}-.*"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          category: service_discovery
+        annotations:
+          summary: "Service {{ $labels.service_name }} not registered"
+          description: "Service {{ $labels.service_name }} is not registered with Consul."
+
+  # ==================== Backup & Recovery ====================
+  - name: backup_recovery
+    interval: 1h
+    rules:
+      - alert: BackupFailed
+        expr: time() - backup_last_success_timestamp_seconds > 86400
+        for: 1h
+        labels:
+          severity: critical
+          category: backup
+        annotations:
+          summary: "Database backup failed"
+          description: "No successful backup in last 24 hours. Last backup: {{ $value | humanizeDuration }} ago."
+          runbook_url: "https://docs.example.com/runbooks/backup-failed"
+
+      - alert: BackupOld
+        expr: time() - backup_last_success_timestamp_seconds > 604800
+        for: 1h
+        labels:
+          severity: warning
+          category: backup
+        annotations:
+          summary: "Backup is old"
+          description: "Last successful backup was {{ $value | humanizeDuration }} ago (threshold: 7 days)."
+
+  # ==================== Security Alerts ====================
+  - name: security_alerts
+    interval: 1m
+    rules:
+      - alert: HighFailedLoginRate
+        expr: rate(failed_login_attempts_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "High failed login rate"
+          description: "{{ $value | humanize }} failed login attempts per second."
+          runbook_url: "https://docs.example.com/runbooks/failed-logins"
+
+      - alert: PotentialBruteForceAttack
+        expr: rate(failed_login_attempts_total[1m]) > 50
+        for: 2m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Potential brute force attack"
+          description: "Very high failed login rate: {{ $value | humanize }}/second. Possible attack."
+          runbook_url: "https://docs.example.com/runbooks/brute-force"
+
+      - alert: UnauthorizedAccessAttempt
+        expr: rate(http_requests_total{status="401"}[5m]) > 20
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "High rate of unauthorized access attempts"
+          description: "{{ $value | humanize }} 401 responses per second."
+
+      - alert: RateLimitExceeded
+        expr: rate(rate_limit_exceeded_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: info
+          category: security
+        annotations:
+          summary: "Rate limit exceeded frequently"
+          description: "{{ $value | humanize }} rate limit violations per second."
+
+  # ==================== Business Metrics ====================
+  - name: business_metrics
+    interval: 5m
+    rules:
+      - alert: NoActiveUsers
+        expr: active_users_count == 0
+        for: 10m
+        labels:
+          severity: warning
+          category: business
+        annotations:
+          summary: "No active users"
+          description: "No active user sessions detected for 10 minutes."
+
+      - alert: HighTaskFailureRate
+        expr: rate(tasks_failed_total[5m]) / rate(tasks_total[5m]) > 0.10
+        for: 5m
+        labels:
+          severity: warning
+          category: business
+        annotations:
+          summary: "High task failure rate"
+          description: "{{ $value | humanizePercentage }} of tasks are failing."
+
+      - alert: CriticalTaskFailureRate
+        expr: rate(tasks_failed_total[5m]) / rate(tasks_total[5m]) > 0.50
+        for: 2m
+        labels:
+          severity: critical
+          category: business
+        annotations:
+          summary: "CRITICAL: Majority of tasks failing"
+          description: "{{ $value | humanizePercentage }} of tasks are failing. Service severely degraded."

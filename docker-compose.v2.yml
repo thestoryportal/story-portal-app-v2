@@ -304,6 +304,7 @@ services:
       - "9090:9090"
     volumes:
       - ./v2-deployment/configs/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./v2-deployment/configs/alerts:/etc/prometheus/alerts
       - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
