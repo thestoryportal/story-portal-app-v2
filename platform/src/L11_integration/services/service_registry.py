@@ -336,7 +336,11 @@ class ServiceRegistry:
                     timeout=service.health_check.timeout_sec,
                 )
                 return response.status_code == 200
-            except Exception:
+            except (httpx.HTTPError, httpx.TimeoutException) as e:
+                logger.debug(f"HTTP health check failed for {service.name}: {e}")
+                return False
+            except Exception as e:
+                logger.warning(f"Unexpected error in HTTP health check for {service.name}: {e}")
                 return False
 
     async def _tcp_health_check(self, service: ServiceInfo) -> bool:
@@ -360,7 +364,14 @@ class ServiceRegistry:
             writer.close()
             await writer.wait_closed()
             return True
-        except Exception:
+        except asyncio.TimeoutError as e:
+            logger.debug(f"TCP health check timeout for {service.name}: {e}")
+            return False
+        except (OSError, ValueError, ConnectionError) as e:
+            logger.debug(f"TCP health check failed for {service.name}: {e}")
+            return False
+        except Exception as e:
+            logger.warning(f"Unexpected error in TCP health check for {service.name}: {e}")
             return False
 
     async def _redis_health_check(self, service: ServiceInfo) -> bool:
@@ -378,7 +389,11 @@ class ServiceRegistry:
             await r.ping()
             await r.aclose()
             return True
-        except Exception:
+        except (redis.RedisError, ConnectionError, TimeoutError) as e:
+            logger.debug(f"Redis health check failed for {service.name}: {e}")
+            return False
+        except Exception as e:
+            logger.warning(f"Unexpected error in Redis health check for {service.name}: {e}")
             return False
 
     async def get_health_summary(self) -> Dict[str, any]:

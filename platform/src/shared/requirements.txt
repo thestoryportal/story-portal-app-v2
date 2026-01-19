@@ -1,0 +1,3 @@
+# Shared dependencies for all services
+python-json-logger>=2.0.7
+httpx>=0.25.0

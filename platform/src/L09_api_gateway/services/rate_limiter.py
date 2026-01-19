@@ -2,10 +2,13 @@
 Rate Limiter - Distributed Token Bucket with Redis
 """
 
+import logging
 import time
 from typing import Optional, Tuple
 from ..models import ConsumerProfile, RateLimitTier, RATE_LIMIT_CONFIGS
 from ..errors import ErrorCode, RateLimitError
+
+logger = logging.getLogger(__name__)
 
 
 class RateLimiter:
@@ -234,7 +237,15 @@ class RateLimiter:
                 "reset": daily_reset,
             }
 
-        except Exception:
+        except (ValueError, TypeError, KeyError, IndexError) as e:
+            logger.debug(f"Failed to parse rate limit state for consumer {consumer.consumer_id}: {e}")
+            return {
+                "limit": config.rps_limit,
+                "burst_capacity": config.burst_capacity,
+                "daily_quota": config.daily_quota,
+            }
+        except Exception as e:
+            logger.warning(f"Unexpected error getting rate limit info for consumer {consumer.consumer_id}: {e}")
             return {
                 "limit": config.rps_limit,
                 "burst_capacity": config.burst_capacity,

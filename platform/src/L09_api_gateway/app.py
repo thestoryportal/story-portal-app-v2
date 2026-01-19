@@ -2,10 +2,12 @@
 FastAPI application entrypoint for L09 API Gateway
 """
 
+import logging
 import uvicorn
 from .gateway import APIGateway
 from .config import get_settings
 
+logger = logging.getLogger(__name__)
 
 # Create gateway instance
 gateway = APIGateway()
@@ -16,14 +18,14 @@ app = gateway.app
 async def startup_event():
     """Startup event handler"""
     await gateway.startup()
-    print("API Gateway started successfully")
+    logger.info("API Gateway started successfully")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Shutdown event handler"""
     await gateway.shutdown()
-    print("API Gateway shutdown complete")
+    logger.info("API Gateway shutdown complete")
 
 
 def main():

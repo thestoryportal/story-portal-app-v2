@@ -125,7 +125,7 @@ def generate_api_key() -> str:
 
 # Example usage for generating keys:
 if __name__ == "__main__":
-    print("Generated API keys (store these securely):")
+    logger.info("Generated API keys (store these securely):")
     for i in range(3):
         key = generate_api_key()
-        print(f"  Key {i+1}: {key}")
+        logger.info(f"  Key {i+1}: {key}")

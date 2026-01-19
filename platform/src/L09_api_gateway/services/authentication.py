@@ -92,7 +92,13 @@ class AuthenticationHandler:
                     raise AuthenticationError(
                         ErrorCode.E9101, "Invalid API key"
                     )
-            except Exception:
+            except (ValueError, TypeError) as e:
+                logger.warning(f"bcrypt verification failed: {e}")
+                raise AuthenticationError(ErrorCode.E9101, "Invalid API key")
+            except AuthenticationError:
+                raise
+            except Exception as e:
+                logger.error(f"Unexpected error in API key verification: {e}")
                 raise AuthenticationError(ErrorCode.E9101, "Invalid API key")
 
         # Check credential rotation status

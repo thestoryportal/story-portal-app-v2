@@ -2,6 +2,7 @@
 """Deploy QA Agent Swarm and execute platform testing."""
 
 import json
+import logging
 import time
 import requests
 from typing import Dict, List, Any, Optional
@@ -11,6 +12,13 @@ from qa_orchestrator import qa_orchestrator
 from api_tester import api_tester
 from integration_tester import integration_tester
 from data_validator import data_validator
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 
 class QASwarmDeployer:
@@ -43,9 +51,9 @@ class QASwarmDeployer:
     def deploy_agent(self, agent_config) -> Optional[str]:
         """Deploy a single QA agent."""
         payload = agent_config.to_api_payload()
-        print(f"\n=== Deploying {payload['name']} ===")
-        print(f"Agent Type: {payload['agent_type']}")
-        print(f"Capabilities: {', '.join(payload['capabilities'][:3])}...")
+        logger.info(f"=== Deploying {payload['name']} ===")
+        logger.info(f"Agent Type: {payload['agent_type']}")
+        logger.info(f"Capabilities: {', '.join(payload['capabilities'][:3])}...")
 
         try:
             response = requests.post(
@@ -56,16 +64,16 @@ class QASwarmDeployer:
 
             if response.status_code == 201:
                 agent_id = response.json().get("agent_id")
-                print(f"✓ Agent deployed successfully: {agent_id}")
+                logger.info(f"✓ Agent deployed successfully: {agent_id}")
                 self.deployed_agents[payload['name']] = agent_id
                 return agent_id
             else:
-                print(f"✗ Deployment failed: {response.status_code}")
-                print(f"  Response: {response.text}")
+                logger.error(f"✗ Deployment failed: {response.status_code}")
+                logger.error(f"  Response: {response.text}")
                 return None
 
         except requests.RequestException as e:
-            print(f"✗ Deployment error: {e}")
+            logger.error(f"✗ Deployment error: {e}")
             return None
 
     def submit_goal(self, agent_id: str, goal_config: Dict[str, Any]) -> Optional[str]:
@@ -81,14 +89,14 @@ class QASwarmDeployer:
 
             if response.status_code == 201:
                 goal_id = response.json().get("goal_id")
-                print(f"✓ Goal submitted: {goal_id}")
+                logger.info(f"✓ Goal submitted: {goal_id}")
                 return goal_id
             else:
-                print(f"✗ Goal submission failed: {response.status_code}")
+                logger.error(f"✗ Goal submission failed: {response.status_code}")
                 return None
 
         except requests.RequestException as e:
-            print(f"✗ Goal submission error: {e}")
+            logger.error(f"✗ Goal submission error: {e}")
             return None
 
     def monitor_goal(self, goal_id: str, timeout_seconds: int = 300) -> Dict[str, Any]:
@@ -109,10 +117,10 @@ class QASwarmDeployer:
                     if status in ["completed", "failed", "cancelled"]:
                         return goal_data
 
-                    print(f"  Goal status: {status}")
+                    logger.info(f"  Goal status: {status}")
 
             except requests.RequestException as e:
-                print(f"  Monitoring error: {e}")
+                logger.warning(f"  Monitoring error: {e}")
 
             time.sleep(5)
 
@@ -120,22 +128,22 @@ class QASwarmDeployer:
 
     def run_deployment(self) -> Dict[str, Any]:
         """Execute full QA swarm deployment."""
-        print("=" * 70)
-        print("QA AGENT SWARM DEPLOYMENT")
-        print("=" * 70)
+        logger.info("=" * 70)
+        logger.info("QA AGENT SWARM DEPLOYMENT")
+        logger.info("=" * 70)
 
         # Check platform health
-        print("\n--- Platform Health Check ---")
+        logger.info("--- Platform Health Check ---")
         health = self.check_platform_health()
         for service, is_healthy in health.items():
             status = "✓ UP" if is_healthy else "✗ DOWN"
-            print(f"{service}: {status}")
+            logger.info(f"{service}: {status}")
 
         if not all(health.values()):
-            print("\n⚠ Warning: Some services are down. Continuing anyway...")
+            logger.warning("⚠ Warning: Some services are down. Continuing anyway...")
 
         # Deploy agents
-        print("\n--- Agent Deployment Phase ---")
+        logger.info("--- Agent Deployment Phase ---")
         agents_to_deploy = [
             qa_orchestrator,
             api_tester,
@@ -150,13 +158,13 @@ class QASwarmDeployer:
 
         # Submit orchestrator goal
         if "qa-orchestrator" in self.deployed_agents:
-            print("\n--- Goal Submission Phase ---")
+            logger.info("--- Goal Submission Phase ---")
             orchestrator_id = self.deployed_agents["qa-orchestrator"]
             campaign = qa_orchestrator.create_test_campaign()
             goal_id = self.submit_goal(orchestrator_id, campaign)
 
             if goal_id:
-                print(f"\n--- Monitoring Execution (Goal: {goal_id}) ---")
+                logger.info(f"--- Monitoring Execution (Goal: {goal_id}) ---")
                 result = self.monitor_goal(goal_id, timeout_seconds=600)
                 self.test_results.append(result)
 
@@ -177,17 +185,17 @@ class QASwarmDeployer:
             "status": "completed" if self.test_results else "partial"
         }
 
-        print("\n" + "=" * 70)
-        print("DEPLOYMENT SUMMARY")
-        print("=" * 70)
-        print(f"Duration: {duration:.1f}s")
-        print(f"Agents Deployed: {len(self.deployed_agents)}")
-        print(f"Goals Executed: {len(self.test_results)}")
+        logger.info("=" * 70)
+        logger.info("DEPLOYMENT SUMMARY")
+        logger.info("=" * 70)
+        logger.info(f"Duration: {duration:.1f}s")
+        logger.info(f"Agents Deployed: {len(self.deployed_agents)}")
+        logger.info(f"Goals Executed: {len(self.test_results)}")
 
         if self.deployed_agents:
-            print("\nDeployed Agents:")
+            logger.info("Deployed Agents:")
             for name, agent_id in self.deployed_agents.items():
-                print(f"  - {name}: {agent_id}")
+                logger.info(f"  - {name}: {agent_id}")
 
         return summary
 
@@ -206,15 +214,15 @@ def main():
         try:
             response = requests.get(f"{url}/health/live", timeout=2)
             if response.status_code == 200:
-                print(f"Found active API at: {url}")
+                logger.info(f"Found active API at: {url}")
                 deployer = QASwarmDeployer(base_url=url)
                 break
         except requests.RequestException:
             continue
 
     if not deployer:
-        print("⚠ No active API gateway found on standard ports")
-        print("Attempting deployment on default port 8000...")
+        logger.warning("⚠ No active API gateway found on standard ports")
+        logger.info("Attempting deployment on default port 8000...")
         deployer = QASwarmDeployer()
 
     # Run deployment
@@ -224,7 +232,7 @@ def main():
     with open("qa_deployment_summary.json", "w") as f:
         json.dump(summary, f, indent=2)
 
-    print(f"\nSummary saved to: qa_deployment_summary.json")
+    logger.info("Summary saved to: qa_deployment_summary.json")
 
     return 0 if summary["status"] == "completed" else 1
 

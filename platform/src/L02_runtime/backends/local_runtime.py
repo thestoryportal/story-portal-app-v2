@@ -344,7 +344,14 @@ class LocalRuntime:
                 network_bytes_received=stats.get("networks", {}).get("eth0", {}).get("rx_bytes", 0),
             )
 
-        except Exception:
+        except (KeyError, ValueError, ZeroDivisionError) as e:
+            logger.debug(f"Failed to parse container stats: {e}")
+            return ResourceUsage()
+        except DockerException as e:
+            logger.warning(f"Docker API error getting stats: {e}")
+            return ResourceUsage()
+        except Exception as e:
+            logger.warning(f"Unexpected error getting container stats: {e}")
             return ResourceUsage()
 
     @staticmethod
@@ -390,7 +397,11 @@ class LocalRuntime:
                 try:
                     info = await self.get_container_info(container.id)
                     infos.append(info)
-                except Exception:
+                except (RuntimeError, DockerException) as e:
+                    logger.debug(f"Failed to get info for container {container.id}: {e}")
+                    continue
+                except Exception as e:
+                    logger.warning(f"Unexpected error getting container info for {container.id}: {e}")
                     continue
 
             return infos
@@ -482,7 +493,11 @@ class LocalRuntime:
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(None, self.docker_client.ping)
             return True
-        except Exception:
+        except (DockerException, ConnectionError, OSError) as e:
+            logger.debug(f"Docker health check failed: {e}")
+            return False
+        except Exception as e:
+            logger.warning(f"Unexpected error in Docker health check: {e}")
             return False
 
     async def cleanup(self) -> None:
