@@ -4,6 +4,7 @@ Agents API endpoints for L09 Gateway.
 Proxies requests to L01 Data Layer with authentication and authorization.
 """
 
+import os
 from fastapi import APIRouter, HTTPException, Header, Depends
 from typing import Optional, List
 from uuid import UUID
@@ -14,7 +15,10 @@ from shared.clients import L01Client
 router = APIRouter(prefix="/api/v1/agents", tags=["agents"])
 
 # Shared L01 client instance
-l01_client = L01Client(base_url="http://localhost:8002")
+l01_client = L01Client(
+    base_url=os.getenv("L01_URL", "http://l01-data-layer:8001"),
+    api_key=os.getenv("L01_DEFAULT_API_KEY", "dev_key_CHANGE_IN_PRODUCTION")
+)
 
 
 class CreateAgentRequest(BaseModel):
