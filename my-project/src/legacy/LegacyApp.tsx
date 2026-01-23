@@ -16,14 +16,13 @@ import { useWheelSelection } from './hooks/useWheelSelection'
 import { useMenuState } from './hooks/useMenuState'
 import { useSteamEffect } from './hooks/useSteamEffect'
 
+
 // Effects (R3F component handles its own rendering)
 
 // Components
 import {
-  SteamWisps,
   WheelPanel,
   PortalRing,
-  WarpMotionLines,
   AnimatedPanel,
   ReassembledPanel,
   SpinButton,
@@ -35,6 +34,7 @@ import {
   MenuPanels,
   MenuLogo,
   SmokeEffect,
+  SteamWisps,
 } from './components'
 
 // Views
@@ -148,6 +148,9 @@ export default function LegacyApp() {
 
   // Menu state hook
   const menuState = useMenuState()
+
+  // Steam effect hook - persistent vent steam
+  const { steamWisps } = useSteamEffect()
   const {
     menuOpen,
     menuHasBeenOpened,
@@ -161,9 +164,6 @@ export default function LegacyApp() {
     closeMenu,
     handlePanelClick,
   } = menuState
-
-  // Steam effect hook
-  const { steamWisps } = useSteamEffect()
 
   // Menu modal navigation
   const navigateMenuModal = useCallback((direction: 'next' | 'prev') => {
@@ -348,10 +348,10 @@ export default function LegacyApp() {
   // Main wheel view
   return (
     <div className="wheel-view-wrapper">
-      <div className="wheel-content">
-        {/* Steam Effects */}
-        <SteamWisps wisps={steamWisps} />
+      {/* Persistent Vent Steam Effect */}
+      <SteamWisps wisps={steamWisps} />
 
+      <div className="wheel-content">
         {/* Wheel Container */}
         <div
           ref={wheelContainerRef}
@@ -366,8 +366,6 @@ export default function LegacyApp() {
           onTouchStart={handleTouchStart}
           onWheel={handleWheel}
         >
-          {/* Warp Motion Lines */}
-          <WarpMotionLines visible={!!selectedPrompt && animPhase === 'warp'} />
 
           {/* Animated Panel */}
           <AnimatedPanel
