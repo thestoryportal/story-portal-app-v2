@@ -20,8 +20,13 @@ const L01_URL = import.meta.env.VITE_L01_URL || 'http://localhost:8001'
 const L02_URL = import.meta.env.VITE_L02_URL || 'http://localhost:8002'
 const L10_URL = import.meta.env.VITE_L10_URL || 'http://localhost:8010'
 
-// Development API key - CHANGE IN PRODUCTION
-const DEV_API_KEY = 'dev_key_CHANGE_IN_PRODUCTION'
+// Development API key - Load from environment variable
+const DEV_API_KEY = import.meta.env.VITE_API_KEY || 'dev_key_local_ONLY'
+
+// Warn if using default key
+if (DEV_API_KEY === 'dev_key_local_ONLY') {
+  console.warn('Using default API key. Set VITE_API_KEY environment variable for production.')
+}
 
 class PlatformAPIClient {
   private client: AxiosInstance
@@ -83,7 +88,7 @@ class PlatformAPIClient {
 
   // ========== Agent Management (L01 + L02) ==========
   async listAgents(filters?: { status?: string; type?: string }): Promise<Agent[]> {
-    const { data } = await axios.get(`${L01_URL}/agents`, {
+    const { data } = await axios.get(`${L01_URL}/agents/`, {
       params: filters,
       headers: { 'Authorization': `Bearer ${DEV_API_KEY}` }
     })
@@ -91,7 +96,7 @@ class PlatformAPIClient {
   }
 
   async getAgent(agentId: string): Promise<Agent> {
-    const { data } = await axios.get(`${L01_URL}/agents/${agentId}`, {
+    const { data } = await axios.get(`${L01_URL}/agents/${agentId}/`, {
       headers: { 'Authorization': `Bearer ${DEV_API_KEY}` }
     })
     return data
@@ -155,71 +160,96 @@ class PlatformAPIClient {
 
   // ========== Goals & Plans (L01 + L05) ==========
   async listGoals(filters?: { status?: string }): Promise<Goal[]> {
-    const { data } = await axios.get(`${L01_URL}/goals`, { params: filters })
+    const { data } = await axios.get(`${L01_URL}/goals/`, {
+      params: filters,
+      headers: { 'Authorization': `Bearer ${DEV_API_KEY}` }
+    })
     return data
   }
 
   async createGoal(goal: Partial<Goal>): Promise<Goal> {
-    const { data } = await axios.post(`${L01_URL}/goals`, goal)
+    const { data } = await axios.post(`${L01_URL}/goals/`, goal, {
+      headers: { 'Authorization': `Bearer ${DEV_API_KEY}` }
+    })
     return data
   }
 
   async getGoal(goalId: string): Promise<Goal> {
-    const { data } = await axios.get(`${L01_URL}/goals/${goalId}`)
+    const { data } = await axios.get(`${L01_URL}/goals/${goalId}/`, {
+      headers: { 'Authorization': `Bearer ${DEV_API_KEY}` }
+    })
     return data
   }
 
   async listPlans(goalId?: string): Promise<Plan[]> {
     const params = goalId ? { goal_id: goalId } : {}
-    const { data } = await axios.get(`${L01_URL}/plans`, { params })
+    const { data } = await axios.get(`${L01_URL}/plans/`, {
+      params,
+      headers: { 'Authorization': `Bearer ${DEV_API_KEY}` }
+    })
     return data
   }
 
   async createPlan(goalId: string, strategy: string, tasks: any[]): Promise<Plan> {
-    const { data } = await axios.post('http://localhost:8005/plans', {
+    const { data } = await axios.post('http://localhost:8005/plans/', {
       goal_id: goalId,
       strategy,
       tasks,
+    }, {
+      headers: { 'Authorization': `Bearer ${DEV_API_KEY}` }
     })
     return data
   }
 
   async getPlan(planId: string): Promise<Plan> {
-    const { data } = await axios.get(`${L01_URL}/plans/${planId}`)
+    const { data } = await axios.get(`${L01_URL}/plans/${planId}/`, {
+      headers: { 'Authorization': `Bearer ${DEV_API_KEY}` }
+    })
     return data
   }
 
   // ========== Events (L01) ==========
   async listEvents(limit: number = 100, offset: number = 0): Promise<PlatformEvent[]> {
-    const { data } = await axios.get(`${L01_URL}/events`, {
+    const { data } = await axios.get(`${L01_URL}/events/`, {
       params: { limit, offset },
+      headers: { 'Authorization': `Bearer ${DEV_API_KEY}` }
     })
     return data
   }
 
   // ========== Context Management (L01) ==========
   async listContexts(): Promise<ExecutionContext[]> {
-    const { data } = await axios.get(`${L01_URL}/contexts`)
+    const { data } = await axios.get(`${L01_URL}/contexts/`, {
+      headers: { 'Authorization': `Bearer ${DEV_API_KEY}` }
+    })
     return data
   }
 
   async createContext(name: string, variables: any): Promise<ExecutionContext> {
-    const { data } = await axios.post(`${L01_URL}/contexts`, { name, variables })
+    const { data } = await axios.post(`${L01_URL}/contexts/`, { name, variables }, {
+      headers: { 'Authorization': `Bearer ${DEV_API_KEY}` }
+    })
     return data
   }
 
   async getContext(contextId: string): Promise<ExecutionContext> {
-    const { data } = await axios.get(`${L01_URL}/contexts/${contextId}`)
+    const { data } = await axios.get(`${L01_URL}/contexts/${contextId}/`, {
+      headers: { 'Authorization': `Bearer ${DEV_API_KEY}` }
+    })
     return data
   }
 
   async updateContext(contextId: string, variables: any): Promise<ExecutionContext> {
-    const { data } = await axios.patch(`${L01_URL}/contexts/${contextId}`, { variables })
+    const { data } = await axios.patch(`${L01_URL}/contexts/${contextId}/`, { variables }, {
+      headers: { 'Authorization': `Bearer ${DEV_API_KEY}` }
+    })
     return data
   }
 
   async deleteContext(contextId: string): Promise<void> {
-    await axios.delete(`${L01_URL}/contexts/${contextId}`)
+    await axios.delete(`${L01_URL}/contexts/${contextId}/`, {
+      headers: { 'Authorization': `Bearer ${DEV_API_KEY}` }
+    })
   }
 
   // ========== System Metrics (L10) ==========
@@ -230,6 +260,11 @@ class PlatformAPIClient {
 
   async getSystemOverview(): Promise<any> {
     const { data } = await axios.get(`${L10_URL}/dashboard/overview`)
+    return data
+  }
+
+  async getServicesHealth(): Promise<any[]> {
+    const { data } = await axios.get(`${L10_URL}/api/services/health`)
     return data
   }
 

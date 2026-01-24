@@ -67,6 +67,10 @@ class AuthenticationMiddleware:
     async def __call__(self, request: Request, call_next):
         """Process request through authentication middleware"""
 
+        # Skip authentication for OPTIONS requests (CORS preflight)
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         # Skip authentication for public paths
         if request.url.path in self.public_paths:
             return await call_next(request)
