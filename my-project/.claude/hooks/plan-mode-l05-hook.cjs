@@ -22,7 +22,25 @@ const CONFIG = {
   platformDir: '../platform',  // Relative to project dir
   minStepsForL05: 3,           // Minimum steps to offer L05
   timeout: 10000,              // 10 second timeout for Python bridge
+  debug: true,                 // Enable debug logging to file
 };
+
+// Debug logging
+const DEBUG_LOG_PATH = path.join(
+  process.env.CLAUDE_PROJECT_DIR || process.cwd(),
+  '.claude', 'contexts', '.hook-debug.log'
+);
+
+function debugLog(message, data = null) {
+  if (!CONFIG.debug) return;
+  const timestamp = new Date().toISOString();
+  const logEntry = `[${timestamp}] ${message}${data ? '\n' + JSON.stringify(data, null, 2) : ''}\n`;
+  try {
+    fs.appendFileSync(DEBUG_LOG_PATH, logEntry);
+  } catch (e) {
+    // Ignore logging errors
+  }
+}
 
 /**
  * Read stdin as JSON
@@ -49,6 +67,7 @@ function extractPlanPath(input) {
   // The plan file path may be in the tool result or we can find it
   // by looking for the most recent .plan.md file
   const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  const homeDir = process.env.HOME || process.env.USERPROFILE;
 
   // Check common plan file locations
   const planLocations = [
@@ -57,7 +76,32 @@ function extractPlanPath(input) {
     path.join(projectDir, '.plan.md'),
   ];
 
-  // Also check for timestamped plans
+  // Check global ~/.claude/plans/ directory (where Claude Code saves plans)
+  const globalPlansDir = path.join(homeDir, '.claude', 'plans');
+  if (fs.existsSync(globalPlansDir)) {
+    try {
+      const files = fs.readdirSync(globalPlansDir)
+        .filter(f => f.endsWith('.md'))
+        .map(f => ({
+          name: f,
+          path: path.join(globalPlansDir, f),
+          mtime: fs.statSync(path.join(globalPlansDir, f)).mtime
+        }))
+        .sort((a, b) => b.mtime - a.mtime);
+
+      // Return the most recently modified plan (within last 24 hours)
+      if (files.length > 0) {
+        const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+        if (files[0].mtime.getTime() > oneDayAgo) {
+          return files[0].path;
+        }
+      }
+    } catch (e) {
+      // Ignore errors
+    }
+  }
+
+  // Also check for timestamped plans in project .claude dir
   const claudeDir = path.join(projectDir, '.claude');
   if (fs.existsSync(claudeDir)) {
     try {
@@ -195,30 +239,61 @@ function saveGate2State(adapterResult, projectDir) {
 }
 
 /**
+ * Format output for PostToolUse hook (JSON with hookSpecificOutput.additionalContext)
+ * This is REQUIRED for PostToolUse hooks to inject context into the conversation.
+ */
+function formatPostToolUseOutput(content) {
+  return JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: "PostToolUse",
+      additionalContext: content
+    }
+  });
+}
+
+/**
  * Main hook logic
  */
 async function main() {
+  debugLog('=== Hook invoked ===');
+
   const input = await readInput();
   const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
+  debugLog('Received input', {
+    tool_name: input.tool_name,
+    toolName: input.toolName,
+    hook_event_name: input.hook_event_name,
+    keys: Object.keys(input),
+    projectDir,
+    CLAUDE_PROJECT_DIR: process.env.CLAUDE_PROJECT_DIR
+  });
+
   // Check if enabled
   if (!CONFIG.enabled) {
+    debugLog('Hook disabled, exiting');
     process.exit(0);
   }
 
   // Check if this is an ExitPlanMode result
   const toolName = input.tool_name || input.toolName || '';
+  debugLog(`Tool name check: "${toolName}" === "ExitPlanMode"? ${toolName === 'ExitPlanMode'}`);
+
   if (toolName !== 'ExitPlanMode') {
     // Not our trigger - exit silently
+    debugLog('Not ExitPlanMode, exiting silently');
     process.exit(0);
   }
+
+  debugLog('ExitPlanMode detected, proceeding with L05 integration');
 
   // Find the plan file
   const planPath = extractPlanPath(input);
   if (!planPath) {
-    console.log('<plan-mode-l05-warning>');
-    console.log('Could not find plan file. L05 integration skipped.');
-    console.log('</plan-mode-l05-warning>');
+    // Output as proper PostToolUse JSON format
+    console.log(formatPostToolUseOutput(
+      '<plan-mode-l05-warning>\nCould not find plan file. L05 integration skipped.\n</plan-mode-l05-warning>'
+    ));
     process.exit(0);
   }
 
@@ -230,9 +305,19 @@ async function main() {
     saveGate2State(adapterResult, projectDir);
   }
 
-  // Output the Gate 2 injection
-  console.log(formatInjection(adapterResult));
+  // Output the Gate 2 injection in proper PostToolUse JSON format
+  const injectionContent = formatInjection(adapterResult);
+  const finalOutput = formatPostToolUseOutput(injectionContent);
 
+  debugLog('Final output being sent to stdout', {
+    injectionContentLength: injectionContent.length,
+    finalOutputLength: finalOutput.length,
+    parsedOutput: JSON.parse(finalOutput)
+  });
+
+  console.log(finalOutput);
+
+  debugLog('Hook completed successfully');
   process.exit(0);
 }
 

@@ -190,6 +190,38 @@ function formatExecutionInstruction(choice, gate2State) {
 }
 
 /**
+ * Format the Gate 2 options prompt
+ */
+function formatGate2Prompt(gate2State) {
+  const lines = [
+    '<plan-mode-l05-gate2>',
+    '',
+    '## Execution Method',
+    '',
+    `Plan "${gate2State.goal}" is ready for execution.`,
+    '',
+    '**Choose how to execute:**',
+    '',
+  ];
+
+  for (const opt of gate2State.options) {
+    const marker = opt.id === gate2State.recommended ? '●' : '○';
+    const rec = opt.id === gate2State.recommended ? ' **(Recommended)**' : '';
+    lines.push(`${marker} **${opt.label}**${rec}`);
+    lines.push(`   ${opt.description}`);
+    lines.push('');
+  }
+
+  lines.push('Respond with: "L05", "traditional", or "hybrid"');
+  lines.push('');
+  lines.push(`Plan ID: \`${gate2State.plan_id}\``);
+  lines.push('');
+  lines.push('</plan-mode-l05-gate2>');
+
+  return lines.join('\n');
+}
+
+/**
  * Main hook logic
  */
 async function main() {
@@ -206,13 +238,16 @@ async function main() {
   // Get the user's message
   const userMessage = input.prompt || input.message || input.content || '';
   if (!userMessage) {
+    // No message but pending Gate 2 - show the options
+    console.log(formatGate2Prompt(gate2State));
     process.exit(0);
   }
 
   // Detect the choice
   const choice = detectChoice(userMessage);
   if (!choice) {
-    // User didn't make a clear choice - don't interfere
+    // User didn't make a clear choice - show the Gate 2 prompt again
+    console.log(formatGate2Prompt(gate2State));
     process.exit(0);
   }
 

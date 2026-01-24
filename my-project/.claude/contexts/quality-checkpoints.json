@@ -1,0 +1,310 @@
+{
+  "records": [
+    {
+      "id": "85169699-8b94-4c98-bee1-220c48cc4053",
+      "execution_id": "test-exec-001",
+      "checkpoint_name": "root_cause_identified",
+      "triggered_at": "2026-01-24T08:44:15.442Z",
+      "action": "STOP",
+      "passed": false,
+      "role_id": "debugger",
+      "checkpoint_type": "phase_complete",
+      "evaluation_details": {
+        "reason": "human_review_required",
+        "review_criteria": [
+          "Root cause is clearly identified with evidence",
+          "Investigation path is documented",
+          "Proposed fix is minimal and targeted"
+        ],
+        "artifacts": []
+      }
+    },
+    {
+      "id": "a7aa503b-f8c6-4ce3-bedb-ce09df565f70",
+      "execution_id": "test-exec-002",
+      "checkpoint_name": "confidence_check",
+      "triggered_at": "2026-01-24T08:44:21.717Z",
+      "action": "CONTINUE",
+      "passed": true,
+      "role_id": "debugger",
+      "checkpoint_type": "quality_threshold",
+      "evaluation_details": {
+        "reason": "quality_threshold_met",
+        "score": 92,
+        "threshold": 85
+      }
+    },
+    {
+      "id": "d52ddf0d-e2c5-48e0-bb77-44d263dec4ba",
+      "execution_id": "test-exec-003",
+      "checkpoint_name": "confidence_check",
+      "triggered_at": "2026-01-24T08:44:27.599Z",
+      "action": "STOP",
+      "passed": false,
+      "role_id": "debugger",
+      "checkpoint_type": "quality_threshold",
+      "evaluation_details": {
+        "reason": "quality_threshold_not_met",
+        "score": 70,
+        "threshold": 85
+      }
+    },
+    {
+      "id": "e320c667-66f9-4e43-920b-1631a3f444cc",
+      "execution_id": "test-exec-004",
+      "checkpoint_name": "destructive_operation",
+      "triggered_at": "2026-01-24T08:44:33.919Z",
+      "action": "ESCALATE",
+      "passed": false,
+      "role_id": "debugger",
+      "checkpoint_type": "manual",
+      "evaluation_details": {
+        "reason": "escalation_triggered",
+        "target": "senior_engineer"
+      }
+    },
+    {
+      "id": "a27a9f7e-de7c-48ed-becb-596c8c5fa7d6",
+      "execution_id": "test-exec-005",
+      "checkpoint_name": "some_checkpoint",
+      "triggered_at": "2026-01-24T08:44:40.527Z",
+      "action": "CONTINUE",
+      "passed": true,
+      "reason": "no_role_config"
+    },
+    {
+      "id": "2c1692ef-26d4-4804-95d3-482c3c4dadd3",
+      "execution_id": "test-001",
+      "checkpoint_name": "confidence_check",
+      "triggered_at": "2026-01-24T09:44:13.929Z",
+      "action": "CONTINUE",
+      "passed": true,
+      "role_id": "debugger",
+      "checkpoint_type": "quality_threshold",
+      "evaluation_details": {
+        "reason": "quality_threshold_met",
+        "score": 90,
+        "threshold": 85
+      }
+    },
+    {
+      "id": "d43a9a54-b3b0-4e69-a528-b0bfdb9c9c1e",
+      "execution_id": "test-002",
+      "checkpoint_name": "confidence_check",
+      "triggered_at": "2026-01-24T09:44:15.299Z",
+      "action": "STOP",
+      "passed": false,
+      "role_id": "debugger",
+      "checkpoint_type": "quality_threshold",
+      "evaluation_details": {
+        "reason": "quality_threshold_not_met",
+        "score": 70,
+        "threshold": 85
+      }
+    },
+    {
+      "id": "9310df11-3bfd-4b9c-b226-a5f441695f61",
+      "execution_id": "test-003",
+      "checkpoint_name": "destructive_operation",
+      "triggered_at": "2026-01-24T09:44:16.662Z",
+      "action": "ESCALATE",
+      "passed": false,
+      "role_id": "debugger",
+      "checkpoint_type": "escalation",
+      "evaluation_details": {
+        "reason": "escalation_triggered",
+        "target": "senior_engineer"
+      }
+    },
+    {
+      "id": "c246537f-2433-4921-8429-bb1ad390b64a",
+      "execution_id": "test-004",
+      "checkpoint_name": "root_cause_identified",
+      "triggered_at": "2026-01-24T09:44:17.738Z",
+      "action": "STOP",
+      "passed": false,
+      "role_id": "debugger",
+      "checkpoint_type": "human_review",
+      "evaluation_details": {
+        "reason": "human_review_required",
+        "review_criteria": [
+          "Root cause is clearly identified with evidence",
+          "Investigation path is documented",
+          "Proposed fix is minimal and targeted"
+        ],
+        "artifacts": []
+      }
+    },
+    {
+      "id": "ef067a2d-4ad4-4f7f-af40-0420f69638c1",
+      "execution_id": "test-005",
+      "checkpoint_name": "security_issues_found",
+      "triggered_at": "2026-01-24T09:44:28.109Z",
+      "action": "ESCALATE",
+      "passed": false,
+      "role_id": "code_reviewer",
+      "checkpoint_type": "escalation",
+      "evaluation_details": {
+        "reason": "escalation_triggered",
+        "target": "security_team"
+      }
+    },
+    {
+      "id": "8d5bffdb-89c4-4b1a-9588-ced42dc52a79",
+      "execution_id": "test-006",
+      "checkpoint_name": "quality_assessment",
+      "triggered_at": "2026-01-24T09:44:29.357Z",
+      "action": "CONTINUE",
+      "passed": true,
+      "role_id": "code_reviewer",
+      "checkpoint_type": "quality_threshold",
+      "evaluation_details": {
+        "reason": "quality_threshold_met",
+        "score": 80,
+        "threshold": 75
+      }
+    },
+    {
+      "id": "dacb604d-c86e-4950-bbd3-87f72433ffb7",
+      "execution_id": "test-007",
+      "checkpoint_name": "high_risk_plan",
+      "triggered_at": "2026-01-24T09:44:30.970Z",
+      "action": "ESCALATE",
+      "passed": false,
+      "role_id": "planner",
+      "checkpoint_type": "escalation",
+      "evaluation_details": {
+        "reason": "escalation_triggered",
+        "target": "tech_lead"
+      }
+    },
+    {
+      "id": "0a25390b-3f07-417c-8079-9a7aa601d491",
+      "execution_id": "test-008",
+      "checkpoint_name": "unknown_checkpoint",
+      "triggered_at": "2026-01-24T09:44:32.450Z",
+      "action": "CONTINUE",
+      "passed": true,
+      "reason": "no_role_config"
+    }
+  ],
+  "summary": {
+    "test-exec-001": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "checkpoints": [
+        "root_cause_identified"
+      ],
+      "last_updated": "2026-01-24T08:44:15.445Z"
+    },
+    "test-exec-002": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "checkpoints": [
+        "confidence_check"
+      ],
+      "last_updated": "2026-01-24T08:44:21.719Z"
+    },
+    "test-exec-003": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "checkpoints": [
+        "confidence_check"
+      ],
+      "last_updated": "2026-01-24T08:44:27.601Z"
+    },
+    "test-exec-004": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "checkpoints": [
+        "destructive_operation"
+      ],
+      "last_updated": "2026-01-24T08:44:33.922Z"
+    },
+    "test-exec-005": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "checkpoints": [
+        "some_checkpoint"
+      ],
+      "last_updated": "2026-01-24T08:44:40.530Z"
+    },
+    "test-001": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "checkpoints": [
+        "confidence_check"
+      ],
+      "last_updated": "2026-01-24T09:44:13.938Z"
+    },
+    "test-002": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "checkpoints": [
+        "confidence_check"
+      ],
+      "last_updated": "2026-01-24T09:44:15.304Z"
+    },
+    "test-003": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "checkpoints": [
+        "destructive_operation"
+      ],
+      "last_updated": "2026-01-24T09:44:16.664Z"
+    },
+    "test-004": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "checkpoints": [
+        "root_cause_identified"
+      ],
+      "last_updated": "2026-01-24T09:44:17.741Z"
+    },
+    "test-005": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "checkpoints": [
+        "security_issues_found"
+      ],
+      "last_updated": "2026-01-24T09:44:28.111Z"
+    },
+    "test-006": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "checkpoints": [
+        "quality_assessment"
+      ],
+      "last_updated": "2026-01-24T09:44:29.363Z"
+    },
+    "test-007": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "checkpoints": [
+        "high_risk_plan"
+      ],
+      "last_updated": "2026-01-24T09:44:30.972Z"
+    },
+    "test-008": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "checkpoints": [
+        "unknown_checkpoint"
+      ],
+      "last_updated": "2026-01-24T09:44:32.453Z"
+    }
+  }
+}

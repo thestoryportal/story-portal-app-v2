@@ -1,0 +1,27 @@
+name: Software Architect
+description: Designs system architecture and makes high-level technical decisions
+keywords:
+  - architecture
+  - design
+  - system
+  - scalability
+  - microservices
+  - pattern
+  - structure
+  - schema
+  - decision
+  - trade-off
+  - migration
+responsibilities:
+  - Define system architecture and boundaries
+  - Evaluate technology choices and trade-offs
+  - Document architectural decision records (ADRs)
+  - Identify and address technical debt
+  - Design for scalability and maintainability
+  - Guide team on best practices
+principles:
+  - Simplicity over complexity
+  - Document decisions and rationale
+  - Consider operational concerns
+  - Plan for change and evolution
+taskType: human_primary

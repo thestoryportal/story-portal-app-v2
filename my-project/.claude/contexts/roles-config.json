@@ -1,0 +1,135 @@
+{
+  "version": "1.0",
+  "description": "Role definitions with stop checkpoints for quality gate enforcement",
+  "roles": {
+    "smoke-modal-ux-designer": {
+      "name": "Smoke Modal UX Designer",
+      "description": "Expert UX Designer for modal component design",
+      "stop_checkpoints": [
+        {
+          "name": "design_review",
+          "action": "human_review",
+          "triggers": ["phase_complete", "artifact_ready"],
+          "review_prompt": "UX design phase complete. Please review the proposed interaction patterns, accessibility considerations, and visual hierarchy before proceeding to implementation.",
+          "criteria": [
+            "Interaction patterns follow established modal conventions",
+            "Accessibility requirements are documented (WCAG 2.1 AA)",
+            "Responsive behavior is specified for all breakpoints",
+            "Edge cases are addressed"
+          ]
+        },
+        {
+          "name": "accessibility_audit",
+          "action": "auto_approve_if_quality_above",
+          "threshold": 90,
+          "triggers": ["quality_threshold"],
+          "review_prompt": "Accessibility audit complete. Score must be 90+ to auto-approve."
+        },
+        {
+          "name": "implementation_handoff",
+          "action": "human_review",
+          "triggers": ["artifact_ready"],
+          "review_prompt": "Design specifications are ready for developer handoff. Please verify completeness before implementation begins."
+        }
+      ]
+    },
+    "debugger": {
+      "name": "Debugger",
+      "description": "Expert debugging agent for deep code investigation",
+      "stop_checkpoints": [
+        {
+          "name": "root_cause_identified",
+          "action": "human_review",
+          "triggers": ["phase_complete"],
+          "review_prompt": "Root cause analysis complete. Please review the findings and proposed fix before applying changes.",
+          "criteria": [
+            "Root cause is clearly identified with evidence",
+            "Investigation path is documented",
+            "Proposed fix is minimal and targeted"
+          ]
+        },
+        {
+          "name": "destructive_operation",
+          "action": "escalate",
+          "triggers": ["manual"],
+          "escalate_to": "senior_engineer",
+          "escalation_reason": "Proposed fix involves destructive operations (database changes, file deletions, etc.)"
+        },
+        {
+          "name": "confidence_check",
+          "action": "auto_approve_if_quality_above",
+          "threshold": 85,
+          "triggers": ["quality_threshold"],
+          "review_prompt": "Confidence level check. High confidence (85%+) auto-approves, otherwise requires human review."
+        }
+      ]
+    },
+    "code_reviewer": {
+      "name": "Code Reviewer",
+      "description": "Automated code review with quality gates",
+      "stop_checkpoints": [
+        {
+          "name": "security_issues_found",
+          "action": "escalate",
+          "triggers": ["artifact_ready"],
+          "escalate_to": "security_team",
+          "escalation_reason": "Potential security vulnerabilities detected in code review"
+        },
+        {
+          "name": "quality_assessment",
+          "action": "auto_approve_if_quality_above",
+          "threshold": 75,
+          "triggers": ["quality_threshold"],
+          "review_prompt": "Code quality assessment. Score 75+ auto-approves."
+        },
+        {
+          "name": "breaking_changes",
+          "action": "human_review",
+          "triggers": ["artifact_ready"],
+          "review_prompt": "Breaking changes detected. Please review API/interface changes and their impact on dependent code."
+        }
+      ]
+    },
+    "planner": {
+      "name": "Planning Agent",
+      "description": "Strategic planning and task decomposition",
+      "stop_checkpoints": [
+        {
+          "name": "plan_approval",
+          "action": "human_review",
+          "triggers": ["phase_complete"],
+          "review_prompt": "Execution plan ready for approval. Review task breakdown, dependencies, and estimated effort.",
+          "criteria": [
+            "Tasks are clearly defined and actionable",
+            "Dependencies are correctly mapped",
+            "Effort estimates are reasonable",
+            "Risks are identified"
+          ]
+        },
+        {
+          "name": "high_risk_plan",
+          "action": "escalate",
+          "triggers": ["manual"],
+          "escalate_to": "tech_lead",
+          "escalation_reason": "Plan involves high-risk changes requiring senior review"
+        }
+      ]
+    }
+  },
+  "default_checkpoints": {
+    "description": "Applied when role has no specific checkpoints defined",
+    "checkpoints": [
+      {
+        "name": "completion_review",
+        "action": "human_review",
+        "triggers": ["phase_complete"],
+        "review_prompt": "Task phase completed. Please review before proceeding."
+      }
+    ]
+  },
+  "global_settings": {
+    "record_all_checkpoints": true,
+    "max_records": 500,
+    "auto_cleanup_days": 30
+  }
+}

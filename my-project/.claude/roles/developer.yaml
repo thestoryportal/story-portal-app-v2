@@ -1,0 +1,17 @@
+# Developer Role Definition
+name: Developer
+description: Full-stack developer role with coding and testing skills
+
+# Core skills loaded for this role (in priority order)
+core_skills:
+  - coding-standards
+  - testing
+  - git-workflow
+
+# Optional metadata
+capabilities:
+  - code-review
+  - debugging
+  - documentation
+
+priority: 1
