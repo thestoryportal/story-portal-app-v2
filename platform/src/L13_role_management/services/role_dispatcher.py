@@ -103,11 +103,15 @@ class RoleDispatcher:
                 matches = await self.role_registry.dispatch_for_task(requirements)
         else:
             # Apply role type filter from classification
-            requirements_with_type = TaskRequirements(
-                **requirements.model_dump(),
-                role_type_preference=classification.classification
-            )
+            req_dict = requirements.model_dump()
+            req_dict["role_type_preference"] = classification.classification
+            requirements_with_type = TaskRequirements(**req_dict)
             matches = await self.role_registry.dispatch_for_task(requirements_with_type)
+
+            # Fall back to no role_type filter if no matches found
+            if not matches:
+                logger.info(f"No roles found for type {classification.classification}, searching all types")
+                matches = await self.role_registry.dispatch_for_task(requirements)
 
         if not matches:
             raise ValueError(f"No matching roles found for task {task_id}")
