@@ -60,36 +60,36 @@ export function loadConfig(): ServerConfig {
 
     postgres: {
       host: process.env.POSTGRES_HOST || 'localhost',
-      port: parseInt(process.env.POSTGRES_PORT || '5433', 10),
-      database: process.env.POSTGRES_DB || 'consolidator',
-      user: process.env.POSTGRES_USER || 'consolidator',
-      password: process.env.POSTGRES_PASSWORD || 'consolidator_secret',
+      port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
+      database: process.env.POSTGRES_DB || 'agentic_platform',
+      user: process.env.POSTGRES_USER || 'postgres',
+      password: process.env.POSTGRES_PASSWORD || 'postgres',
       ssl: process.env.POSTGRES_SSL === 'true'
     },
 
     redis: {
       host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT || '6380', 10),
+      port: parseInt(process.env.REDIS_PORT || '6379', 10),
       password: process.env.REDIS_PASSWORD || undefined
     },
 
     neo4j: {
-      uri: process.env.NEO4J_URI || 'bolt://localhost:7688',
+      uri: process.env.NEO4J_URI || 'bolt://localhost:7687',
       username: process.env.NEO4J_USER || 'neo4j',
-      password: process.env.NEO4J_PASSWORD || 'consolidator_secret'
+      password: process.env.NEO4J_PASSWORD || 'neo4j'
     },
 
     elasticsearch: {
       host: process.env.ELASTICSEARCH_HOST || 'localhost',
-      port: parseInt(process.env.ELASTICSEARCH_PORT || '9201', 10),
+      port: parseInt(process.env.ELASTICSEARCH_PORT || '9200', 10),
       index: process.env.ELASTICSEARCH_INDEX || 'context_orchestrator',
       username: process.env.ELASTICSEARCH_USERNAME,
       password: process.env.ELASTICSEARCH_PASSWORD
     },
 
     ollama: {
-      baseUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11435',
-      defaultModel: process.env.OLLAMA_DEFAULT_MODEL || 'llama3.1:8b',
+      baseUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
+      defaultModel: process.env.OLLAMA_DEFAULT_MODEL || 'llama3.2:3b',
       timeout: parseInt(process.env.OLLAMA_TIMEOUT || '120000', 10)
     },
 
