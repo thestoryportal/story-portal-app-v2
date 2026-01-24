@@ -12,6 +12,7 @@ import {
 import { loadConfig } from './config.js';
 import { createDatabaseService, type DatabaseService } from './db/index.js';
 import { EmbeddingPipeline, SimpleEmbedding } from './ai/embedding-pipeline.js';
+import { OllamaEmbeddingPipeline } from './ai/ollama-embedding-pipeline.js';
 import { LLMPipeline, MockLLMPipeline } from './ai/llm-pipeline.js';
 import { EntityResolver } from './components/entity-resolver.js';
 import {
@@ -153,18 +154,31 @@ class DocumentConsolidatorServer {
     });
     await db.initialize();
 
-    // Initialize embedding service (use fallback if disabled)
+    // Initialize embedding service based on provider configuration
     let embeddingPipeline: EmbeddingService;
     if (config.embedding.enabled) {
-      const realPipeline = new EmbeddingPipeline({
-        pythonPath: config.embedding.pythonPath,
-        modelName: config.embedding.model,
-        batchSize: config.embedding.batchSize,
-        cacheEnabled: config.embedding.cacheEnabled
-      });
-      await realPipeline.initialize();
-      embeddingPipeline = realPipeline;
-      console.error('Embedding pipeline initialized (Python)');
+      if (config.embedding.provider === 'ollama') {
+        const ollamaPipeline = new OllamaEmbeddingPipeline({
+          baseUrl: config.ollama.baseUrl,
+          model: config.embedding.ollamaModel,
+          dimensions: config.embedding.ollamaDimensions,
+          batchSize: config.embedding.batchSize
+        });
+        await ollamaPipeline.initialize();
+        embeddingPipeline = ollamaPipeline;
+        console.error(`Embedding pipeline initialized (Ollama: ${config.embedding.ollamaModel})`);
+      } else {
+        // HuggingFace via Python subprocess
+        const realPipeline = new EmbeddingPipeline({
+          pythonPath: config.embedding.pythonPath,
+          modelName: config.embedding.model,
+          batchSize: config.embedding.batchSize,
+          cacheEnabled: config.embedding.cacheEnabled
+        });
+        await realPipeline.initialize();
+        embeddingPipeline = realPipeline;
+        console.error(`Embedding pipeline initialized (HuggingFace: ${config.embedding.model})`);
+      }
     } else {
       embeddingPipeline = new SimpleEmbedding();
       console.error('Embedding pipeline disabled - using simple fallback');
@@ -261,29 +275,64 @@ class DocumentConsolidatorServer {
   }
 
   async shutdown(): Promise<void> {
+    console.error('DocumentConsolidatorServer.shutdown() called');
     if (this.deps) {
       if (this.deps.embeddingPipeline.shutdown) {
+        console.error('Calling embeddingPipeline.shutdown()...');
         await this.deps.embeddingPipeline.shutdown();
+        console.error('embeddingPipeline.shutdown() completed');
       }
+      console.error('Closing database...');
       await this.deps.db.close();
+      console.error('Database closed');
     }
+    console.error('Closing MCP server...');
     await this.server.close();
+    console.error('MCP server closed');
   }
 }
 
 // Main entry point
 async function main(): Promise<void> {
   const server = new DocumentConsolidatorServer();
+  let isShuttingDown = false;
 
-  // Handle graceful shutdown
-  const shutdown = async () => {
-    console.error('Shutting down...');
-    await server.shutdown();
-    process.exit(0);
+  // Handle graceful shutdown with proper async completion
+  const shutdown = (signal: string) => {
+    process.stderr.write(`shutdown() called with ${signal}\n`);
+    if (isShuttingDown) {
+      process.stderr.write(`Already shutting down, ignoring ${signal}\n`);
+      return;
+    }
+    isShuttingDown = true;
+    process.stderr.write(`Starting shutdown for ${signal}...\n`);
+
+    // Use a timer ref to keep the event loop alive during async shutdown
+    const keepAlive = setInterval(() => {}, 100);
+
+    // Run shutdown asynchronously
+    (async () => {
+      try {
+        await server.shutdown();
+        console.error('Shutdown complete');
+      } catch (error) {
+        console.error('Shutdown error:', error);
+      } finally {
+        clearInterval(keepAlive);
+        process.exit(0);
+      }
+    })();
   };
 
-  process.on('SIGINT', shutdown);
-  process.on('SIGTERM', shutdown);
+  // Force immediate output to verify handler is called
+  process.on('SIGINT', () => {
+    process.stderr.write('SIGINT handler called\n');
+    shutdown('SIGINT');
+  });
+  process.on('SIGTERM', () => {
+    process.stderr.write('SIGTERM handler called\n');
+    shutdown('SIGTERM');
+  });
 
   try {
     await server.initialize();

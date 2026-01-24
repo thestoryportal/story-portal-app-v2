@@ -33,7 +33,7 @@ export interface LocalLLMConfig {
 
 /** Default configuration */
 const DEFAULT_CONFIG: Required<LocalLLMConfig> = {
-  model: 'llama3.2:1b',
+  model: process.env.PROMPT_OPTIMIZER_MODEL || 'llama3.2:3b',
   baseUrl: 'http://localhost:11434',
   timeout: 60000,
   temperature: 0.3,

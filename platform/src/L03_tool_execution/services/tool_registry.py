@@ -13,6 +13,7 @@ Features:
 
 import asyncio
 import logging
+import os
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime, timedelta
 import psycopg
@@ -49,8 +50,8 @@ class ToolRegistry:
         self,
         db_connection_string: str,
         ollama_base_url: str = "http://localhost:11434",
-        embedding_model: str = "mistral:7b",
-        embedding_dimensions: int = 768,
+        embedding_model: str = os.environ.get("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text"),
+        embedding_dimensions: int = int(os.environ.get("OLLAMA_EMBEDDING_DIMENSIONS", "768")),
         semantic_search_threshold: float = 0.7,
     ):
         """

@@ -215,10 +215,43 @@ export class EmbeddingPipeline {
   }
 
   async shutdown(): Promise<void> {
+    console.error('EmbeddingPipeline.shutdown() called');
     if (this.pythonProcess) {
-      this.pythonProcess.kill();
+      const proc = this.pythonProcess;
+      const pid = proc.pid;
+      console.error(`Python process PID: ${pid}`);
       this.pythonProcess = null;
       this.isInitialized = false;
+
+      // Close stdin first to trigger EOF in Python's readline
+      // This allows graceful exit without needing signal interruption
+      console.error('Closing Python stdin...');
+      proc.stdin?.end();
+
+      // Wait for process to exit, with timeout
+      const exitPromise = new Promise<void>((resolve) => {
+        proc.once('exit', (code) => {
+          console.error(`Python process exited with code ${code}`);
+          resolve();
+        });
+      });
+
+      const timeoutPromise = new Promise<void>((resolve) => {
+        setTimeout(() => {
+          // If still running after 2 seconds, force kill
+          if (!proc.killed) {
+            console.error('Python process did not exit, sending SIGKILL...');
+            proc.kill('SIGKILL');
+          }
+          resolve();
+        }, 2000);
+      });
+
+      console.error('Waiting for Python process to exit...');
+      await Promise.race([exitPromise, timeoutPromise]);
+      console.error('Python process shutdown complete');
+    } else {
+      console.error('No Python process to shutdown');
     }
   }
 }

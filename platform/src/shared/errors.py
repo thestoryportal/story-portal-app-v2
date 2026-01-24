@@ -111,11 +111,11 @@ class ErrorResponse(BaseModel):
     error: Dict[str, Any] = Field(
         ...,
         description="Error information",
-        example={
+        json_schema_extra={"example": {
             "code": "VAL_INVALID_INPUT",
             "message": "Validation failed",
             "timestamp": "2026-01-18T10:30:45.123456Z",
-        }
+        }}
     )
 
     @classmethod

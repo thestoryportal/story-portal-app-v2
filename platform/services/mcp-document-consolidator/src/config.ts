@@ -41,8 +41,11 @@ const ConfigSchema = z.object({
 
   embedding: z.object({
     enabled: z.boolean().default(true),
+    provider: z.enum(['huggingface', 'ollama']).default('ollama'),
     pythonPath: z.string().default('python3'),
     model: z.string().default('all-MiniLM-L6-v2'),
+    ollamaModel: z.string().default('nomic-embed-text'),
+    ollamaDimensions: z.number().int().default(768),
     batchSize: z.number().int().default(32),
     cacheEnabled: z.boolean().default(true)
   }),
@@ -100,8 +103,11 @@ export function loadConfig(): Config {
     },
     embedding: {
       enabled: process.env.EMBEDDING_ENABLED !== 'false',
+      provider: process.env.EMBEDDING_PROVIDER as 'huggingface' | 'ollama' | undefined,
       pythonPath: process.env.PYTHON_PATH || process.env.EMBEDDING_PYTHON_PATH,
       model: process.env.EMBEDDING_MODEL,
+      ollamaModel: process.env.OLLAMA_EMBEDDING_MODEL,
+      ollamaDimensions: parseInt(process.env.OLLAMA_EMBEDDING_DIMENSIONS || '768'),
       batchSize: parseInt(process.env.EMBEDDING_BATCH_SIZE || '32'),
       cacheEnabled: process.env.EMBEDDING_CACHE_ENABLED !== 'false'
     },

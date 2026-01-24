@@ -4,7 +4,7 @@ Role models for L13 Role Management Layer.
 Defines the core data structures for role-based task routing and context building.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 from uuid import UUID, uuid4
@@ -116,8 +116,7 @@ class Role(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RoleMatch(BaseModel):
@@ -167,8 +166,7 @@ class RoleContext(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Context metadata")
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ClassificationResult(BaseModel):
