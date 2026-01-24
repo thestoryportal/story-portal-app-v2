@@ -24,6 +24,10 @@ class InvocationStatus(str, Enum):
     ERROR = "error"
     PENDING = "pending"
     TIMEOUT = "timeout"
+    # Workflow execution states
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 
 class ErrorCode(str, Enum):
@@ -38,6 +42,7 @@ class ErrorCode(str, Enum):
     TIMEOUT_ERROR = "timeout_error"
     PERMISSION_DENIED = "permission_denied"
     UNKNOWN_ERROR = "unknown_error"
+    INTERNAL_ERROR = "internal_error"
 
 
 class InvokeRequest(BaseModel):
