@@ -137,6 +137,56 @@ export function createRollbackToTool(deps: ToolDependencies): Tool<unknown, Roll
         resumePrompt: restoredContext.resumePrompt
       });
 
+      // Platform Services Integration
+      if (deps.platform) {
+        // Try to restore from StateManager checkpoint (if checkpoint-based rollback)
+        if (target.type === 'checkpoint') {
+          try {
+            const platformCheckpoint = await deps.platform.stateManager.restoreCheckpoint(target.checkpointId);
+            if (platformCheckpoint) {
+              console.error('Successfully restored from StateManager checkpoint');
+            }
+          } catch (error) {
+            console.error('StateManager checkpoint restore failed (using database):', error);
+          }
+        }
+
+        // Create EventStore entry for rollback audit trail
+        try {
+          await deps.platform.eventStore.createContextEvent(
+            taskId,
+            'context_rolled_back',
+            {
+              targetType: target.type,
+              targetIdentifier: target.type === 'version' ? target.version : target.checkpointId,
+              backupCheckpointId,
+              restoredState: {
+                currentPhase: restoredContext.currentPhase,
+                iteration: restoredContext.iteration,
+                status: restoredContext.status
+              }
+            },
+            sessionId
+          );
+        } catch (error) {
+          console.error('Failed to create EventStore rollback event:', error);
+        }
+
+        // Update StateManager hot state with restored context
+        try {
+          await deps.platform.stateManager.saveHotState(taskId, {
+            taskId: restoredContext.taskId,
+            status: restoredContext.status,
+            currentPhase: restoredContext.currentPhase,
+            iteration: restoredContext.iteration,
+            immediateContext: restoredContext.immediateContext,
+            timestamp
+          });
+        } catch (error) {
+          console.error('Failed to update StateManager hot state:', error);
+        }
+      }
+
       return {
         success: true,
         taskId,

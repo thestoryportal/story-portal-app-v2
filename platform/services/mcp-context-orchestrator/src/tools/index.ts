@@ -21,6 +21,7 @@ export interface ToolDependencies {
   neo4j: import('../graph/neo4j-client.js').Neo4jGraph | null;
   projectId: string;
   contextsDir: string;
+  platform?: import('../platform/index.js').PlatformServices;
 }
 
 export interface Tool<TInput, TOutput> {

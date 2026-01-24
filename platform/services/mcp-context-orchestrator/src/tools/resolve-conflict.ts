@@ -95,6 +95,50 @@ export function createResolveConflictTool(deps: ToolDependencies): Tool<unknown,
         await deps.redis.releaseLock(conflict.taskAId, 'system-resolution');
       }
 
+      // Platform Services Integration
+      if (deps.platform) {
+        // Log conflict resolution to EventStore for audit trail
+        try {
+          await deps.platform.eventStore.createContextEvent(
+            conflict.taskAId,
+            'conflict_resolved',
+            {
+              conflictId,
+              conflictType: conflict.conflictType,
+              previousStatus,
+              newStatus,
+              resolution: {
+                action: resolution.action,
+                notes: resolution.notes
+              },
+              affectedTasks: [conflict.taskAId, conflict.taskBId].filter(Boolean)
+            },
+            resolvedBy
+          );
+        } catch (error) {
+          console.error('Failed to log conflict resolution to EventStore:', error);
+        }
+
+        // If state was synced, also update StateManager hot state
+        if (conflict.conflictType === 'state_mismatch' && resolution.action !== 'ignore') {
+          const taskA = await db.getTaskContext(conflict.taskAId);
+          if (taskA) {
+            try {
+              await deps.platform.stateManager.saveHotState(taskA.taskId, {
+                taskId: taskA.taskId,
+                status: taskA.status,
+                currentPhase: taskA.currentPhase,
+                iteration: taskA.iteration,
+                immediateContext: taskA.immediateContext,
+                timestamp
+              });
+            } catch (error) {
+              console.error('Failed to update StateManager hot state after resolution:', error);
+            }
+          }
+        }
+      }
+
       return {
         success: true,
         conflictId,

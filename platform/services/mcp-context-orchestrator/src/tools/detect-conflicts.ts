@@ -235,6 +235,28 @@ export function createDetectConflictsTool(deps: ToolDependencies): Tool<unknown,
         highCount: allConflicts.filter(c => c.severity === 'high').length
       };
 
+      // Platform Services Integration
+      if (deps.platform && detected.length > 0) {
+        // Log conflict detection events to EventStore for audit trail
+        try {
+          await deps.platform.eventStore.createContextEvent(
+            deps.projectId,
+            'conflicts_detected',
+            {
+              newConflicts: detected.length,
+              totalConflicts: allConflicts.length,
+              criticalCount: summary.criticalCount,
+              highCount: summary.highCount,
+              conflictTypes: [...new Set(detected.map(c => c.conflictType))],
+              affectedTasks: [...new Set(detected.flatMap(c => [c.taskAId, c.taskBId].filter(Boolean)))]
+            },
+            undefined // no session ID for system detection
+          );
+        } catch (error) {
+          console.error('Failed to log conflict detection to EventStore:', error);
+        }
+      }
+
       return {
         detected,
         existing: existingConflicts.map(c => ({

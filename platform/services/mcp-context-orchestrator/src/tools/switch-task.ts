@@ -144,6 +144,68 @@ export function createSwitchTaskTool(deps: ToolDependencies): Tool<unknown, Swit
       // Update task last session time
       await db.updateTaskContext(toTaskId, {});
 
+      // Platform Services Integration
+      if (deps.platform) {
+        // Update session tracking via SessionService
+        if (sessionId) {
+          try {
+            // Update session with new task context
+            await deps.platform.sessionService.updateSession(sessionId, {
+              taskId: toTaskId,
+              status: 'active'
+            });
+          } catch (error) {
+            console.error('Failed to update session via SessionService:', error);
+          }
+        }
+
+        // Create EventStore entry for task switch audit trail
+        try {
+          await deps.platform.eventStore.createContextEvent(
+            toTaskId,
+            'task_switched',
+            {
+              fromTaskId,
+              toTaskId,
+              previousTaskSaved: previousTask?.saved ?? false,
+              previousTaskVersion: previousTask?.version
+            },
+            sessionId
+          );
+        } catch (error) {
+          console.error('Failed to create EventStore task switch event:', error);
+        }
+
+        // Save hot state for quick access
+        try {
+          await deps.platform.stateManager.saveHotState(toTaskId, {
+            taskId: newTaskContext.taskId,
+            status: newTaskContext.status,
+            currentPhase: newTaskContext.currentPhase,
+            iteration: newTaskContext.iteration,
+            immediateContext: newTaskContext.immediateContext,
+            timestamp
+          });
+        } catch (error) {
+          console.error('Failed to save hot state to StateManager:', error);
+        }
+
+        // Cache task context in SemanticCache for similarity search
+        try {
+          await deps.platform.semanticCache.cacheTaskContext(toTaskId, {
+            name: newTaskContext.name,
+            description: newTaskContext.description,
+            keywords: newTaskContext.keywords,
+            keyFiles: newTaskContext.keyFiles,
+            immediateContext: newTaskContext.immediateContext,
+            technicalDecisions: newTaskContext.technicalDecisions,
+            resumePrompt: newTaskContext.resumePrompt
+          });
+        } catch (error) {
+          console.error('Failed to cache task context in SemanticCache:', error);
+        }
+      }
+
       return {
         success: true,
         previousTask,

@@ -21,6 +21,7 @@ import { loadConfig, type ServerConfig } from './config.js';
 import * as db from './db/client.js';
 import { RedisCache } from './cache/redis-client.js';
 import { Neo4jGraph } from './graph/neo4j-client.js';
+import { PlatformBridge } from './platform/index.js';
 import {
   createGetUnifiedContextTool,
   createSaveContextSnapshotTool,
@@ -49,6 +50,7 @@ interface ServerDependencies {
   redis: RedisCache;
   neo4j: Neo4jGraph | null;
   projectId: string;
+  platform: PlatformBridge;
 }
 
 class ContextOrchestratorServer {
@@ -201,20 +203,36 @@ class ContextOrchestratorServer {
       console.error('Neo4j disabled via NEO4J_ENABLED=false');
     }
 
+    // Initialize Platform Services Bridge
+    const platform = new PlatformBridge({
+      redisUrl: `redis://${config.redis.host}:${config.redis.port}`,
+      enableEmbeddings: process.env.EMBEDDINGS_ENABLED !== 'false',
+      ollamaUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
+    });
+
+    try {
+      await platform.initialize();
+      console.error('Platform services bridge initialized');
+    } catch (error) {
+      console.error('Platform services initialization failed (continuing with core features):', error instanceof Error ? error.message : error);
+    }
+
     // Store dependencies
     this.deps = {
       config,
       redis,
       neo4j,
-      projectId: config.projectId
+      projectId: config.projectId,
+      platform
     };
 
-    // Create tools
+    // Create tools with platform services integration
     const toolDeps = {
       redis,
       neo4j,
       projectId: config.projectId,
-      contextsDir: config.contextsDir
+      contextsDir: config.contextsDir,
+      platform: platform.getServices()
     };
 
     const getUnifiedContextTool = createGetUnifiedContextTool(toolDeps);
@@ -226,7 +244,7 @@ class ContextOrchestratorServer {
     const resolveConflictTool = createResolveConflictTool(toolDeps);
     const getTaskGraphTool = createGetTaskGraphTool(toolDeps);
     const syncHotContextTool = createSyncHotContextTool(toolDeps);
-    const checkRecoveryTool = createCheckRecoveryTool();
+    const checkRecoveryTool = createCheckRecoveryTool(toolDeps);
 
     // Register tools
     this.tools.set('get_unified_context', { execute: (input: unknown) => getUnifiedContextTool.execute(input) });
@@ -251,6 +269,7 @@ class ContextOrchestratorServer {
 
   async shutdown(): Promise<void> {
     if (this.deps) {
+      await this.deps.platform.close();
       await this.deps.redis.disconnect();
       if (this.deps.neo4j) {
         await this.deps.neo4j.disconnect();

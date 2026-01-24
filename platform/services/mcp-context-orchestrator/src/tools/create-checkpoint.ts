@@ -121,6 +121,41 @@ export function createCreateCheckpointTool(deps: ToolDependencies): Tool<unknown
         createdAt
       });
 
+      // Platform Services Integration - StateManager checkpoint
+      if (deps.platform && taskId) {
+        try {
+          const taskContext = (snapshot.tasks as Record<string, unknown>)?.[taskId];
+          if (taskContext) {
+            // Create checkpoint via StateManager for unified state management
+            await deps.platform.stateManager.createCheckpoint(
+              taskId,
+              sessionId || 'unknown',
+              {
+                status: (taskContext as Record<string, unknown>).status as 'idle' | 'running' | 'paused' | 'completed' | 'failed' || 'idle',
+                currentTask: label,
+                progress: (taskContext as Record<string, unknown>).score as number || 0,
+              },
+              taskContext as Record<string, unknown>,
+              { checkpointId, label, checkpointType }
+            );
+          }
+        } catch (error) {
+          console.error('Failed to create StateManager checkpoint:', error);
+        }
+
+        // Create EventStore entry for checkpoint
+        try {
+          await deps.platform.eventStore.createContextEvent(
+            taskId || deps.projectId,
+            'checkpoint_created',
+            { checkpointId, label, scope, includedTasks: allTaskIds },
+            sessionId
+          );
+        } catch (error) {
+          console.error('Failed to create EventStore entry:', error);
+        }
+      }
+
       return {
         success: true,
         checkpointId,

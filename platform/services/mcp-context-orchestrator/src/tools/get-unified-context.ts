@@ -60,10 +60,17 @@ export interface UnifiedContextOutput {
     severity: string;
     description: string;
   }>;
+  similarTasks?: Array<{
+    taskId: string;
+    similarity: number;
+    context: Record<string, unknown>;
+  }>;
   metadata: {
     source: 'database' | 'cache' | 'hybrid';
     loadedAt: string;
     cacheHit: boolean;
+    hotStateAvailable?: boolean;
+    hotStateTimestamp?: string;
   };
 }
 
@@ -181,6 +188,64 @@ export function createGetUnifiedContextTool(deps: ToolDependencies): Tool<unknow
           severity: c.severity,
           description: c.description
         }));
+      }
+
+      // Platform Services Integration
+      if (deps.platform) {
+        // Try to get hot state from StateManager for faster access
+        if (taskId) {
+          try {
+            const hotState = await deps.platform.stateManager.loadHotState(taskId);
+            if (hotState) {
+              // Merge hot state data into metadata
+              result.metadata.hotStateAvailable = true;
+              result.metadata.hotStateTimestamp = hotState.timestamp?.toISOString?.() || String(hotState.timestamp);
+            }
+          } catch (error) {
+            console.error('Failed to load hot state from StateManager:', error);
+          }
+        }
+
+        // Get similar tasks from SemanticCache for context enrichment
+        if (taskId && result.task) {
+          try {
+            const query = [
+              result.task.name,
+              result.task.currentPhase,
+              result.task.immediateContext.workingOn
+            ].filter(Boolean).join(' ');
+
+            if (query.length > 10) {
+              const similarTasks = await deps.platform.semanticCache.findSimilarTasks(query, 3);
+              if (similarTasks.length > 0) {
+                result.similarTasks = similarTasks
+                  .filter(s => s.taskId !== taskId) // Exclude current task
+                  .map(s => ({
+                    taskId: s.taskId!,
+                    similarity: s.similarity!,
+                    context: s.context || s.value
+                  }));
+              }
+            }
+          } catch (error) {
+            console.error('Failed to find similar tasks via SemanticCache:', error);
+          }
+        }
+
+        // Cache the unified context for future similarity searches
+        if (taskId && result.task) {
+          try {
+            await deps.platform.semanticCache.cacheTaskContext(taskId, {
+              name: result.task.name,
+              keyFiles: result.task.keyFiles,
+              immediateContext: result.task.immediateContext,
+              technicalDecisions: result.task.technicalDecisions,
+              resumePrompt: result.task.resumePrompt
+            });
+          } catch (error) {
+            console.error('Failed to cache context in SemanticCache:', error);
+          }
+        }
       }
 
       return result;

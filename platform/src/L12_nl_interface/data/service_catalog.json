@@ -63,7 +63,74 @@
     "keywords": ["event", "sourcing", "audit", "trail"],
     "dependencies": [],
     "requires_async_init": false,
-    "methods": []
+    "methods": [
+      {
+        "name": "create_event",
+        "description": "Create and persist a new event in the store",
+        "parameters": [
+          {
+            "name": "event_data",
+            "type": "EventCreate",
+            "required": true,
+            "description": "Event creation data including type, aggregate info, and payload"
+          }
+        ],
+        "returns": "Event",
+        "async_method": true
+      },
+      {
+        "name": "get_event",
+        "description": "Retrieve a single event by its ID",
+        "parameters": [
+          {
+            "name": "event_id",
+            "type": "UUID",
+            "required": true,
+            "description": "Unique identifier of the event to retrieve"
+          }
+        ],
+        "returns": "Optional[Event]",
+        "async_method": true
+      },
+      {
+        "name": "query_events",
+        "description": "Query events with filtering by aggregate, type, and pagination",
+        "parameters": [
+          {
+            "name": "aggregate_id",
+            "type": "UUID",
+            "required": false,
+            "description": "Filter by aggregate ID"
+          },
+          {
+            "name": "aggregate_type",
+            "type": "str",
+            "required": false,
+            "description": "Filter by aggregate type (e.g., 'agent', 'session')"
+          },
+          {
+            "name": "event_type",
+            "type": "str",
+            "required": false,
+            "description": "Filter by event type (e.g., 'created', 'updated')"
+          },
+          {
+            "name": "limit",
+            "type": "int",
+            "required": false,
+            "description": "Maximum number of events to return (default: 100)"
+          },
+          {
+            "name": "offset",
+            "type": "int",
+            "required": false,
+            "description": "Number of events to skip (default: 0)"
+          }
+        ],
+        "returns": "List[Event]",
+        "async_method": true
+      }
+    ]
   },
   "FeedbackStore": {
     "service_name": "FeedbackStore",
@@ -107,7 +174,76 @@
     "keywords": ["session", "lifecycle", "tracking", "management"],
     "dependencies": [],
     "requires_async_init": false,
-    "methods": []
+    "methods": [
+      {
+        "name": "create_session",
+        "description": "Create a new session for an agent",
+        "parameters": [
+          {
+            "name": "session_data",
+            "type": "SessionCreate",
+            "required": true,
+            "description": "Session creation data including agent_id and optional metadata"
+          }
+        ],
+        "returns": "Session",
+        "async_method": true
+      },
+      {
+        "name": "get_session",
+        "description": "Retrieve a session by its ID",
+        "parameters": [
+          {
+            "name": "session_id",
+            "type": "UUID",
+            "required": true,
+            "description": "Unique identifier of the session"
+          }
+        ],
+        "returns": "Optional[Session]",
+        "async_method": true
+      },
+      {
+        "name": "update_session",
+        "description": "Update an existing session",
+        "parameters": [
+          {
+            "name": "session_id",
+            "type": "UUID",
+            "required": true,
+            "description": "Unique identifier of the session to update"
+          },
+          {
+            "name": "session_data",
+            "type": "SessionUpdate",
+            "required": true,
+            "description": "Fields to update (status, metadata, ended_at)"
+          }
+        ],
+        "returns": "Optional[Session]",
+        "async_method": true
+      },
+      {
+        "name": "list_sessions",
+        "description": "List sessions with optional agent filter",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "type": "UUID",
+            "required": false,
+            "description": "Filter sessions by agent ID"
+          },
+          {
+            "name": "limit",
+            "type": "int",
+            "required": false,
+            "description": "Maximum number of sessions to return (default: 100)"
+          }
+        ],
+        "returns": "List[Session]",
+        "async_method": true
+      }
+    ]
   },
   "ToolRegistry": {
     "service_name": "ToolRegistry",
@@ -195,7 +331,173 @@
     "keywords": ["state", "checkpoint", "recovery", "persistence"],
     "dependencies": [],
     "requires_async_init": true,
-    "methods": []
+    "methods": [
+      {
+        "name": "create_checkpoint",
+        "description": "Create a persistent checkpoint of agent state",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "type": "str",
+            "required": true,
+            "description": "Unique identifier of the agent"
+          },
+          {
+            "name": "session_id",
+            "type": "str",
+            "required": true,
+            "description": "Current session identifier"
+          },
+          {
+            "name": "state",
+            "type": "AgentState",
+            "required": true,
+            "description": "Agent state enum (IDLE, RUNNING, PAUSED, etc.)"
+          },
+          {
+            "name": "context",
+            "type": "Dict[str, Any]",
+            "required": true,
+            "description": "Agent context data to checkpoint"
+          },
+          {
+            "name": "metadata",
+            "type": "Dict[str, Any]",
+            "required": false,
+            "description": "Optional metadata about the checkpoint"
+          }
+        ],
+        "returns": "str (checkpoint_id)",
+        "async_method": true
+      },
+      {
+        "name": "restore_checkpoint",
+        "description": "Restore agent state from a checkpoint",
+        "parameters": [
+          {
+            "name": "checkpoint_id",
+            "type": "str",
+            "required": true,
+            "description": "ID of the checkpoint to restore"
+          }
+        ],
+        "returns": "StateSnapshot",
+        "async_method": true
+      },
+      {
+        "name": "save_hot_state",
+        "description": "Save agent state to Redis hot cache for fast access",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "type": "str",
+            "required": true,
+            "description": "Unique identifier of the agent"
+          },
+          {
+            "name": "state_data",
+            "type": "Dict[str, Any]",
+            "required": true,
+            "description": "State data to cache"
+          }
+        ],
+        "returns": "None",
+        "async_method": true
+      },
+      {
+        "name": "load_hot_state",
+        "description": "Load agent state from Redis hot cache",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "type": "str",
+            "required": true,
+            "description": "Unique identifier of the agent"
+          }
+        ],
+        "returns": "Optional[Dict[str, Any]]",
+        "async_method": true
+      },
+      {
+        "name": "save_agent_state",
+        "description": "Save agent state with automatic checkpointing",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "type": "str",
+            "required": true,
+            "description": "Unique identifier of the agent"
+          },
+          {
+            "name": "session_id",
+            "type": "str",
+            "required": true,
+            "description": "Current session identifier"
+          },
+          {
+            "name": "state",
+            "type": "AgentState",
+            "required": true,
+            "description": "Agent state enum"
+          },
+          {
+            "name": "context",
+            "type": "Dict[str, Any]",
+            "required": true,
+            "description": "Agent context data"
+          },
+          {
+            "name": "metadata",
+            "type": "Dict[str, Any]",
+            "required": false,
+            "description": "Optional metadata"
+          }
+        ],
+        "returns": "None",
+        "async_method": true
+      },
+      {
+        "name": "load_agent_state",
+        "description": "Load most recent agent state from hot cache or checkpoint",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "type": "str",
+            "required": true,
+            "description": "Unique identifier of the agent"
+          }
+        ],
+        "returns": "Optional[StateSnapshot]",
+        "async_method": true
+      },
+      {
+        "name": "list_checkpoints",
+        "description": "List checkpoints for an agent",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "type": "str",
+            "required": true,
+            "description": "Unique identifier of the agent"
+          },
+          {
+            "name": "limit",
+            "type": "int",
+            "required": false,
+            "description": "Maximum checkpoints to return (default: 10)"
+          }
+        ],
+        "returns": "List[CheckpointMetadata]",
+        "async_method": true
+      },
+      {
+        "name": "cleanup_old_checkpoints",
+        "description": "Remove checkpoints older than retention period",
+        "parameters": [],
+        "returns": "int (number of checkpoints removed)",
+        "async_method": true
+      }
+    ]
   },
   "WorkflowEngine": {
     "service_name": "WorkflowEngine",
@@ -261,7 +563,63 @@
     "keywords": ["cache", "semantic", "embedding", "similarity"],
     "dependencies": [],
     "requires_async_init": false,
-    "methods": []
+    "methods": [
+      {
+        "name": "get",
+        "description": "Retrieve cached response for an inference request using exact match or semantic similarity",
+        "parameters": [
+          {
+            "name": "request",
+            "type": "InferenceRequest",
+            "required": true,
+            "description": "LLM inference request to look up"
+          }
+        ],
+        "returns": "Optional[InferenceResponse]",
+        "async_method": true
+      },
+      {
+        "name": "set",
+        "description": "Cache an inference response with optional embedding for semantic lookup",
+        "parameters": [
+          {
+            "name": "request",
+            "type": "InferenceRequest",
+            "required": true,
+            "description": "Original inference request"
+          },
+          {
+            "name": "response",
+            "type": "InferenceResponse",
+            "required": true,
+            "description": "Response to cache"
+          }
+        ],
+        "returns": "None",
+        "async_method": true
+      },
+      {
+        "name": "clear",
+        "description": "Clear all cached entries",
+        "parameters": [],
+        "returns": "None",
+        "async_method": true
+      },
+      {
+        "name": "get_stats",
+        "description": "Get cache statistics including hits, misses, and error counts",
+        "parameters": [],
+        "returns": "dict",
+        "async_method": false
+      },
+      {
+        "name": "close",
+        "description": "Close Redis connection and cleanup resources",
+        "parameters": [],
+        "returns": "None",
+        "async_method": true
+      }
+    ]
   },
   "PlanningService": {
     "service_name": "PlanningService",

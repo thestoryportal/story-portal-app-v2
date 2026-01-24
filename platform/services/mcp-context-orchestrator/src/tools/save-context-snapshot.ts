@@ -157,6 +157,54 @@ export function createSaveContextSnapshotTool(deps: ToolDependencies): Tool<unkn
         console.error('Failed to update hot context:', error);
       }
 
+      // Platform Services Integration
+      if (deps.platform) {
+        // Save to StateManager hot cache for fast access
+        try {
+          await deps.platform.stateManager.saveHotState(taskId, {
+            taskId: updatedContext.taskId,
+            status: updatedContext.status,
+            currentPhase: updatedContext.currentPhase,
+            iteration: updatedContext.iteration,
+            immediateContext: updatedContext.immediateContext,
+            timestamp
+          });
+        } catch (error) {
+          console.error('Failed to save to StateManager hot cache:', error);
+        }
+
+        // Create event in EventStore for audit trail
+        try {
+          await deps.platform.eventStore.createContextEvent(
+            taskId,
+            'context_updated',
+            {
+              version: updatedContext.version,
+              updates: updates || {},
+              savedTo
+            },
+            input.sessionId
+          );
+        } catch (error) {
+          console.error('Failed to create EventStore event:', error);
+        }
+
+        // Update SemanticCache for similarity search
+        try {
+          await deps.platform.semanticCache.cacheTaskContext(taskId, {
+            name: updatedContext.name,
+            description: updatedContext.description,
+            keywords: updatedContext.keywords,
+            keyFiles: updatedContext.keyFiles,
+            immediateContext: updatedContext.immediateContext,
+            technicalDecisions: updatedContext.technicalDecisions,
+            resumePrompt: updatedContext.resumePrompt
+          });
+        } catch (error) {
+          console.error('Failed to update SemanticCache:', error);
+        }
+      }
+
       return {
         success: true,
         taskId,

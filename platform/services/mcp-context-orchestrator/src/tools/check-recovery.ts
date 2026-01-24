@@ -1,11 +1,15 @@
 /**
  * check_recovery Tool
  * Check for sessions needing recovery and get recovery prompts
+ *
+ * Integrates with:
+ * - SessionService for session lifecycle management
+ * - Recovery engine for crash detection
  */
 
 import { z } from 'zod';
 import * as recovery from '../recovery/engine.js';
-import type { Tool } from './index.js';
+import type { Tool, ToolDependencies } from './index.js';
 
 export const CheckRecoveryInputSchema = z.object({
   markRecovered: z.string().optional().describe('Session ID to mark as recovered after handling'),
@@ -38,7 +42,7 @@ export interface CheckRecoveryOutput {
   timestamp: string;
 }
 
-export function createCheckRecoveryTool(): Tool<unknown, CheckRecoveryOutput> {
+export function createCheckRecoveryTool(deps?: ToolDependencies): Tool<unknown, CheckRecoveryOutput> {
   return {
     async execute(rawInput: unknown): Promise<CheckRecoveryOutput> {
       const input = CheckRecoveryInputSchema.parse(rawInput);
@@ -49,13 +53,51 @@ export function createCheckRecoveryTool(): Tool<unknown, CheckRecoveryOutput> {
       // If marking a session as recovered, do that first
       if (markRecovered) {
         await recovery.markSessionRecovered(markRecovered);
+
+        // Also update via SessionService if available
+        if (deps?.platform?.sessionService) {
+          try {
+            await deps.platform.sessionService.updateSession(markRecovered, {
+              status: 'recovered'
+            });
+          } catch (error) {
+            console.error('Failed to update session via SessionService:', error);
+          }
+        }
       }
 
       // Check for sessions needing recovery
       const result = await recovery.checkForRecovery();
 
+      // Enhance with SessionService data if available
+      let enhancedSessions = result.sessions;
+      if (deps?.platform?.sessionService) {
+        try {
+          const platformSessions = await deps.platform.sessionService.getSessionsNeedingRecovery();
+          // Merge platform sessions that aren't already in the recovery list
+          const existingIds = new Set(result.sessions.map(s => s.sessionId));
+          for (const ps of platformSessions) {
+            if (!existingIds.has(ps.sessionId)) {
+              enhancedSessions.push({
+                sessionId: ps.sessionId,
+                taskId: ps.taskId,
+                taskName: undefined,
+                recoveryType: ps.status === 'crashed' ? 'crash' : 'timeout',
+                lastActivity: ps.lastHeartbeat.toISOString(),
+                contextSnapshot: ps.metadata as { workingOn?: string; lastAction?: string; nextStep?: string; blockers?: string[]; phase?: string; iteration?: number; } || {},
+                resumePrompt: `Resume session ${ps.sessionId}`,
+                toolHistory: [],
+                unsavedChanges: []
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Failed to get sessions from SessionService:', error);
+        }
+      }
+
       // Format sessions for output
-      const sessions = result.sessions.map(s => ({
+      const sessions = enhancedSessions.map(s => ({
         sessionId: s.sessionId,
         taskId: s.taskId,
         taskName: s.taskName,
@@ -75,9 +117,9 @@ export function createCheckRecoveryTool(): Tool<unknown, CheckRecoveryOutput> {
       }));
 
       return {
-        needsRecovery: result.needsRecovery,
+        needsRecovery: result.needsRecovery || sessions.length > 0,
         sessions,
-        summary: result.summary,
+        summary: result.summary || `Found ${sessions.length} session(s) needing recovery`,
         timestamp
       };
     }

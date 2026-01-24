@@ -978,4 +978,5 @@ export {
   type ContextVersion,
   type TaskRelationship,
   type ContextConflict,
+  type ActiveSession,
 } from './schema.js';

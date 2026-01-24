@@ -251,6 +251,58 @@ export function createSyncHotContextTool(deps: ToolDependencies): Tool<unknown, 
         }
       }
 
+      // Platform Services Integration
+      if (deps.platform) {
+        // Sync hot state to StateManager for all tasks
+        for (const task of tasksToSync) {
+          try {
+            await deps.platform.stateManager.saveHotState(task.taskId, {
+              taskId: task.taskId,
+              status: task.status,
+              currentPhase: task.currentPhase,
+              iteration: task.iteration,
+              immediateContext: task.immediateContext,
+              timestamp
+            });
+          } catch (error) {
+            errors.push(`StateManager sync failed for task ${task.taskId}: ${error}`);
+          }
+        }
+
+        // Cache task contexts in SemanticCache for similarity search
+        for (const task of tasksToSync) {
+          try {
+            await deps.platform.semanticCache.cacheTaskContext(task.taskId, {
+              name: task.name,
+              description: task.description,
+              keywords: task.keywords,
+              keyFiles: task.keyFiles,
+              immediateContext: task.immediateContext,
+              technicalDecisions: task.technicalDecisions,
+              resumePrompt: task.resumePrompt
+            });
+          } catch (error) {
+            errors.push(`SemanticCache sync failed for task ${task.taskId}: ${error}`);
+          }
+        }
+
+        // Log sync event to EventStore
+        try {
+          await deps.platform.eventStore.createContextEvent(
+            deps.projectId,
+            'hot_context_synced',
+            {
+              tasksCount: tasksToSync.length,
+              synced,
+              errorCount: errors.length
+            },
+            undefined
+          );
+        } catch (error) {
+          console.error('Failed to log sync event to EventStore:', error);
+        }
+      }
+
       return {
         success: errors.length === 0,
         synced,
