@@ -78,6 +78,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentic_platform
       - REDIS_URL=redis://redis:6379
+      - L01_DEFAULT_API_KEY=dev_key_local_ONLY
     depends_on:
       postgres:
         condition: service_healthy
@@ -108,6 +109,7 @@ services:
       - "8002:8002"
     environment:
       - L01_URL=http://l01-data-layer:8001
+      - L01_API_KEY=dev_key_local_ONLY
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentic_platform
       - REDIS_URL=redis://redis:6379
     depends_on:
@@ -138,6 +140,7 @@ services:
       - "8003:8003"
     environment:
       - L01_URL=http://l01-data-layer:8001
+      - L01_API_KEY=dev_key_local_ONLY
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentic_platform
       - REDIS_URL=redis://redis:6379
     depends_on:
@@ -168,6 +171,7 @@ services:
       - "8004:8004"
     environment:
       - L01_URL=http://l01-data-layer:8001
+      - L01_API_KEY=dev_key_local_ONLY
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentic_platform
       - REDIS_URL=redis://redis:6379
       - OLLAMA_URL=http://host.docker.internal:11434
@@ -203,6 +207,7 @@ services:
       - "8005:8005"
     environment:
       - L01_URL=http://l01-data-layer:8001
+      - L01_API_KEY=dev_key_local_ONLY
       - L02_URL=http://l02-runtime:8002
       - L03_URL=http://l03-tool-execution:8003
       - L04_URL=http://l04-model-gateway:8004
@@ -236,6 +241,7 @@ services:
       - "8006:8006"
     environment:
       - L01_URL=http://l01-data-layer:8001
+      - L01_API_KEY=dev_key_local_ONLY
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentic_platform
       - REDIS_URL=redis://redis:6379
     depends_on:
@@ -266,6 +272,7 @@ services:
       - "8007:8007"
     environment:
       - L01_URL=http://l01-data-layer:8001
+      - L01_API_KEY=dev_key_local_ONLY
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentic_platform
       - REDIS_URL=redis://redis:6379
     depends_on:
@@ -304,6 +311,7 @@ services:
       - "8009:8009"
     environment:
       - L01_URL=http://l01-data-layer:8001
+      - L01_API_KEY=dev_key_local_ONLY
       - L02_URL=http://l02-runtime:8002
       - L03_URL=http://l03-tool-execution:8003
       - L04_URL=http://l04-model-gateway:8004
@@ -337,6 +345,7 @@ services:
       - "8010:8010"
     environment:
       - L01_URL=http://l01-data-layer:8001
+      - L01_API_KEY=dev_key_local_ONLY
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentic_platform
       - REDIS_URL=redis://redis:6379
     depends_on:
@@ -367,6 +376,7 @@ services:
       - "8011:8011"
     environment:
       - L01_URL=http://l01-data-layer:8001
+      - L01_API_KEY=dev_key_local_ONLY
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentic_platform
       - REDIS_URL=redis://redis:6379
     depends_on:
@@ -397,6 +407,7 @@ services:
       - "8012:8012"
     environment:
       - L01_URL=http://l01-data-layer:8001
+      - L01_API_KEY=dev_key_local_ONLY
       - L02_URL=http://l02-runtime:8002
       - L03_URL=http://l03-tool-execution:8003
       - L04_URL=http://l04-model-gateway:8004
@@ -432,6 +443,74 @@ services:
         reservations:
           cpus: '0.5'
           memory: 512M
+    networks:
+      - agentic-network
+
+  # L13 Role Management Layer
+  l13-role-management:
+    build:
+      context: .
+      dockerfile: src/L13_role_management/Dockerfile
+    image: l13-role-management:latest
+    container_name: l13-role-management
+    ports:
+      - "8013:8013"
+    environment:
+      - L01_URL=http://l01-data-layer:8001
+      - L01_API_KEY=dev_key_local_ONLY
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentic_platform
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      l01-data-layer:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8013/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    networks:
+      - agentic-network
+
+  # L14 Skill Library Layer
+  l14-skill-library:
+    build:
+      context: .
+      dockerfile: src/L14_skill_library/Dockerfile
+    image: l14-skill-library:latest
+    container_name: l14-skill-library
+    ports:
+      - "8014:8014"
+    environment:
+      - L01_URL=http://l01-data-layer:8001
+      - L01_API_KEY=dev_key_local_ONLY
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentic_platform
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      l01-data-layer:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8014/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     networks:
       - agentic-network
 

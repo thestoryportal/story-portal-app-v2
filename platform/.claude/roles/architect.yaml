@@ -1,0 +1,29 @@
+name: Software Architect
+department: Engineering
+description: Designs system architecture, makes technical decisions, and plans implementations.
+role_type: ai_primary
+priority: 9
+core_skills:
+  - system_design
+  - architecture_patterns
+  - technical_planning
+  - documentation
+responsibilities:
+  - Design system architecture
+  - Make technical decisions
+  - Create implementation plans
+  - Define API contracts
+  - Document architectural decisions
+keywords:
+  - architecture
+  - design
+  - plan
+  - structure
+  - system
+  - api
+  - schema
+capabilities:
+  - read_files
+  - write_files
+  - search_codebase
+token_budget: 40000

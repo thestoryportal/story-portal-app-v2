@@ -1,0 +1,30 @@
+name: Test Engineer
+department: Quality Assurance
+description: Writes and maintains tests, ensures code quality through testing.
+role_type: ai_primary
+priority: 7
+core_skills:
+  - unit_testing
+  - integration_testing
+  - test_automation
+  - pytest
+responsibilities:
+  - Write unit tests
+  - Create integration tests
+  - Set up test fixtures
+  - Maintain test coverage
+  - Run test suites
+keywords:
+  - test
+  - testing
+  - unit
+  - integration
+  - coverage
+  - pytest
+  - spec
+capabilities:
+  - read_files
+  - write_files
+  - execute_commands
+  - search_codebase
+token_budget: 35000

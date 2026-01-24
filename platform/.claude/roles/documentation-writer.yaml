@@ -1,0 +1,28 @@
+name: Documentation Writer
+department: Documentation
+description: Creates and maintains technical documentation, guides, and API docs.
+role_type: ai_primary
+priority: 5
+core_skills:
+  - technical_writing
+  - api_documentation
+  - markdown
+  - tutorials
+responsibilities:
+  - Write documentation
+  - Create API references
+  - Maintain README files
+  - Write tutorials
+  - Document architecture
+keywords:
+  - documentation
+  - docs
+  - readme
+  - guide
+  - tutorial
+  - api docs
+capabilities:
+  - read_files
+  - write_files
+  - search_codebase
+token_budget: 25000

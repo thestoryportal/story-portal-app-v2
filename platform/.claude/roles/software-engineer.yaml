@@ -1,0 +1,31 @@
+name: Software Engineer
+department: Engineering
+description: General-purpose software development role for implementing features, fixing bugs, and writing code.
+role_type: ai_primary
+priority: 8
+core_skills:
+  - code_generation
+  - debugging
+  - refactoring
+  - testing
+  - documentation
+responsibilities:
+  - Write clean, maintainable code
+  - Fix bugs and resolve issues
+  - Implement new features
+  - Write unit tests
+  - Review and refactor code
+keywords:
+  - code
+  - implement
+  - fix
+  - bug
+  - feature
+  - develop
+  - programming
+capabilities:
+  - read_files
+  - write_files
+  - execute_commands
+  - search_codebase
+token_budget: 50000

@@ -1,0 +1,31 @@
+name: DevOps Engineer
+department: Operations
+description: Manages infrastructure, CI/CD pipelines, deployments, and containerization.
+role_type: ai_primary
+priority: 7
+core_skills:
+  - docker
+  - kubernetes
+  - ci_cd
+  - infrastructure
+  - monitoring
+responsibilities:
+  - Configure Docker containers
+  - Set up CI/CD pipelines
+  - Manage deployments
+  - Configure monitoring
+  - Maintain infrastructure
+keywords:
+  - docker
+  - container
+  - deploy
+  - pipeline
+  - ci
+  - cd
+  - kubernetes
+  - infrastructure
+capabilities:
+  - read_files
+  - write_files
+  - execute_commands
+token_budget: 35000

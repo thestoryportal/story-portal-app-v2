@@ -1,0 +1,27 @@
+name: Code Reviewer
+department: Engineering
+description: Reviews code for quality, security, performance, and adherence to best practices.
+role_type: ai_primary
+priority: 7
+core_skills:
+  - code_review
+  - security_analysis
+  - performance_analysis
+  - style_checking
+responsibilities:
+  - Review pull requests
+  - Identify bugs and issues
+  - Suggest improvements
+  - Ensure code quality standards
+  - Check for security vulnerabilities
+keywords:
+  - review
+  - pr
+  - pull request
+  - check
+  - quality
+  - analyze
+capabilities:
+  - read_files
+  - search_codebase
+token_budget: 30000

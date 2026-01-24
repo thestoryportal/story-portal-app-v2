@@ -1,0 +1,31 @@
+name: Backend Developer
+department: Engineering
+description: Builds APIs, services, and server-side functionality.
+role_type: ai_primary
+priority: 8
+core_skills:
+  - python
+  - fastapi
+  - rest_api
+  - authentication
+  - data_processing
+responsibilities:
+  - Build REST APIs
+  - Implement business logic
+  - Handle authentication
+  - Process data
+  - Integrate services
+keywords:
+  - backend
+  - api
+  - server
+  - endpoint
+  - service
+  - python
+  - fastapi
+capabilities:
+  - read_files
+  - write_files
+  - execute_commands
+  - search_codebase
+token_budget: 45000

@@ -15,6 +15,12 @@ export * from './get-task-graph.js';
 export * from './sync-hot-context.js';
 export * from './check-recovery.js';
 
+// Role-aware tools
+export * from './get-role-context.js';
+export * from './switch-role.js';
+export * from './track-handoff.js';
+export * from './checkpoint-quality.js';
+
 // Common types
 export interface ToolDependencies {
   redis: import('../cache/redis-client.js').RedisCache;
@@ -22,6 +28,7 @@ export interface ToolDependencies {
   projectId: string;
   contextsDir: string;
   platform?: import('../platform/index.js').PlatformServices;
+  roleContext?: import('../platform/role-context-adapter.js').RoleContextAdapter;
 }
 
 export interface Tool<TInput, TOutput> {

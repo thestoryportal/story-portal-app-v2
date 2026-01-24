@@ -1,0 +1,55 @@
+version: 1.0.0
+metadata:
+  skill_id: 2b1f386d-269a-4703-b00d-5d17d5a7c1e8
+  name: security_analyst_-_secure_coding
+  version: 1.0.0
+  created_at: '2026-01-24T09:22:40.497060'
+  updated_at: '2026-01-24T09:22:40.497063'
+  author: L14_skill_generator
+  tags:
+  - general
+  - generated
+  priority: medium
+  category: technical
+role:
+  title: Generated Role
+  description: A role generated from the provided responsibilities.
+  expertise_areas:
+  - general
+  - task-management
+responsibilities:
+  primary:
+  - Handle core tasks
+  - Maintain quality
+  secondary:
+  - Support team
+  - Document processes
+tools:
+  required:
+  - Read
+  - Write
+  - Bash
+  optional:
+  - Glob
+  - Grep
+procedures:
+- name: Standard Task Handling
+  description: Handle a standard task request
+  trigger: When user requests a task
+  steps:
+  - Analyze the request
+  - Plan the approach
+  - Execute the solution
+  - Verify the result
+examples:
+- name: Basic Request
+  description: Handling a basic user request
+  user_input: Help me with this task
+  expected_response: I'll help you with that. Let me analyze the requirements...
+constraints:
+  token_budget: 2000
+  max_context_tokens: 8000
+  execution_timeout_seconds: 300
+dependencies:
+  skills: []
+  services: []

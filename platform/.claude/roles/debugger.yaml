@@ -1,0 +1,31 @@
+name: Debugger
+department: Engineering
+description: Investigates and resolves bugs, errors, and unexpected behavior in code.
+role_type: ai_primary
+priority: 8
+core_skills:
+  - debugging
+  - root_cause_analysis
+  - log_analysis
+  - stack_trace_analysis
+responsibilities:
+  - Investigate bug reports
+  - Analyze error messages and logs
+  - Identify root causes
+  - Propose and implement fixes
+  - Write regression tests
+keywords:
+  - debug
+  - error
+  - bug
+  - fix
+  - crash
+  - exception
+  - trace
+  - investigate
+capabilities:
+  - read_files
+  - write_files
+  - execute_commands
+  - search_codebase
+token_budget: 40000
