@@ -97,20 +97,38 @@ class FleetManager:
         self._scaling_history: List[ScalingDecision] = []
         self._last_scale_action_time: Optional[datetime] = None
 
+        # Warm pool
+        self._warm_pool: List[WarmInstance] = []
+        self._warm_pool_lock = asyncio.Lock()
+
+        # Autoscaling state
+        self._autoscaling_enabled = False
+        self._autoscaling_task: Optional[asyncio.Task] = None
+        self._autoscaling_interval = self.config.get("autoscaling_interval_seconds", 30)
+
         # Dependencies (to be injected)
         self._lifecycle_manager = None
         self._state_manager = None
+        self._resource_manager = None
+
+        # Metrics
+        self._scale_up_count = 0
+        self._scale_down_count = 0
+        self._warm_pool_hits = 0
+        self._warm_pool_misses = 0
 
         logger.info(
             f"FleetManager initialized: "
             f"min={self.min_replicas}, max={self.max_replicas}, "
-            f"target_cpu={self.target_cpu_utilization}%"
+            f"target_cpu={self.target_cpu_utilization}%, "
+            f"warm_pool={'enabled' if self.warm_pool_enabled else 'disabled'}"
         )
 
     async def initialize(
         self,
         lifecycle_manager=None,
-        state_manager=None
+        state_manager=None,
+        resource_manager=None
     ) -> None:
         """
         Initialize fleet manager.
@@ -118,9 +136,15 @@ class FleetManager:
         Args:
             lifecycle_manager: LifecycleManager instance
             state_manager: StateManager instance
+            resource_manager: ResourceManager instance for metrics
         """
         self._lifecycle_manager = lifecycle_manager
         self._state_manager = state_manager
+        self._resource_manager = resource_manager
+
+        # Pre-warm the pool if enabled
+        if self.warm_pool_enabled:
+            asyncio.create_task(self._maintain_warm_pool())
 
         logger.info("FleetManager initialization complete")
 
@@ -375,18 +399,344 @@ class FleetManager:
         """
         Get current fleet metrics.
 
+        Collects real metrics from resource manager if available,
+        otherwise returns estimated values.
+
         Returns:
             ScalingMetrics
         """
-        # TODO: Collect actual metrics from instances
-        # For now, return stub metrics
+        avg_cpu = 0.0
+        avg_memory = 0.0
+        pending_requests = 0
+
+        if self._resource_manager and self._active_instances:
+            # Collect real metrics from resource manager
+            cpu_values = []
+            memory_values = []
+
+            for agent_id in self._active_instances.keys():
+                try:
+                    metrics = await self._resource_manager.get_agent_metrics(agent_id)
+                    if metrics:
+                        cpu_values.append(metrics.get("cpu_percent", 0.0))
+                        memory_values.append(metrics.get("memory_percent", 0.0))
+                except Exception as e:
+                    logger.warning(f"Failed to get metrics for {agent_id}: {e}")
+
+            if cpu_values:
+                avg_cpu = sum(cpu_values) / len(cpu_values)
+            if memory_values:
+                avg_memory = sum(memory_values) / len(memory_values)
+
+        elif self._active_instances:
+            # Estimate based on instance count (fallback)
+            # Higher instance count typically means higher load
+            load_factor = min(1.0, self._current_replicas / max(1, self.max_replicas))
+            avg_cpu = 30.0 + (load_factor * 50.0)  # 30-80%
+            avg_memory = 40.0 + (load_factor * 40.0)  # 40-80%
+
         return ScalingMetrics(
             current_replicas=self._current_replicas,
             desired_replicas=self._current_replicas,
-            avg_cpu_utilization=50.0,
-            avg_memory_utilization=60.0,
-            pending_requests=0,
+            avg_cpu_utilization=avg_cpu,
+            avg_memory_utilization=avg_memory,
+            pending_requests=pending_requests,
         )
+
+    # ==================== Warm Pool Methods ====================
+
+    async def _maintain_warm_pool(self) -> None:
+        """
+        Maintain warm pool at desired size.
+
+        Runs periodically to ensure warm instances are available.
+        """
+        while self.warm_pool_enabled:
+            try:
+                async with self._warm_pool_lock:
+                    # Remove stale instances
+                    await self._cleanup_stale_warm_instances()
+
+                    # Add instances if below target
+                    current_size = len(self._warm_pool)
+                    needed = self.warm_pool_size - current_size
+
+                    if needed > 0:
+                        logger.info(f"Warm pool: adding {needed} instances")
+                        for _ in range(needed):
+                            await self._create_warm_instance()
+
+            except Exception as e:
+                logger.error(f"Warm pool maintenance failed: {e}")
+
+            # Wait for next refresh cycle
+            await asyncio.sleep(self.warm_pool_refresh_interval)
+
+    async def _create_warm_instance(self) -> Optional[WarmInstance]:
+        """
+        Create a warm (pre-initialized) instance.
+
+        Returns:
+            WarmInstance or None if creation failed
+        """
+        if not self._lifecycle_manager:
+            return None
+
+        try:
+            # Create minimal config for warm instance
+            warm_config = AgentConfig(
+                agent_id=f"warm-{datetime.now(timezone.utc).timestamp()}",
+                trust_level="restricted",
+                resource_limits={"cpu_limit": 0.5, "memory_limit_mb": 512},
+                tools=[],
+                environment={"WARM_INSTANCE": "true"},
+            )
+
+            # Spawn in suspended state
+            result = await self._lifecycle_manager.spawn(
+                warm_config,
+                start_suspended=True
+            )
+
+            warm_instance = WarmInstance(
+                agent_id=result.agent_id,
+                created_at=datetime.now(timezone.utc),
+                state=AgentState.SUSPENDED,
+            )
+
+            self._warm_pool.append(warm_instance)
+            logger.debug(f"Created warm instance: {result.agent_id}")
+
+            return warm_instance
+
+        except Exception as e:
+            logger.warning(f"Failed to create warm instance: {e}")
+            return None
+
+    async def _cleanup_stale_warm_instances(self) -> int:
+        """
+        Remove stale warm instances.
+
+        Returns:
+            Number of instances cleaned up
+        """
+        max_age = self.warm_pool_refresh_interval * 2
+        now = datetime.now(timezone.utc)
+        cleaned = 0
+
+        for instance in list(self._warm_pool):
+            age = (now - instance.created_at).total_seconds()
+            if age > max_age:
+                # Terminate stale instance
+                if self._lifecycle_manager:
+                    try:
+                        await self._lifecycle_manager.terminate(
+                            instance.agent_id,
+                            reason="warm_pool_refresh"
+                        )
+                    except Exception:
+                        pass
+
+                self._warm_pool.remove(instance)
+                cleaned += 1
+
+        if cleaned > 0:
+            logger.debug(f"Cleaned up {cleaned} stale warm instances")
+
+        return cleaned
+
+    async def acquire_from_warm_pool(
+        self,
+        config: AgentConfig
+    ) -> Optional[SpawnResult]:
+        """
+        Acquire an instance from the warm pool.
+
+        Args:
+            config: Agent configuration to apply
+
+        Returns:
+            SpawnResult if warm instance acquired, None otherwise
+        """
+        async with self._warm_pool_lock:
+            if not self._warm_pool:
+                self._warm_pool_misses += 1
+                return None
+
+            # Get oldest warm instance
+            warm_instance = self._warm_pool.pop(0)
+            self._warm_pool_hits += 1
+
+        try:
+            # Configure and activate the warm instance
+            if self._lifecycle_manager:
+                await self._lifecycle_manager.reconfigure(
+                    warm_instance.agent_id,
+                    config
+                )
+                await self._lifecycle_manager.resume(warm_instance.agent_id)
+
+            logger.info(f"Acquired warm instance: {warm_instance.agent_id}")
+
+            return SpawnResult(
+                agent_id=warm_instance.agent_id,
+                state=AgentState.RUNNING,
+                from_warm_pool=True
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to acquire warm instance: {e}")
+            self._warm_pool_misses += 1
+            return None
+
+    def get_warm_pool_stats(self) -> Dict[str, Any]:
+        """
+        Get warm pool statistics.
+
+        Returns:
+            Warm pool stats dictionary
+        """
+        total_requests = self._warm_pool_hits + self._warm_pool_misses
+        hit_rate = (
+            self._warm_pool_hits / total_requests * 100
+            if total_requests > 0 else 0.0
+        )
+
+        return {
+            "enabled": self.warm_pool_enabled,
+            "target_size": self.warm_pool_size,
+            "current_size": len(self._warm_pool),
+            "hits": self._warm_pool_hits,
+            "misses": self._warm_pool_misses,
+            "hit_rate_percent": round(hit_rate, 2),
+            "refresh_interval_seconds": self.warm_pool_refresh_interval,
+        }
+
+    # ==================== Autoscaling Methods ====================
+
+    async def start_autoscaling(
+        self,
+        config_template: AgentConfig
+    ) -> bool:
+        """
+        Start the autoscaling loop.
+
+        Args:
+            config_template: Template for new instances
+
+        Returns:
+            True if started, False if already running
+        """
+        if self._autoscaling_enabled:
+            logger.warning("Autoscaling already enabled")
+            return False
+
+        self._autoscaling_enabled = True
+        self._autoscaling_task = asyncio.create_task(
+            self._autoscaling_loop(config_template)
+        )
+
+        logger.info("Autoscaling started")
+        return True
+
+    async def stop_autoscaling(self) -> bool:
+        """
+        Stop the autoscaling loop.
+
+        Returns:
+            True if stopped, False if not running
+        """
+        if not self._autoscaling_enabled:
+            return False
+
+        self._autoscaling_enabled = False
+
+        if self._autoscaling_task:
+            self._autoscaling_task.cancel()
+            try:
+                await self._autoscaling_task
+            except asyncio.CancelledError:
+                pass
+            self._autoscaling_task = None
+
+        logger.info("Autoscaling stopped")
+        return True
+
+    async def _autoscaling_loop(
+        self,
+        config_template: AgentConfig
+    ) -> None:
+        """
+        Main autoscaling loop.
+
+        Periodically evaluates metrics and scales the fleet.
+
+        Args:
+            config_template: Template for new instances
+        """
+        logger.info(
+            f"Autoscaling loop started "
+            f"(interval={self._autoscaling_interval}s)"
+        )
+
+        while self._autoscaling_enabled:
+            try:
+                # Collect metrics
+                metrics = await self.get_fleet_metrics()
+
+                # Evaluate scaling
+                decision = await self.evaluate_scaling(metrics)
+
+                # Record decision
+                self._scaling_history.append(decision)
+                if len(self._scaling_history) > 100:
+                    self._scaling_history = self._scaling_history[-100:]
+
+                # Execute scaling action
+                if decision.action == "scale_up":
+                    # Try warm pool first
+                    warm_result = await self.acquire_from_warm_pool(config_template)
+                    if warm_result:
+                        self._active_instances[warm_result.agent_id] = {
+                            "agent_id": warm_result.agent_id,
+                            "spawned_at": datetime.now(timezone.utc),
+                            "from_warm_pool": True,
+                        }
+                        self._current_replicas += 1
+                        self._scale_up_count += 1
+                    else:
+                        await self.scale_up(decision.target_replicas, config_template)
+
+                elif decision.action == "scale_down":
+                    await self.scale_down(decision.target_replicas)
+
+            except Exception as e:
+                logger.error(f"Autoscaling loop error: {e}")
+
+            # Wait for next interval
+            await asyncio.sleep(self._autoscaling_interval)
+
+    def get_autoscaling_status(self) -> Dict[str, Any]:
+        """
+        Get autoscaling status.
+
+        Returns:
+            Autoscaling status dictionary
+        """
+        return {
+            "enabled": self._autoscaling_enabled,
+            "interval_seconds": self._autoscaling_interval,
+            "min_replicas": self.min_replicas,
+            "max_replicas": self.max_replicas,
+            "target_cpu_percent": self.target_cpu_utilization,
+            "current_replicas": self._current_replicas,
+            "scale_up_count": self._scale_up_count,
+            "scale_down_count": self._scale_down_count,
+            "last_scale_action": (
+                self._last_scale_action_time.isoformat()
+                if self._last_scale_action_time else None
+            ),
+        }
 
     async def get_scaling_history(
         self,
@@ -407,6 +757,24 @@ class FleetManager:
         """Cleanup fleet manager"""
         logger.info("Cleaning up FleetManager")
 
+        # Stop autoscaling
+        await self.stop_autoscaling()
+
+        # Clear warm pool
+        self.warm_pool_enabled = False
+        async with self._warm_pool_lock:
+            for instance in self._warm_pool:
+                if self._lifecycle_manager:
+                    try:
+                        await self._lifecycle_manager.terminate(
+                            instance.agent_id,
+                            reason="cleanup",
+                            force=True
+                        )
+                    except Exception:
+                        pass
+            self._warm_pool.clear()
+
         # Terminate all active instances
         if self._lifecycle_manager:
             for agent_id in list(self._active_instances.keys()):
@@ -423,3 +791,20 @@ class FleetManager:
         self._scaling_history.clear()
 
         logger.info("FleetManager cleanup complete")
+
+    def get_health_status(self) -> Dict[str, Any]:
+        """
+        Get fleet manager health status.
+
+        Returns:
+            Health status dictionary
+        """
+        return {
+            "healthy": self._lifecycle_manager is not None,
+            "current_replicas": self._current_replicas,
+            "min_replicas": self.min_replicas,
+            "max_replicas": self.max_replicas,
+            "autoscaling": self.get_autoscaling_status(),
+            "warm_pool": self.get_warm_pool_stats(),
+            "active_instances": len(self._active_instances),
+        }

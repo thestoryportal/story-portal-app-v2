@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from ..models.compliance import ComplianceResult, Constraint, Violation, ConstraintType
 from ..models.error_codes import ErrorCode

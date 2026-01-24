@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from datetime import datetime, timedelta, UTC
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 from ..models.cloud_event import CloudEvent
 from ..models.quality_score import QualityScore
@@ -231,7 +231,7 @@ class EvaluationService:
         severity: Optional[str] = None,
     ) -> List[Anomaly]:
         """
-        Query anomalies.
+        Query anomalies from L01.
 
         Args:
             start: Start timestamp
@@ -242,8 +242,149 @@ class EvaluationService:
         Returns:
             List of Anomalies
         """
-        # Stub implementation - would query from database
-        return []
+        try:
+            anomalies = await self.l01_bridge.get_anomalies(
+                start=start,
+                end=end,
+                agent_id=agent_id,
+                severity=severity
+            )
+            return anomalies
+        except Exception as e:
+            logger.error(f"Failed to get anomalies: {e}")
+            return []
+
+    async def aggregate_metrics(
+        self,
+        agent_id: str,
+        metric_names: List[str],
+        start: datetime,
+        end: datetime,
+        aggregation: str = "avg"
+    ) -> Dict[str, float]:
+        """
+        Aggregate metrics for an agent.
+
+        Args:
+            agent_id: Agent identifier
+            metric_names: List of metric names to aggregate
+            start: Start timestamp
+            end: End timestamp
+            aggregation: Aggregation function (avg, sum, min, max, count)
+
+        Returns:
+            Dictionary of metric_name -> aggregated value
+        """
+        results = {}
+
+        for metric_name in metric_names:
+            try:
+                value = await self.query.aggregate(
+                    agent_id=agent_id,
+                    metric_name=metric_name,
+                    start=start,
+                    end=end,
+                    aggregation=aggregation
+                )
+                results[metric_name] = value
+            except Exception as e:
+                logger.warning(f"Failed to aggregate {metric_name}: {e}")
+                results[metric_name] = 0.0
+
+        return results
+
+    async def get_agent_summary(
+        self,
+        agent_id: str,
+        hours: int = 24
+    ) -> Dict[str, Any]:
+        """
+        Get comprehensive summary for an agent.
+
+        Args:
+            agent_id: Agent identifier
+            hours: Number of hours to look back
+
+        Returns:
+            Summary dictionary
+        """
+        end = datetime.now(UTC)
+        start = end - timedelta(hours=hours)
+
+        try:
+            # Get quality score
+            scores = await self.get_quality_scores(
+                agent_id=agent_id,
+                start=start,
+                end=end
+            )
+            latest_score = scores[-1] if scores else None
+
+            # Get anomalies
+            anomalies = await self.get_anomalies(
+                start=start,
+                end=end,
+                agent_id=agent_id
+            )
+
+            # Aggregate key metrics
+            metrics = await self.aggregate_metrics(
+                agent_id=agent_id,
+                metric_names=[
+                    "task_success_rate",
+                    "avg_response_time_ms",
+                    "error_rate",
+                    "throughput"
+                ],
+                start=start,
+                end=end
+            )
+
+            return {
+                "agent_id": agent_id,
+                "period_hours": hours,
+                "start": start.isoformat(),
+                "end": end.isoformat(),
+                "quality_score": latest_score.overall_score if latest_score else None,
+                "quality_grade": latest_score.grade if latest_score else None,
+                "anomaly_count": len(anomalies),
+                "critical_anomalies": sum(
+                    1 for a in anomalies if a.severity == "critical"
+                ),
+                "metrics": metrics,
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to get agent summary: {e}")
+            return {
+                "agent_id": agent_id,
+                "error": str(e)
+            }
+
+    async def run_compliance_check(
+        self,
+        agent_id: str,
+        tenant_id: str = "default"
+    ) -> Dict[str, Any]:
+        """
+        Run compliance check for an agent.
+
+        Args:
+            agent_id: Agent identifier
+            tenant_id: Tenant identifier
+
+        Returns:
+            Compliance check results
+        """
+        try:
+            result = await self.compliance.check_compliance(
+                agent_id=agent_id,
+                tenant_id=tenant_id
+            )
+            return result.to_dict() if hasattr(result, 'to_dict') else result
+        except Exception as e:
+            logger.error(f"Compliance check failed: {e}")
+            return {"error": str(e), "compliant": False}
 
     async def cleanup(self):
         """Cleanup resources"""
@@ -263,4 +404,24 @@ class EvaluationService:
             "storage": self.storage.get_statistics(),
             "cache": self.cache.get_statistics(),
             "audit": self.audit.get_statistics(),
+        }
+
+    def get_health_status(self) -> dict:
+        """Get service health status"""
+        return {
+            "healthy": self._initialized,
+            "initialized": self._initialized,
+            "components": {
+                "validator": True,
+                "deduplication": True,
+                "metrics_engine": True,
+                "quality_scorer": True,
+                "anomaly_detector": True,
+                "compliance_validator": True,
+                "alert_manager": True,
+                "storage_manager": True,
+                "cache_manager": True,
+                "query_engine": True,
+            },
+            "l01_bridge_available": self.l01_bridge is not None,
         }

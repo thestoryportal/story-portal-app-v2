@@ -3,6 +3,7 @@
 Central orchestrator combining all L07 components for end-to-end learning pipeline.
 """
 
+import asyncio
 import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime
@@ -418,6 +419,222 @@ class LearningService:
             'validation_recommendation': validation_result.recommendation,
             'final_loss': job.final_loss,
             'accuracy': job.validation_metrics.accuracy if job.validation_metrics else 0.0
+        }
+
+    async def create_curriculum(
+        self,
+        name: str,
+        stages: List[Dict[str, Any]],
+        description: str = ""
+    ) -> Dict[str, Any]:
+        """
+        Create a curriculum learning plan with progressive stages.
+
+        Args:
+            name: Curriculum name
+            stages: List of stage configurations, each containing:
+                - dataset_id: Dataset for this stage
+                - epochs: Number of training epochs
+                - learning_rate: Learning rate for this stage
+                - difficulty: Difficulty level (easy, medium, hard)
+            description: Curriculum description
+
+        Returns:
+            Curriculum definition
+        """
+        import uuid
+
+        curriculum_id = str(uuid.uuid4())
+
+        curriculum = {
+            "curriculum_id": curriculum_id,
+            "name": name,
+            "description": description,
+            "stages": stages,
+            "created_at": datetime.utcnow().isoformat(),
+            "status": "created",
+            "current_stage": 0,
+            "completed_stages": [],
+        }
+
+        logger.info(f"Created curriculum '{name}' with {len(stages)} stages")
+
+        return curriculum
+
+    async def run_curriculum(
+        self,
+        curriculum: Dict[str, Any],
+        base_model_id: str = "gpt-4-turbo-2024-04"
+    ) -> Dict[str, Any]:
+        """
+        Execute a curriculum learning pipeline.
+
+        Args:
+            curriculum: Curriculum definition
+            base_model_id: Base model to fine-tune
+
+        Returns:
+            Curriculum execution results
+        """
+        logger.info(
+            f"Running curriculum {curriculum['curriculum_id']} "
+            f"with {len(curriculum['stages'])} stages"
+        )
+
+        results = {
+            "curriculum_id": curriculum["curriculum_id"],
+            "stages_completed": 0,
+            "stage_results": [],
+            "final_model_id": None,
+        }
+
+        current_model_id = base_model_id
+
+        for i, stage in enumerate(curriculum["stages"]):
+            logger.info(f"Starting curriculum stage {i + 1}/{len(curriculum['stages'])}")
+
+            try:
+                # Create training job for this stage
+                job_config = JobConfig(
+                    epochs=stage.get("epochs", 3),
+                    learning_rate=stage.get("learning_rate", 1e-4),
+                    batch_size=stage.get("batch_size", 8),
+                )
+
+                job = await self.train_model(
+                    dataset_id=stage["dataset_id"],
+                    base_model_id=current_model_id,
+                    config=job_config
+                )
+
+                # Wait for training
+                while not job.is_terminal():
+                    await asyncio.sleep(0.5)
+                    job = await self.fine_tuning_engine.get_job_status(job.job_id)
+
+                stage_result = {
+                    "stage": i + 1,
+                    "dataset_id": stage["dataset_id"],
+                    "job_id": job.job_id,
+                    "status": job.status.value,
+                    "output_model_id": job.output_model_id,
+                    "final_loss": job.final_loss,
+                }
+
+                results["stage_results"].append(stage_result)
+
+                if job.status.value == "completed" and job.output_model_id:
+                    current_model_id = job.output_model_id
+                    results["stages_completed"] += 1
+                    results["final_model_id"] = current_model_id
+                else:
+                    logger.warning(f"Stage {i + 1} failed, stopping curriculum")
+                    break
+
+            except Exception as e:
+                logger.error(f"Curriculum stage {i + 1} failed: {e}")
+                results["stage_results"].append({
+                    "stage": i + 1,
+                    "error": str(e),
+                    "status": "failed"
+                })
+                break
+
+        logger.info(
+            f"Curriculum complete: {results['stages_completed']}/{len(curriculum['stages'])} stages"
+        )
+
+        return results
+
+    async def record_feedback(
+        self,
+        example_id: str,
+        feedback_type: str,
+        feedback_value: Any,
+        feedback_source: str = "human"
+    ) -> bool:
+        """
+        Record feedback for a training example.
+
+        Args:
+            example_id: Training example ID
+            feedback_type: Type of feedback (rating, correction, preference)
+            feedback_value: Feedback value
+            feedback_source: Source of feedback (human, model, automated)
+
+        Returns:
+            True if recorded successfully
+        """
+        try:
+            feedback = {
+                "example_id": example_id,
+                "feedback_type": feedback_type,
+                "feedback_value": feedback_value,
+                "feedback_source": feedback_source,
+                "recorded_at": datetime.utcnow().isoformat(),
+            }
+
+            # Store via L01 bridge if available
+            if self.l01_bridge:
+                await self.l01_bridge.record_feedback(feedback)
+
+            # If RLHF is enabled, queue for preference learning
+            if self.rlhf_engine and feedback_type == "preference":
+                await self.rlhf_engine.add_preference(
+                    example_id=example_id,
+                    preference=feedback_value
+                )
+
+            logger.info(f"Recorded {feedback_type} feedback for example {example_id}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to record feedback: {e}")
+            return False
+
+    async def get_feedback_summary(
+        self,
+        dataset_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Get summary of recorded feedback.
+
+        Args:
+            dataset_id: Optional dataset to filter by
+
+        Returns:
+            Feedback summary
+        """
+        try:
+            if self.l01_bridge:
+                return await self.l01_bridge.get_feedback_summary(dataset_id)
+
+            return {
+                "total_feedback": 0,
+                "by_type": {},
+                "by_source": {},
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to get feedback summary: {e}")
+            return {"error": str(e)}
+
+    def get_health_status(self) -> Dict[str, Any]:
+        """Get service health status."""
+        return {
+            "healthy": self.initialized,
+            "initialized": self.initialized,
+            "components": {
+                "extractor": True,
+                "filter": True,
+                "curator": True,
+                "registry": True,
+                "fine_tuning_engine": True,
+                "validator": True,
+                "rlhf_engine": self.rlhf_engine is not None,
+            },
+            "l01_bridge_available": self.l01_bridge is not None,
+            "storage_path": self.storage_path,
         }
 
     def get_statistics(self) -> Dict[str, Any]:

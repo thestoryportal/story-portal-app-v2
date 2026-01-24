@@ -7,7 +7,7 @@ error responses across all services.
 
 import logging
 import traceback
-from typing import Callable, Union
+from typing import Callable, Optional, Union
 from fastapi import Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse

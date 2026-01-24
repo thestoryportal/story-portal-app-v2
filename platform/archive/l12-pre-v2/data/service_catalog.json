@@ -147,11 +147,102 @@
     "layer": "L02",
     "module_path": "L02_runtime.services.fleet_manager",
     "class_name": "FleetManager",
-    "description": "Agent fleet scaling orchestration and autoscaling",
-    "keywords": ["fleet", "scaling", "autoscale", "orchestration"],
-    "dependencies": ["LifecycleManager", "ResourceManager"],
+    "description": "Agent fleet scaling with warm pool, autoscaling, and graceful drain",
+    "keywords": ["fleet", "scaling", "autoscale", "orchestration", "warm pool", "drain"],
+    "dependencies": ["LifecycleManager", "ResourceManager", "StateManager"],
     "requires_async_init": true,
-    "methods": []
+    "methods": [
+      {
+        "name": "evaluate_scaling",
+        "description": "Evaluate whether scaling is needed based on metrics",
+        "parameters": [
+          {"name": "metrics", "type": "ScalingMetrics", "required": true, "description": "Current fleet metrics"}
+        ],
+        "returns": "ScalingDecision",
+        "async_method": true
+      },
+      {
+        "name": "scale_up",
+        "description": "Scale up fleet to target replica count",
+        "parameters": [
+          {"name": "target_replicas", "type": "int", "required": true, "description": "Target number of replicas"},
+          {"name": "config_template", "type": "AgentConfig", "required": true, "description": "Agent config template"}
+        ],
+        "returns": "List[SpawnResult]",
+        "async_method": true
+      },
+      {
+        "name": "scale_down",
+        "description": "Scale down fleet with graceful drain",
+        "parameters": [
+          {"name": "target_replicas", "type": "int", "required": true, "description": "Target number of replicas"}
+        ],
+        "returns": "List[str]",
+        "async_method": true
+      },
+      {
+        "name": "start_autoscaling",
+        "description": "Start the autoscaling loop",
+        "parameters": [
+          {"name": "config_template", "type": "AgentConfig", "required": true, "description": "Template for new instances"}
+        ],
+        "returns": "bool",
+        "async_method": true
+      },
+      {
+        "name": "stop_autoscaling",
+        "description": "Stop the autoscaling loop",
+        "parameters": [],
+        "returns": "bool",
+        "async_method": true
+      },
+      {
+        "name": "acquire_from_warm_pool",
+        "description": "Acquire an instance from the warm pool",
+        "parameters": [
+          {"name": "config", "type": "AgentConfig", "required": true, "description": "Agent config to apply"}
+        ],
+        "returns": "Optional[SpawnResult]",
+        "async_method": true
+      },
+      {
+        "name": "get_fleet_metrics",
+        "description": "Get current fleet metrics",
+        "parameters": [],
+        "returns": "ScalingMetrics",
+        "async_method": true
+      },
+      {
+        "name": "get_scaling_history",
+        "description": "Get recent scaling history",
+        "parameters": [
+          {"name": "limit", "type": "int", "required": false, "description": "Maximum entries"}
+        ],
+        "returns": "List[ScalingDecision]",
+        "async_method": true
+      },
+      {
+        "name": "get_warm_pool_stats",
+        "description": "Get warm pool statistics",
+        "parameters": [],
+        "returns": "Dict",
+        "async_method": false
+      },
+      {
+        "name": "get_autoscaling_status",
+        "description": "Get autoscaling status",
+        "parameters": [],
+        "returns": "Dict",
+        "async_method": false
+      },
+      {
+        "name": "get_health_status",
+        "description": "Get fleet manager health status",
+        "parameters": [],
+        "returns": "Dict",
+        "async_method": false
+      }
+    ]
   },
   "LifecycleManager": {
     "service_name": "LifecycleManager",
@@ -191,33 +282,198 @@
     "layer": "L02",
     "module_path": "L02_runtime.services.state_manager",
     "class_name": "StateManager",
-    "description": "Checkpoint and recovery state management",
-    "keywords": ["state", "checkpoint", "recovery", "persistence"],
+    "description": "Agent state checkpointing with PostgreSQL persistence and Redis hot state caching",
+    "keywords": ["state", "checkpoint", "recovery", "persistence", "redis", "postgresql"],
     "dependencies": [],
     "requires_async_init": true,
-    "methods": []
+    "methods": [
+      {
+        "name": "create_checkpoint",
+        "description": "Create a checkpoint for an agent",
+        "parameters": [
+          {"name": "agent_id", "type": "str", "required": true, "description": "Agent ID"},
+          {"name": "session_id", "type": "str", "required": true, "description": "Session ID"},
+          {"name": "state", "type": "AgentState", "required": true, "description": "Agent state"},
+          {"name": "context", "type": "Dict", "required": true, "description": "Context to checkpoint"},
+          {"name": "metadata", "type": "Dict", "required": false, "description": "Optional metadata"}
+        ],
+        "returns": "str",
+        "async_method": true
+      },
+      {
+        "name": "restore_checkpoint",
+        "description": "Restore agent state from checkpoint",
+        "parameters": [
+          {"name": "checkpoint_id", "type": "str", "required": true, "description": "Checkpoint ID"}
+        ],
+        "returns": "StateSnapshot",
+        "async_method": true
+      },
+      {
+        "name": "save_hot_state",
+        "description": "Save hot state to Redis",
+        "parameters": [
+          {"name": "agent_id", "type": "str", "required": true, "description": "Agent ID"},
+          {"name": "state_data", "type": "Dict", "required": true, "description": "State data"}
+        ],
+        "returns": "None",
+        "async_method": true
+      },
+      {
+        "name": "load_hot_state",
+        "description": "Load hot state from Redis",
+        "parameters": [
+          {"name": "agent_id", "type": "str", "required": true, "description": "Agent ID"}
+        ],
+        "returns": "Optional[Dict]",
+        "async_method": true
+      },
+      {
+        "name": "list_checkpoints",
+        "description": "List checkpoints for an agent",
+        "parameters": [
+          {"name": "agent_id", "type": "str", "required": true, "description": "Agent ID"},
+          {"name": "limit", "type": "int", "required": false, "description": "Max results"}
+        ],
+        "returns": "List[CheckpointMetadata]",
+        "async_method": true
+      },
+      {
+        "name": "cleanup_old_checkpoints",
+        "description": "Delete checkpoints older than retention period",
+        "parameters": [],
+        "returns": "int",
+        "async_method": true
+      }
+    ]
   },
   "WorkflowEngine": {
     "service_name": "WorkflowEngine",
     "layer": "L02",
     "module_path": "L02_runtime.services.workflow_engine",
     "class_name": "WorkflowEngine",
-    "description": "Graph-based workflow execution engine",
-    "keywords": ["workflow", "graph", "execution", "orchestration"],
-    "dependencies": ["AgentExecutor"],
+    "description": "Graph-based workflow execution with conditional routing, parallel execution, and checkpointing",
+    "keywords": ["workflow", "graph", "execution", "orchestration", "parallel", "conditional"],
+    "dependencies": ["AgentExecutor", "StateManager"],
     "requires_async_init": true,
-    "methods": []
+    "methods": [
+      {
+        "name": "execute_workflow",
+        "description": "Execute a workflow graph",
+        "parameters": [
+          {"name": "workflow_id", "type": "str", "required": true, "description": "Workflow identifier"},
+          {"name": "graph", "type": "WorkflowGraph", "required": true, "description": "Graph to execute"},
+          {"name": "initial_state", "type": "Dict", "required": false, "description": "Initial state"}
+        ],
+        "returns": "Dict[str, Any]",
+        "async_method": true
+      },
+      {
+        "name": "register_node_handler",
+        "description": "Register handler for a node type",
+        "parameters": [
+          {"name": "node_type", "type": "str", "required": true, "description": "Node type"},
+          {"name": "handler", "type": "Callable", "required": true, "description": "Handler function"}
+        ],
+        "returns": "None",
+        "async_method": false
+      },
+      {
+        "name": "get_execution_status",
+        "description": "Get execution status for a workflow",
+        "parameters": [
+          {"name": "workflow_id", "type": "str", "required": true, "description": "Workflow ID"}
+        ],
+        "returns": "Optional[Dict]",
+        "async_method": true
+      }
+    ]
   },
   "ToolComposer": {
     "service_name": "ToolComposer",
     "layer": "L03",
     "module_path": "L03_tool_execution.services.tool_composer",
     "class_name": "ToolComposer",
-    "description": "Multi-tool workflow composition and chaining",
-    "keywords": ["tool", "compose", "workflow", "chain"],
+    "description": "Multi-tool workflow composition and chaining with caching and conditional branching",
+    "keywords": ["tool", "compose", "workflow", "chain", "parallel", "dag", "conditional", "cache"],
     "dependencies": ["ToolExecutor"],
     "requires_async_init": false,
-    "methods": []
+    "methods": [
+      {
+        "name": "execute_chain",
+        "description": "Execute tools sequentially in a chain with result propagation",
+        "parameters": [
+          {"name": "requests", "type": "List[ToolInvokeRequest]", "required": true, "description": "List of tool requests in order"},
+          {"name": "propagate_results", "type": "bool", "required": false, "description": "Pass results between tools"}
+        ],
+        "returns": "List[ToolInvokeResponse]",
+        "async_method": true
+      },
+      {
+        "name": "execute_parallel",
+        "description": "Execute tools in parallel with optional fail-fast",
+        "parameters": [
+          {"name": "requests", "type": "List[ToolInvokeRequest]", "required": true, "description": "List of tool requests"},
+          {"name": "fail_fast", "type": "bool", "required": false, "description": "Stop on first failure"}
+        ],
+        "returns": "List[ToolInvokeResponse]",
+        "async_method": true
+      },
+      {
+        "name": "execute_dag",
+        "description": "Execute tools in a directed acyclic graph workflow",
+        "parameters": [
+          {"name": "workflow", "type": "Dict", "required": true, "description": "DAG workflow specification with nodes and dependencies"}
+        ],
+        "returns": "Dict[str, ToolInvokeResponse]",
+        "async_method": true
+      },
+      {
+        "name": "execute_conditional",
+        "description": "Execute conditional branching based on context evaluation",
+        "parameters": [
+          {"name": "branch", "type": "ConditionalBranch", "required": true, "description": "Condition and then/else requests"},
+          {"name": "context", "type": "Dict", "required": true, "description": "Context for condition evaluation"}
+        ],
+        "returns": "CompositionResult",
+        "async_method": true
+      },
+      {
+        "name": "execute_cached",
+        "description": "Execute composition with result caching",
+        "parameters": [
+          {"name": "requests", "type": "List[ToolInvokeRequest]", "required": true, "description": "Tool requests"},
+          {"name": "cache_key", "type": "str", "required": false, "description": "Custom cache key"},
+          {"name": "ttl_seconds", "type": "int", "required": false, "description": "Cache TTL"},
+          {"name": "execution_mode", "type": "str", "required": false, "description": "chain, parallel, or dag"}
+        ],
+        "returns": "CompositionResult",
+        "async_method": true
+      },
+      {
+        "name": "validate_workflow",
+        "description": "Validate DAG workflow for cycles and missing dependencies",
+        "parameters": [
+          {"name": "workflow", "type": "Dict", "required": true, "description": "Workflow to validate"}
+        ],
+        "returns": "bool",
+        "async_method": false
+      },
+      {
+        "name": "get_cache_stats",
+        "description": "Get cache statistics including hit rate",
+        "parameters": [],
+        "returns": "Dict",
+        "async_method": false
+      },
+      {
+        "name": "get_metrics",
+        "description": "Get composer execution metrics",
+        "parameters": [],
+        "returns": "Dict",
+        "async_method": false
+      }
+    ]
   },
   "ToolExecutor": {
     "service_name": "ToolExecutor",
@@ -257,49 +513,94 @@
     "layer": "L04",
     "module_path": "L04_model_gateway.services.semantic_cache",
     "class_name": "SemanticCache",
-    "description": "Embedding-based LLM result caching",
-    "keywords": ["cache", "semantic", "embedding", "similarity"],
+    "description": "Embedding-based LLM result caching with similarity search and TTL",
+    "keywords": ["cache", "semantic", "embedding", "similarity", "llm", "ollama"],
     "dependencies": [],
     "requires_async_init": false,
-    "methods": []
+    "methods": [
+      {
+        "name": "get",
+        "description": "Get cached response for query using semantic similarity",
+        "parameters": [
+          {"name": "query", "type": "str", "required": true, "description": "Query text"},
+          {"name": "similarity_threshold", "type": "float", "required": false, "description": "Similarity threshold"}
+        ],
+        "returns": "Optional[CacheEntry]",
+        "async_method": true
+      },
+      {
+        "name": "set",
+        "description": "Cache a query-response pair",
+        "parameters": [
+          {"name": "query", "type": "str", "required": true, "description": "Query text"},
+          {"name": "response", "type": "str", "required": true, "description": "Response to cache"},
+          {"name": "ttl_seconds", "type": "int", "required": false, "description": "TTL in seconds"}
+        ],
+        "returns": "None",
+        "async_method": true
+      },
+      {
+        "name": "invalidate",
+        "description": "Invalidate cache entries matching pattern",
+        "parameters": [
+          {"name": "pattern", "type": "str", "required": false, "description": "Pattern to match"}
+        ],
+        "returns": "int",
+        "async_method": true
+      },
+      {
+        "name": "get_stats",
+        "description": "Get cache statistics",
+        "parameters": [],
+        "returns": "Dict",
+        "async_method": false
+      }
+    ]
   },
   "PlanningService": {
     "service_name": "PlanningService",
     "layer": "L05",
     "module_path": "L05_planning.services.planning_service",
     "class_name": "PlanningService",
-    "description": "Strategic planning coordinator for goal decomposition and execution",
-    "keywords": ["planning", "plan", "goal", "decompose", "strategy"],
-    "dependencies": ["GoalDecomposer", "TaskOrchestrator", "AgentExecutor", "ModelGateway"],
+    "description": "Strategic planning coordinator for goal decomposition, validation, and orchestrated execution",
+    "keywords": ["planning", "plan", "goal", "decompose", "strategy", "orchestrate"],
+    "dependencies": ["GoalDecomposer", "TaskOrchestrator", "AgentExecutor", "ModelGateway", "L05Bridge"],
     "requires_async_init": true,
     "methods": [
       {
         "name": "create_plan",
         "description": "Create execution plan from goal",
         "parameters": [
-          {
-            "name": "goal",
-            "type": "Goal",
-            "required": true,
-            "description": "Goal object to decompose"
-          }
+          {"name": "goal", "type": "Goal", "required": true, "description": "Goal to decompose"}
         ],
         "returns": "ExecutionPlan",
         "async_method": true
       },
       {
-        "name": "execute_plan",
-        "description": "Execute a decomposed plan",
+        "name": "execute_plan_direct",
+        "description": "Execute plan directly with plan object",
         "parameters": [
-          {
-            "name": "plan",
-            "type": "ExecutionPlan",
-            "required": true,
-            "description": "Plan to execute"
-          }
+          {"name": "plan", "type": "ExecutionPlan", "required": true, "description": "Plan to execute"},
+          {"name": "agent_did", "type": "str", "required": false, "description": "Agent DID"}
         ],
-        "returns": "PlanExecutionResult",
+        "returns": "Dict[str, Any]",
         "async_method": true
+      },
+      {
+        "name": "create_and_execute",
+        "description": "Create plan from goal and execute immediately",
+        "parameters": [
+          {"name": "goal", "type": "Goal", "required": true, "description": "Goal to plan and execute"}
+        ],
+        "returns": "Dict[str, Any]",
+        "async_method": true
+      },
+      {
+        "name": "get_stats",
+        "description": "Get service statistics from all components",
+        "parameters": [],
+        "returns": "Dict[str, Any]",
+        "async_method": false
       }
     ]
   },
@@ -308,11 +609,37 @@
     "layer": "L05",
     "module_path": "L05_planning.services.goal_decomposer",
     "class_name": "GoalDecomposer",
-    "description": "Goal-to-plan decomposition using cache, templates, and LLM",
-    "keywords": ["goal", "decompose", "plan", "breakdown", "tasks"],
+    "description": "Goal-to-plan decomposition using cache, templates, and LLM fallback",
+    "keywords": ["goal", "decompose", "plan", "breakdown", "tasks", "template", "llm"],
     "dependencies": ["PlanCache", "ModelGateway"],
     "requires_async_init": false,
-    "methods": []
+    "methods": [
+      {
+        "name": "decompose",
+        "description": "Decompose a goal into an execution plan",
+        "parameters": [
+          {"name": "goal", "type": "Goal", "required": true, "description": "Goal to decompose"}
+        ],
+        "returns": "ExecutionPlan",
+        "async_method": true
+      },
+      {
+        "name": "decompose_with_llm",
+        "description": "Use LLM for complex goal decomposition",
+        "parameters": [
+          {"name": "goal", "type": "Goal", "required": true, "description": "Complex goal"}
+        ],
+        "returns": "ExecutionPlan",
+        "async_method": true
+      },
+      {
+        "name": "get_stats",
+        "description": "Get decomposer statistics",
+        "parameters": [],
+        "returns": "Dict",
+        "async_method": false
+      }
+    ]
   },
   "TaskOrchestrator": {
     "service_name": "TaskOrchestrator",
@@ -341,11 +668,49 @@
     "layer": "L06",
     "module_path": "L06_evaluation.services.evaluation_service",
     "class_name": "EvaluationService",
-    "description": "Quality assessment and metrics aggregation orchestrator",
-    "keywords": ["evaluation", "quality", "assessment", "metrics", "scoring"],
+    "description": "Quality assessment, metrics aggregation, and scoring orchestrator",
+    "keywords": ["evaluation", "quality", "assessment", "metrics", "scoring", "compliance"],
     "dependencies": ["MetricsEngine", "ComplianceValidator"],
     "requires_async_init": true,
-    "methods": []
+    "methods": [
+      {
+        "name": "evaluate",
+        "description": "Evaluate agent output quality",
+        "parameters": [
+          {"name": "agent_id", "type": "str", "required": true, "description": "Agent ID"},
+          {"name": "output", "type": "str", "required": true, "description": "Output to evaluate"},
+          {"name": "context", "type": "Dict", "required": false, "description": "Evaluation context"}
+        ],
+        "returns": "EvaluationResult",
+        "async_method": true
+      },
+      {
+        "name": "aggregate_metrics",
+        "description": "Aggregate metrics over time window",
+        "parameters": [
+          {"name": "agent_id", "type": "str", "required": true, "description": "Agent ID"},
+          {"name": "window_minutes", "type": "int", "required": false, "description": "Time window"}
+        ],
+        "returns": "AggregatedMetrics",
+        "async_method": true
+      },
+      {
+        "name": "get_quality_score",
+        "description": "Get overall quality score for agent",
+        "parameters": [
+          {"name": "agent_id", "type": "str", "required": true, "description": "Agent ID"}
+        ],
+        "returns": "float",
+        "async_method": true
+      },
+      {
+        "name": "get_stats",
+        "description": "Get evaluation service statistics",
+        "parameters": [],
+        "returns": "Dict",
+        "async_method": false
+      }
+    ]
   },
   "MetricsEngine": {
     "service_name": "MetricsEngine",
@@ -374,33 +739,244 @@
     "layer": "L07",
     "module_path": "L07_learning.services.learning_service",
     "class_name": "LearningService",
-    "description": "Model training and optimization orchestrator",
-    "keywords": ["learning", "training", "model", "optimize", "fine-tune"],
-    "dependencies": ["FineTuningEngine", "DatasetService", "ModelValidator"],
+    "description": "Model training orchestrator with curriculum learning and feedback integration",
+    "keywords": ["learning", "training", "model", "optimize", "fine-tune", "curriculum"],
+    "dependencies": ["FineTuningEngine", "DatasetCurator", "ModelValidator"],
     "requires_async_init": true,
-    "methods": []
+    "methods": [
+      {
+        "name": "start_learning_pipeline",
+        "description": "Start complete learning pipeline",
+        "parameters": [
+          {"name": "dataset_id", "type": "str", "required": true, "description": "Dataset ID"},
+          {"name": "base_model_id", "type": "str", "required": true, "description": "Base model ID"},
+          {"name": "config", "type": "LearningConfig", "required": false, "description": "Learning config"}
+        ],
+        "returns": "LearningJob",
+        "async_method": true
+      },
+      {
+        "name": "integrate_feedback",
+        "description": "Integrate feedback into training data",
+        "parameters": [
+          {"name": "feedback_batch", "type": "List[Feedback]", "required": true, "description": "Feedback items"},
+          {"name": "dataset_id", "type": "str", "required": true, "description": "Target dataset"}
+        ],
+        "returns": "int",
+        "async_method": true
+      },
+      {
+        "name": "get_learning_status",
+        "description": "Get status of learning pipeline",
+        "parameters": [
+          {"name": "job_id", "type": "str", "required": true, "description": "Learning job ID"}
+        ],
+        "returns": "LearningStatus",
+        "async_method": true
+      },
+      {
+        "name": "get_stats",
+        "description": "Get learning service statistics",
+        "parameters": [],
+        "returns": "Dict",
+        "async_method": false
+      }
+    ]
   },
   "FineTuningEngine": {
     "service_name": "FineTuningEngine",
     "layer": "L07",
-    "module_path": "L07_learning.services.finetuning_engine",
+    "module_path": "L07_learning.services.fine_tuning_engine",
     "class_name": "FineTuningEngine",
-    "description": "LoRA-based supervised fine-tuning engine",
-    "keywords": ["finetune", "training", "lora", "supervised"],
-    "dependencies": ["DatasetService"],
+    "description": "LoRA-based supervised fine-tuning with checkpoint management and progress tracking",
+    "keywords": ["finetune", "training", "lora", "supervised", "checkpoint", "resume"],
+    "dependencies": ["DatasetCurator", "ModelRegistry"],
     "requires_async_init": false,
-    "methods": []
+    "methods": [
+      {
+        "name": "start_training",
+        "description": "Start supervised fine-tuning job",
+        "parameters": [
+          {"name": "dataset_id", "type": "str", "required": true, "description": "Training dataset ID"},
+          {"name": "base_model_id", "type": "str", "required": true, "description": "Base model to fine-tune"},
+          {"name": "config", "type": "JobConfig", "required": false, "description": "Training configuration"}
+        ],
+        "returns": "TrainingJob",
+        "async_method": true
+      },
+      {
+        "name": "get_job_status",
+        "description": "Get training job status",
+        "parameters": [
+          {"name": "job_id", "type": "str", "required": true, "description": "Job ID"}
+        ],
+        "returns": "Optional[TrainingJob]",
+        "async_method": true
+      },
+      {
+        "name": "cancel_job",
+        "description": "Cancel running training job",
+        "parameters": [
+          {"name": "job_id", "type": "str", "required": true, "description": "Job ID"}
+        ],
+        "returns": "bool",
+        "async_method": true
+      },
+      {
+        "name": "list_jobs",
+        "description": "List training jobs with optional filter",
+        "parameters": [
+          {"name": "status_filter", "type": "JobStatus", "required": false, "description": "Filter by status"}
+        ],
+        "returns": "List[TrainingJob]",
+        "async_method": true
+      },
+      {
+        "name": "get_checkpoints",
+        "description": "Get all checkpoints for a job",
+        "parameters": [
+          {"name": "job_id", "type": "str", "required": true, "description": "Job ID"}
+        ],
+        "returns": "List[TrainingCheckpoint]",
+        "async_method": true
+      },
+      {
+        "name": "get_latest_checkpoint",
+        "description": "Get the latest checkpoint for a job",
+        "parameters": [
+          {"name": "job_id", "type": "str", "required": true, "description": "Job ID"}
+        ],
+        "returns": "Optional[TrainingCheckpoint]",
+        "async_method": true
+      },
+      {
+        "name": "resume_from_checkpoint",
+        "description": "Resume training from a checkpoint",
+        "parameters": [
+          {"name": "job_id", "type": "str", "required": true, "description": "Original job ID"},
+          {"name": "checkpoint_id", "type": "str", "required": false, "description": "Specific checkpoint"}
+        ],
+        "returns": "TrainingJob",
+        "async_method": true
+      },
+      {
+        "name": "get_training_progress",
+        "description": "Get real-time training progress",
+        "parameters": [
+          {"name": "job_id", "type": "str", "required": true, "description": "Job ID"}
+        ],
+        "returns": "Optional[TrainingProgress]",
+        "async_method": true
+      },
+      {
+        "name": "get_statistics",
+        "description": "Get training statistics",
+        "parameters": [],
+        "returns": "Dict",
+        "async_method": false
+      },
+      {
+        "name": "get_health_status",
+        "description": "Get engine health status",
+        "parameters": [],
+        "returns": "Dict",
+        "async_method": false
+      }
+    ]
   },
   "DatasetCurator": {
     "service_name": "DatasetCurator",
     "layer": "L07",
     "module_path": "L07_learning.services.dataset_curator",
     "class_name": "DatasetCurator",
-    "description": "Training dataset curation and quality filtering",
-    "keywords": ["dataset", "curate", "filter", "quality", "training"],
-    "dependencies": ["ExampleQualityFilter"],
+    "description": "Training dataset curation with quality filtering, semantic deduplication, and versioning",
+    "keywords": ["dataset", "curate", "filter", "quality", "training", "deduplicate", "version"],
+    "dependencies": ["L07Bridge"],
     "requires_async_init": false,
-    "methods": []
+    "methods": [
+      {
+        "name": "create_dataset",
+        "description": "Create new versioned dataset with splits",
+        "parameters": [
+          {"name": "name", "type": "str", "required": true, "description": "Dataset name"},
+          {"name": "examples", "type": "List[TrainingExample]", "required": true, "description": "Training examples"},
+          {"name": "split_ratios", "type": "Dict[str, float]", "required": false, "description": "Split ratios"},
+          {"name": "description", "type": "str", "required": false, "description": "Dataset description"},
+          {"name": "tags", "type": "List[str]", "required": false, "description": "Optional tags"}
+        ],
+        "returns": "Dataset",
+        "async_method": true
+      },
+      {
+        "name": "curate_dataset",
+        "description": "Full curation pipeline: filter, deduplicate, split",
+        "parameters": [
+          {"name": "name", "type": "str", "required": true, "description": "Dataset name"},
+          {"name": "examples", "type": "List[TrainingExample]", "required": true, "description": "Raw examples"},
+          {"name": "deduplicate", "type": "bool", "required": false, "description": "Enable deduplication"},
+          {"name": "filter_quality", "type": "bool", "required": false, "description": "Enable quality filtering"},
+          {"name": "split_ratios", "type": "Dict[str, float]", "required": false, "description": "Split ratios"}
+        ],
+        "returns": "Tuple[Dataset, Dict]",
+        "async_method": true
+      },
+      {
+        "name": "filter_by_quality",
+        "description": "Filter examples by quality thresholds",
+        "parameters": [
+          {"name": "examples", "type": "List[TrainingExample]", "required": true, "description": "Examples to filter"},
+          {"name": "thresholds", "type": "QualityThresholds", "required": false, "description": "Custom thresholds"}
+        ],
+        "returns": "Tuple[List, List]",
+        "async_method": true
+      },
+      {
+        "name": "deduplicate_semantic",
+        "description": "Deduplicate examples using semantic similarity",
+        "parameters": [
+          {"name": "examples", "type": "List[TrainingExample]", "required": true, "description": "Examples to dedupe"},
+          {"name": "similarity_threshold", "type": "float", "required": false, "description": "Similarity threshold"}
+        ],
+        "returns": "DeduplicationResult",
+        "async_method": true
+      },
+      {
+        "name": "add_examples",
+        "description": "Add examples to existing dataset (creates new version)",
+        "parameters": [
+          {"name": "dataset_id", "type": "str", "required": true, "description": "Dataset ID"},
+          {"name": "examples", "type": "List[TrainingExample]", "required": true, "description": "New examples"}
+        ],
+        "returns": "Dataset",
+        "async_method": true
+      },
+      {
+        "name": "get_dataset",
+        "description": "Get dataset by ID",
+        "parameters": [
+          {"name": "dataset_id", "type": "str", "required": true, "description": "Dataset ID"}
+        ],
+        "returns": "Optional[Dataset]",
+        "async_method": true
+      },
+      {
+        "name": "list_datasets",
+        "description": "List all datasets with optional filters",
+        "parameters": [
+          {"name": "name_filter", "type": "str", "required": false, "description": "Filter by name"},
+          {"name": "tag_filter", "type": "str", "required": false, "description": "Filter by tag"}
+        ],
+        "returns": "List[Dataset]",
+        "async_method": true
+      },
+      {
+        "name": "get_statistics",
+        "description": "Get curator statistics",
+        "parameters": [],
+        "returns": "Dict",
+        "async_method": false
+      }
+    ]
   },
   "AuthenticationHandler": {
     "service_name": "AuthenticationHandler",
@@ -473,11 +1049,85 @@
     "layer": "L11",
     "module_path": "L11_integration.services.saga_orchestrator",
     "class_name": "SagaOrchestrator",
-    "description": "Multi-step saga orchestration with compensation",
-    "keywords": ["saga", "orchestrate", "transaction", "compensation", "distributed"],
-    "dependencies": [],
+    "description": "Multi-step saga orchestration with automatic compensation, exponential backoff, and distributed tracing",
+    "keywords": ["saga", "orchestrate", "transaction", "compensation", "distributed", "rollback", "retry"],
+    "dependencies": ["RequestOrchestrator"],
     "requires_async_init": false,
-    "methods": []
+    "methods": [
+      {
+        "name": "execute_saga",
+        "description": "Execute a saga workflow with step tracking and compensation",
+        "parameters": [
+          {"name": "saga", "type": "SagaDefinition", "required": true, "description": "Saga definition to execute"},
+          {"name": "context", "type": "Dict", "required": false, "description": "Initial context data"},
+          {"name": "trace_context", "type": "RequestContext", "required": false, "description": "Tracing context"}
+        ],
+        "returns": "SagaExecution",
+        "async_method": true
+      },
+      {
+        "name": "get_execution",
+        "description": "Get saga execution by ID",
+        "parameters": [
+          {"name": "execution_id", "type": "str", "required": true, "description": "Execution ID"}
+        ],
+        "returns": "Optional[SagaExecution]",
+        "async_method": true
+      },
+      {
+        "name": "get_execution_trace",
+        "description": "Get distributed trace for saga execution",
+        "parameters": [
+          {"name": "execution_id", "type": "str", "required": true, "description": "Execution ID"}
+        ],
+        "returns": "Optional[Dict]",
+        "async_method": true
+      },
+      {
+        "name": "list_executions",
+        "description": "List saga executions with optional filters",
+        "parameters": [
+          {"name": "status_filter", "type": "SagaStatus", "required": false, "description": "Filter by status"},
+          {"name": "saga_name_filter", "type": "str", "required": false, "description": "Filter by saga name"},
+          {"name": "limit", "type": "int", "required": false, "description": "Maximum results"}
+        ],
+        "returns": "List[Dict]",
+        "async_method": true
+      },
+      {
+        "name": "cancel_execution",
+        "description": "Cancel a running saga execution",
+        "parameters": [
+          {"name": "execution_id", "type": "str", "required": true, "description": "Execution ID"}
+        ],
+        "returns": "None",
+        "async_method": true
+      },
+      {
+        "name": "retry_failed_execution",
+        "description": "Retry a failed saga execution",
+        "parameters": [
+          {"name": "execution_id", "type": "str", "required": true, "description": "Failed execution ID"},
+          {"name": "from_step", "type": "int", "required": false, "description": "Step to retry from"}
+        ],
+        "returns": "SagaExecution",
+        "async_method": true
+      },
+      {
+        "name": "get_metrics",
+        "description": "Get saga orchestrator metrics",
+        "parameters": [],
+        "returns": "Dict",
+        "async_method": false
+      },
+      {
+        "name": "get_health_status",
+        "description": "Get orchestrator health status",
+        "parameters": [],
+        "returns": "Dict",
+        "async_method": false
+      }
+    ]
   },
   "RequestOrchestrator": {
     "service_name": "RequestOrchestrator",

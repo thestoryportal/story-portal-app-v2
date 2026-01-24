@@ -212,7 +212,11 @@ class SemanticCache:
         request: InferenceRequest
     ) -> Optional[InferenceResponse]:
         """
-        Find similar cached responses using embeddings
+        Find similar cached responses using embeddings and cosine similarity.
+
+        Uses a two-phase approach:
+        1. Retrieve candidate embeddings from Redis
+        2. Compute cosine similarity to find best match
 
         Args:
             request: InferenceRequest
@@ -222,18 +226,83 @@ class SemanticCache:
         """
         try:
             # Generate embedding for request
-            embedding = await self._generate_embedding(request)
-            if not embedding:
+            query_embedding = await self._generate_embedding(request)
+            if not query_embedding:
                 return None
 
-            # Search for similar cached entries
-            # TODO: Implement vector similarity search with Redis or SQLite
-            # For now, return None (semantic search not fully implemented)
+            # Get all cached embeddings
+            redis_client = await self._get_redis_client()
+
+            # Scan for embedding keys
+            cursor = 0
+            best_match = None
+            best_similarity = 0.0
+
+            while True:
+                cursor, keys = await redis_client.scan(
+                    cursor=cursor,
+                    match="cache:embedding:*",
+                    count=100
+                )
+
+                for key in keys:
+                    try:
+                        # Get stored embedding
+                        stored_data = await redis_client.hgetall(key)
+                        if not stored_data or "embedding" not in stored_data:
+                            continue
+
+                        stored_embedding = json.loads(stored_data["embedding"])
+                        cache_key = stored_data.get("cache_key")
+
+                        # Compute cosine similarity
+                        similarity = self._cosine_similarity(
+                            query_embedding, stored_embedding
+                        )
+
+                        if similarity > best_similarity and similarity >= self.similarity_threshold:
+                            best_similarity = similarity
+                            best_match = cache_key
+
+                    except Exception as e:
+                        logger.debug(f"Error processing cached embedding {key}: {e}")
+                        continue
+
+                if cursor == 0:
+                    break
+
+            # Return best match if found
+            if best_match:
+                logger.debug(
+                    f"Semantic match found (similarity={best_similarity:.3f})"
+                )
+                cached_data = await redis_client.get(f"cache:exact:{best_match}")
+                if cached_data:
+                    return self._deserialize_response(cached_data, request.request_id)
+
             return None
 
         except Exception as e:
             logger.error(f"Semantic search error: {e}")
             return None
+
+    def _cosine_similarity(
+        self,
+        vec1: List[float],
+        vec2: List[float]
+    ) -> float:
+        """Compute cosine similarity between two vectors."""
+        if len(vec1) != len(vec2):
+            return 0.0
+
+        dot_product = sum(a * b for a, b in zip(vec1, vec2))
+        norm1 = sum(a * a for a in vec1) ** 0.5
+        norm2 = sum(b * b for b in vec2) ** 0.5
+
+        if norm1 == 0 or norm2 == 0:
+            return 0.0
+
+        return dot_product / (norm1 * norm2)
 
     async def _store_with_embedding(
         self,
@@ -242,7 +311,7 @@ class SemanticCache:
         cache_key: str
     ) -> None:
         """
-        Store response with embedding for semantic search
+        Store response with embedding for semantic search.
 
         Args:
             request: Original request
@@ -255,18 +324,40 @@ class SemanticCache:
             if not embedding:
                 return
 
-            # TODO: Store embedding in vector database
-            # For now, just store metadata
             redis_client = await self._get_redis_client()
+
+            # Store embedding with metadata
+            await redis_client.hset(
+                f"cache:embedding:{cache_key}",
+                mapping={
+                    "embedding": json.dumps(embedding),
+                    "cache_key": cache_key,
+                    "request_id": response.request_id,
+                    "model_id": response.model_id,
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "prompt_hash": hashlib.md5(
+                        self._format_prompt_for_embedding(request).encode()
+                    ).hexdigest()[:16]
+                }
+            )
+            await redis_client.expire(
+                f"cache:embedding:{cache_key}",
+                self.ttl_seconds
+            )
+
+            # Store metadata separately for quick lookups
             await redis_client.hset(
                 f"cache:meta:{cache_key}",
                 mapping={
                     "request_id": response.request_id,
                     "model_id": response.model_id,
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "has_embedding": "true"
                 }
             )
             await redis_client.expire(f"cache:meta:{cache_key}", self.ttl_seconds)
+
+            logger.debug(f"Stored embedding for cache key {cache_key[:16]}...")
 
         except Exception as e:
             logger.error(f"Error storing embedding: {e}")
@@ -373,6 +464,143 @@ class SemanticCache:
             "errors": self._stats["errors"],
             "hit_rate": hit_rate,
             "total_requests": total_requests
+        }
+
+    async def invalidate(
+        self,
+        pattern: Optional[str] = None,
+        model_id: Optional[str] = None,
+        older_than: Optional[datetime] = None
+    ) -> int:
+        """
+        Selectively invalidate cache entries.
+
+        Args:
+            pattern: Optional glob pattern for cache keys
+            model_id: Invalidate entries for specific model
+            older_than: Invalidate entries older than timestamp
+
+        Returns:
+            Number of entries invalidated
+        """
+        try:
+            redis_client = await self._get_redis_client()
+            invalidated = 0
+
+            # Determine key pattern
+            key_pattern = f"cache:*:{pattern}" if pattern else "cache:*"
+
+            cursor = 0
+            keys_to_delete = []
+
+            while True:
+                cursor, keys = await redis_client.scan(
+                    cursor=cursor,
+                    match=key_pattern,
+                    count=100
+                )
+
+                for key in keys:
+                    should_delete = True
+
+                    # Filter by model_id if specified
+                    if model_id and "meta:" in key:
+                        meta = await redis_client.hgetall(key)
+                        if meta.get("model_id") != model_id:
+                            should_delete = False
+
+                    # Filter by age if specified
+                    if older_than and should_delete:
+                        if "meta:" in key or "embedding:" in key:
+                            meta = await redis_client.hgetall(key)
+                            timestamp_str = meta.get("timestamp")
+                            if timestamp_str:
+                                try:
+                                    entry_time = datetime.fromisoformat(timestamp_str)
+                                    if entry_time >= older_than:
+                                        should_delete = False
+                                except ValueError:
+                                    pass
+
+                    if should_delete:
+                        keys_to_delete.append(key)
+
+                if cursor == 0:
+                    break
+
+            # Delete keys in batches
+            if keys_to_delete:
+                # Also delete related keys (exact, meta, embedding)
+                all_keys_to_delete = set()
+                for key in keys_to_delete:
+                    all_keys_to_delete.add(key)
+                    # Extract cache key and add related keys
+                    parts = key.split(":", 2)
+                    if len(parts) >= 3:
+                        cache_key = parts[2]
+                        all_keys_to_delete.add(f"cache:exact:{cache_key}")
+                        all_keys_to_delete.add(f"cache:meta:{cache_key}")
+                        all_keys_to_delete.add(f"cache:embedding:{cache_key}")
+
+                # Delete in batches of 100
+                keys_list = list(all_keys_to_delete)
+                for i in range(0, len(keys_list), 100):
+                    batch = keys_list[i:i + 100]
+                    await redis_client.delete(*batch)
+                    invalidated += len(batch)
+
+            logger.info(f"Invalidated {invalidated} cache entries")
+            return invalidated
+
+        except Exception as e:
+            logger.error(f"Cache invalidation error: {e}")
+            return 0
+
+    async def warm_cache(
+        self,
+        requests: List[InferenceRequest],
+        responses: List[InferenceResponse]
+    ) -> int:
+        """
+        Pre-warm cache with known request/response pairs.
+
+        Args:
+            requests: List of inference requests
+            responses: List of corresponding responses
+
+        Returns:
+            Number of entries added
+        """
+        if len(requests) != len(responses):
+            raise ValueError("Requests and responses must have same length")
+
+        added = 0
+        for request, response in zip(requests, responses):
+            try:
+                await self.set(request, response)
+                added += 1
+            except Exception as e:
+                logger.warning(f"Failed to warm cache entry: {e}")
+
+        logger.info(f"Warmed cache with {added} entries")
+        return added
+
+    def get_health_status(self) -> dict:
+        """Get cache health status."""
+        total = self._stats["hits"] + self._stats["misses"]
+        hit_rate = self._stats["hits"] / total if total > 0 else 0.0
+
+        return {
+            "healthy": self._stats["errors"] < total * 0.1 if total > 0 else True,
+            "redis_connected": self._redis is not None,
+            "embeddings_enabled": self.enable_embeddings,
+            "stats": self.get_stats(),
+            "config": {
+                "ttl_seconds": self.ttl_seconds,
+                "similarity_threshold": self.similarity_threshold,
+                "embedding_model": self.embedding_model,
+                "ollama_url": self.ollama_base_url,
+            }
         }
 
     async def close(self) -> None:

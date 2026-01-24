@@ -10,7 +10,7 @@ Main orchestrator that coordinates all planning components:
 """
 
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from uuid import uuid4
 
 from ..models import (
@@ -403,7 +403,7 @@ class PlanningService:
 
     async def get_plan_status(self, plan_id: str) -> Dict[str, Any]:
         """
-        Get status of plan.
+        Get status of plan from L01 persistence.
 
         Args:
             plan_id: Plan ID
@@ -411,8 +411,109 @@ class PlanningService:
         Returns:
             Plan status dictionary
         """
-        # TODO: Load plan from persistence and return status
-        raise PlanningError.from_code(
-            ErrorCode.E5002,
-            details={"plan_id": plan_id},
-        )
+        try:
+            # Try to load from L01 bridge
+            plan_data = await self.l01_bridge.get_plan(plan_id)
+
+            if plan_data:
+                return {
+                    "plan_id": plan_id,
+                    "status": plan_data.get("status", "unknown"),
+                    "goal_id": plan_data.get("goal_id"),
+                    "task_count": plan_data.get("task_count", 0),
+                    "completed_tasks": plan_data.get("completed_task_count", 0),
+                    "failed_tasks": plan_data.get("failed_task_count", 0),
+                    "created_at": plan_data.get("created_at"),
+                    "execution_started_at": plan_data.get("execution_started_at"),
+                    "execution_completed_at": plan_data.get("execution_completed_at"),
+                    "execution_time_ms": plan_data.get("execution_time_ms"),
+                }
+
+            raise PlanningError.from_code(
+                ErrorCode.E5002,
+                details={"plan_id": plan_id, "reason": "Plan not found"},
+            )
+
+        except PlanningError:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to get plan status: {e}")
+            raise PlanningError.from_code(
+                ErrorCode.E5002,
+                details={"plan_id": plan_id, "error": str(e)},
+            )
+
+    async def list_plans(
+        self,
+        goal_id: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """
+        List plans with optional filtering.
+
+        Args:
+            goal_id: Filter by goal ID
+            status: Filter by status
+            limit: Maximum number of plans to return
+
+        Returns:
+            List of plan summaries
+        """
+        try:
+            plans = await self.l01_bridge.list_plans(
+                goal_id=goal_id,
+                status=status,
+                limit=limit
+            )
+            return plans
+        except Exception as e:
+            logger.error(f"Failed to list plans: {e}")
+            return []
+
+    async def cancel_plan(self, plan_id: str) -> bool:
+        """
+        Cancel a running plan.
+
+        Args:
+            plan_id: Plan ID to cancel
+
+        Returns:
+            True if cancelled successfully
+        """
+        try:
+            await self.l01_bridge.update_plan_status(
+                plan_id=plan_id,
+                status=PlanStatus.FAILED.value,
+                error="Cancelled by user"
+            )
+            logger.info(f"Plan {plan_id} cancelled")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to cancel plan {plan_id}: {e}")
+            return False
+
+    def get_health_status(self) -> Dict[str, Any]:
+        """
+        Get health status of planning service.
+
+        Returns:
+            Health status information
+        """
+        return {
+            "healthy": True,
+            "stats": self.get_stats(),
+            "components": {
+                "decomposer": "ready",
+                "resolver": "ready",
+                "validator": "ready",
+                "orchestrator": "ready",
+                "monitor": "ready",
+            },
+            "cross_layer": {
+                "l01_bridge": self.l01_bridge is not None,
+                "l02_executor": self.executor is not None,
+                "l03_tool_executor": self.tool_executor is not None,
+                "l04_gateway": self.gateway is not None,
+            }
+        }

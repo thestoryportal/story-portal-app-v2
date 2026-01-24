@@ -634,6 +634,182 @@ class StateManager:
             except Exception as e:
                 logger.error(f"Error in auto-checkpoint loop: {e}")
 
+    async def get_checkpoint_stats(self) -> Dict[str, Any]:
+        """
+        Get checkpoint statistics.
+
+        Returns:
+            Statistics about stored checkpoints
+        """
+        stats = {
+            "total_checkpoints": 0,
+            "total_size_bytes": 0,
+            "oldest_checkpoint": None,
+            "newest_checkpoint": None,
+            "checkpoints_by_agent": {},
+        }
+
+        if not self._pg_pool:
+            return stats
+
+        try:
+            async with self._pg_pool.acquire() as conn:
+                # Get total count and size
+                result = await conn.fetchrow("""
+                    SELECT
+                        COUNT(*) as total,
+                        COALESCE(SUM(size_bytes), 0) as total_size,
+                        MIN(created_at) as oldest,
+                        MAX(created_at) as newest
+                    FROM l02_runtime.checkpoints
+                """)
+
+                if result:
+                    stats["total_checkpoints"] = result["total"]
+                    stats["total_size_bytes"] = result["total_size"]
+                    stats["oldest_checkpoint"] = (
+                        result["oldest"].isoformat() if result["oldest"] else None
+                    )
+                    stats["newest_checkpoint"] = (
+                        result["newest"].isoformat() if result["newest"] else None
+                    )
+
+                # Get counts by agent
+                agent_counts = await conn.fetch("""
+                    SELECT agent_id, COUNT(*) as count
+                    FROM l02_runtime.checkpoints
+                    GROUP BY agent_id
+                    ORDER BY count DESC
+                    LIMIT 20
+                """)
+
+                stats["checkpoints_by_agent"] = {
+                    row["agent_id"]: row["count"] for row in agent_counts
+                }
+
+        except Exception as e:
+            logger.warning(f"Failed to get checkpoint stats: {e}")
+
+        return stats
+
+    async def get_hot_state_keys(self, pattern: str = "*") -> List[str]:
+        """
+        List hot state keys in Redis.
+
+        Args:
+            pattern: Key pattern to match
+
+        Returns:
+            List of matching keys
+        """
+        if not self._redis_client:
+            return []
+
+        try:
+            keys = []
+            cursor = 0
+            full_pattern = f"l02:state:{pattern}"
+
+            while True:
+                cursor, batch = await self._redis_client.scan(
+                    cursor=cursor,
+                    match=full_pattern,
+                    count=100
+                )
+                keys.extend([k.decode() if isinstance(k, bytes) else k for k in batch])
+                if cursor == 0:
+                    break
+
+            return keys
+
+        except Exception as e:
+            logger.warning(f"Failed to get hot state keys: {e}")
+            return []
+
+    async def delete_hot_state(self, agent_id: str) -> bool:
+        """
+        Delete hot state for an agent.
+
+        Args:
+            agent_id: Agent identifier
+
+        Returns:
+            True if deleted, False otherwise
+        """
+        if not self._redis_client:
+            return False
+
+        try:
+            key = f"l02:state:{agent_id}"
+            result = await self._redis_client.delete(key)
+            return result > 0
+        except Exception as e:
+            logger.warning(f"Failed to delete hot state for {agent_id}: {e}")
+            return False
+
+    async def delete_checkpoint(self, checkpoint_id: str) -> bool:
+        """
+        Delete a specific checkpoint.
+
+        Args:
+            checkpoint_id: Checkpoint to delete
+
+        Returns:
+            True if deleted, False otherwise
+        """
+        if not self._pg_pool:
+            return False
+
+        try:
+            async with self._pg_pool.acquire() as conn:
+                result = await conn.execute(
+                    "DELETE FROM l02_runtime.checkpoints WHERE checkpoint_id = $1",
+                    checkpoint_id
+                )
+                return "DELETE 1" in result
+        except Exception as e:
+            logger.warning(f"Failed to delete checkpoint {checkpoint_id}: {e}")
+            return False
+
+    def get_health_status(self) -> Dict[str, Any]:
+        """
+        Get health status of state manager.
+
+        Returns:
+            Health status information
+        """
+        return {
+            "healthy": True,
+            "postgresql_connected": self._pg_pool is not None,
+            "redis_connected": self._redis_client is not None,
+            "auto_checkpoint_running": (
+                self._auto_checkpoint_task is not None and
+                not self._auto_checkpoint_task.done()
+            ),
+            "config": {
+                "checkpoint_backend": self.checkpoint_backend,
+                "hot_state_backend": self.hot_state_backend,
+                "auto_checkpoint_interval": self.auto_checkpoint_interval,
+                "max_checkpoint_size_mb": self.max_checkpoint_size_mb,
+                "compression": self.checkpoint_compression,
+                "retention_days": self.retention_days,
+            }
+        }
+
+    def get_statistics(self) -> Dict[str, Any]:
+        """
+        Get state manager statistics.
+
+        Returns:
+            Statistics dictionary
+        """
+        return {
+            "postgresql_available": self._pg_pool is not None,
+            "redis_available": self._redis_client is not None,
+            "retention_days": self.retention_days,
+            "compression_enabled": self.checkpoint_compression == "gzip",
+        }
+
     async def cleanup(self) -> None:
         """Cleanup state manager and close connections"""
         logger.info("Cleaning up StateManager")

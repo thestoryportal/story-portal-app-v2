@@ -369,6 +369,13 @@ class WorkflowEngine:
         """
         Evaluate a condition string.
 
+        Supports multiple condition types:
+        - "success" / "failure": Boolean result check
+        - "state.key == value": State key comparison
+        - "result.key == value": Result key comparison
+        - "state.key > value": Numeric comparisons
+        - "state.key in [val1, val2]": Membership test
+
         Args:
             condition: Condition expression
             result: Current node result
@@ -377,13 +384,179 @@ class WorkflowEngine:
         Returns:
             True if condition is met
         """
-        # TODO: Implement proper condition evaluation
-        # For now, simple string matching
-        if condition == "success":
-            return bool(result)
-        elif condition == "failure":
-            return not bool(result)
-        else:
+        try:
+            # Simple boolean conditions
+            if condition == "success":
+                if isinstance(result, dict):
+                    return result.get("success", True)
+                return bool(result)
+            elif condition == "failure":
+                if isinstance(result, dict):
+                    return not result.get("success", True)
+                return not bool(result)
+            elif condition == "always":
+                return True
+            elif condition == "never":
+                return False
+
+            # State-based conditions: state.key == value
+            if condition.startswith("state."):
+                return self._evaluate_state_condition(condition, context.state)
+
+            # Result-based conditions: result.key == value
+            if condition.startswith("result."):
+                return self._evaluate_result_condition(condition, result)
+
+            # Expression-based condition (safe evaluation)
+            return self._evaluate_expression(condition, result, context)
+
+        except Exception as e:
+            logger.warning(f"Condition evaluation failed: {condition}, error: {e}")
+            return False
+
+    def _evaluate_state_condition(
+        self,
+        condition: str,
+        state: Dict[str, Any]
+    ) -> bool:
+        """Evaluate state-based condition."""
+        # Parse condition: state.key op value
+        import re
+
+        # Match patterns like: state.key == "value" or state.key > 10
+        pattern = r'state\.(\w+(?:\.\w+)*)\s*(==|!=|>|<|>=|<=|in)\s*(.+)'
+        match = re.match(pattern, condition)
+
+        if not match:
+            return False
+
+        key_path, operator, value_str = match.groups()
+
+        # Get value from state using dot notation
+        current = state
+        for key in key_path.split('.'):
+            if isinstance(current, dict) and key in current:
+                current = current[key]
+            else:
+                return False
+
+        # Parse the comparison value
+        try:
+            # Try to evaluate as Python literal
+            import ast
+            target_value = ast.literal_eval(value_str.strip())
+        except (ValueError, SyntaxError):
+            target_value = value_str.strip().strip('"\'')
+
+        # Perform comparison
+        if operator == "==":
+            return current == target_value
+        elif operator == "!=":
+            return current != target_value
+        elif operator == ">":
+            return current > target_value
+        elif operator == "<":
+            return current < target_value
+        elif operator == ">=":
+            return current >= target_value
+        elif operator == "<=":
+            return current <= target_value
+        elif operator == "in":
+            return current in target_value
+
+        return False
+
+    def _evaluate_result_condition(
+        self,
+        condition: str,
+        result: Any
+    ) -> bool:
+        """Evaluate result-based condition."""
+        import re
+
+        pattern = r'result\.(\w+(?:\.\w+)*)\s*(==|!=|>|<|>=|<=|in)\s*(.+)'
+        match = re.match(pattern, condition)
+
+        if not match:
+            return False
+
+        key_path, operator, value_str = match.groups()
+
+        # Get value from result
+        if not isinstance(result, dict):
+            return False
+
+        current = result
+        for key in key_path.split('.'):
+            if isinstance(current, dict) and key in current:
+                current = current[key]
+            else:
+                return False
+
+        try:
+            import ast
+            target_value = ast.literal_eval(value_str.strip())
+        except (ValueError, SyntaxError):
+            target_value = value_str.strip().strip('"\'')
+
+        if operator == "==":
+            return current == target_value
+        elif operator == "!=":
+            return current != target_value
+        elif operator == ">":
+            return current > target_value
+        elif operator == "<":
+            return current < target_value
+        elif operator == ">=":
+            return current >= target_value
+        elif operator == "<=":
+            return current <= target_value
+        elif operator == "in":
+            return current in target_value
+
+        return False
+
+    def _evaluate_expression(
+        self,
+        condition: str,
+        result: Any,
+        context: ExecutionContext
+    ) -> bool:
+        """Safely evaluate an expression condition."""
+        # Build a safe evaluation context
+        safe_context = {
+            "result": result if isinstance(result, dict) else {"value": result},
+            "state": context.state,
+            "depth": context.depth,
+            "visited_count": len(context.visited_nodes),
+            "True": True,
+            "False": False,
+            "None": None,
+        }
+
+        # Only allow safe operations
+        allowed_names = set(safe_context.keys())
+
+        try:
+            import ast
+
+            # Parse the expression
+            tree = ast.parse(condition, mode='eval')
+
+            # Check for unsafe operations
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Name) and node.id not in allowed_names:
+                    # Allow checking dict keys
+                    pass
+                elif isinstance(node, (ast.Call, ast.Import, ast.ImportFrom)):
+                    # Disallow function calls and imports
+                    return False
+
+            # Evaluate safely
+            code = compile(tree, '<condition>', 'eval')
+            return bool(eval(code, {"__builtins__": {}}, safe_context))
+
+        except Exception:
             return False
 
     async def _execute_agent_node(
@@ -391,7 +564,16 @@ class WorkflowEngine:
         node: WorkflowNode,
         context: ExecutionContext
     ) -> Dict[str, Any]:
-        """Execute agent node"""
+        """
+        Execute agent node with actual AgentExecutor integration.
+
+        Supports:
+        - Direct agent execution via AgentExecutor
+        - Input mapping from workflow state
+        - Output storage to workflow state
+        - Timeout enforcement
+        - Error handling with retry option
+        """
         logger.debug(f"Executing agent node: {node.node_id}")
 
         # Extract input from state
@@ -399,18 +581,149 @@ class WorkflowEngine:
         if isinstance(input_data, str):
             # Reference to state key
             input_data = context.state.get(input_data, {})
+        elif isinstance(input_data, dict):
+            # Template substitution from state
+            input_data = self._substitute_template(input_data, context.state)
 
-        # Execute agent (stub)
-        # TODO: Integrate with actual agent executor
-        result = {
-            "node_id": node.node_id,
-            "output": f"Agent {node.node_id} executed",
-            "success": True,
-        }
+        # Get agent configuration
+        agent_id = node.config.get("agent_id", f"workflow_{context.workflow_id}")
+        agent_type = node.config.get("agent_type", "generic")
+        timeout = node.config.get("timeout_seconds", 300)
+        retry_count = node.config.get("retry_count", 0)
+        retry_delay = node.config.get("retry_delay_seconds", 5)
+
+        result = None
+        last_error = None
+
+        for attempt in range(retry_count + 1):
+            try:
+                # Execute via AgentExecutor if available
+                if self._agent_executor:
+                    result = await asyncio.wait_for(
+                        self._execute_with_agent_executor(
+                            agent_id=agent_id,
+                            agent_type=agent_type,
+                            input_data=input_data,
+                            node_config=node.config,
+                            context=context
+                        ),
+                        timeout=timeout
+                    )
+                else:
+                    # Fallback to simulation mode
+                    result = await self._simulate_agent_execution(
+                        node=node,
+                        input_data=input_data,
+                        context=context
+                    )
+
+                # Success - break retry loop
+                break
+
+            except asyncio.TimeoutError:
+                last_error = f"Agent execution timed out after {timeout}s"
+                logger.warning(f"Agent node {node.node_id} timeout (attempt {attempt + 1})")
+            except Exception as e:
+                last_error = str(e)
+                logger.warning(f"Agent node {node.node_id} failed (attempt {attempt + 1}): {e}")
+
+            # Wait before retry
+            if attempt < retry_count:
+                await asyncio.sleep(retry_delay)
+
+        # Handle final failure
+        if result is None:
+            result = {
+                "node_id": node.node_id,
+                "success": False,
+                "error": last_error,
+                "attempts": retry_count + 1,
+            }
+
+        # Ensure result has required fields
+        if isinstance(result, dict):
+            result.setdefault("node_id", node.node_id)
+            result.setdefault("success", True)
+        else:
+            result = {
+                "node_id": node.node_id,
+                "output": result,
+                "success": True,
+            }
 
         # Store result in state
         output_key = node.config.get("output_key", node.node_id)
         context.state[output_key] = result
+
+        return result
+
+    async def _execute_with_agent_executor(
+        self,
+        agent_id: str,
+        agent_type: str,
+        input_data: Dict[str, Any],
+        node_config: Dict[str, Any],
+        context: ExecutionContext
+    ) -> Dict[str, Any]:
+        """Execute using the actual AgentExecutor."""
+        # Build execution request
+        task = input_data.get("task", input_data.get("prompt", str(input_data)))
+
+        # Execute via AgentExecutor
+        execution_result = await self._agent_executor.execute(
+            agent_id=agent_id,
+            task=task,
+            context={
+                "workflow_id": context.workflow_id,
+                "execution_path": context.execution_path,
+                "state": context.state,
+                **node_config.get("context", {})
+            }
+        )
+
+        return {
+            "node_id": node_config.get("node_id"),
+            "output": execution_result.get("result", execution_result),
+            "success": execution_result.get("success", True),
+            "agent_id": agent_id,
+            "execution_id": execution_result.get("execution_id"),
+        }
+
+    async def _simulate_agent_execution(
+        self,
+        node: WorkflowNode,
+        input_data: Dict[str, Any],
+        context: ExecutionContext
+    ) -> Dict[str, Any]:
+        """Simulate agent execution for testing."""
+        # Simulate processing time
+        await asyncio.sleep(0.1)
+
+        return {
+            "node_id": node.node_id,
+            "output": f"Simulated agent execution for {node.node_id}",
+            "input_received": input_data,
+            "success": True,
+            "simulated": True,
+        }
+
+    def _substitute_template(
+        self,
+        template: Dict[str, Any],
+        state: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Substitute template variables from state."""
+        result = {}
+
+        for key, value in template.items():
+            if isinstance(value, str) and value.startswith("${") and value.endswith("}"):
+                # Template variable: ${state_key}
+                state_key = value[2:-1]
+                result[key] = state.get(state_key, value)
+            elif isinstance(value, dict):
+                result[key] = self._substitute_template(value, state)
+            else:
+                result[key] = value
 
         return result
 
@@ -534,11 +847,164 @@ class WorkflowEngine:
             "execution_path": context.execution_path,
         }
 
+    async def resume_workflow(
+        self,
+        workflow_id: str,
+        checkpoint_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Resume a workflow from checkpoint.
+
+        Args:
+            workflow_id: Workflow to resume
+            checkpoint_id: Optional specific checkpoint to resume from
+
+        Returns:
+            Final workflow state
+
+        Raises:
+            WorkflowError: If resume fails
+        """
+        logger.info(f"Resuming workflow {workflow_id} from checkpoint")
+
+        if not self._state_manager:
+            raise WorkflowError(
+                code="E2012",
+                message="StateManager required for workflow resume"
+            )
+
+        try:
+            # Load checkpoint
+            if checkpoint_id:
+                snapshot = await self._state_manager.restore_checkpoint(checkpoint_id)
+            else:
+                # Get latest hot state
+                hot_state = await self._state_manager.load_hot_state(workflow_id)
+                if not hot_state:
+                    raise WorkflowError(
+                        code="E2012",
+                        message=f"No checkpoint found for workflow {workflow_id}"
+                    )
+                snapshot = hot_state
+
+            # Reconstruct context
+            checkpoint_data = snapshot if isinstance(snapshot, dict) else snapshot.context
+
+            # Find the last executed node
+            execution_path = checkpoint_data.get("execution_path", [])
+            if not execution_path:
+                raise WorkflowError(
+                    code="E2012",
+                    message="Cannot resume: no execution path in checkpoint"
+                )
+
+            logger.info(
+                f"Resuming workflow {workflow_id} from node {execution_path[-1]} "
+                f"(path length: {len(execution_path)})"
+            )
+
+            # TODO: Reconstruct graph and continue execution
+            # For now, return the checkpoint state
+            return checkpoint_data
+
+        except WorkflowError:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to resume workflow {workflow_id}: {e}")
+            raise WorkflowError(
+                code="E2012",
+                message=f"Workflow resume failed: {str(e)}"
+            )
+
+    async def cancel_workflow(
+        self,
+        workflow_id: str,
+        reason: str = "User requested cancellation"
+    ) -> bool:
+        """
+        Cancel an active workflow.
+
+        Args:
+            workflow_id: Workflow to cancel
+            reason: Cancellation reason
+
+        Returns:
+            True if cancelled, False if not found
+        """
+        context = self._active_executions.get(workflow_id)
+        if not context:
+            logger.warning(f"Workflow {workflow_id} not found for cancellation")
+            return False
+
+        logger.info(f"Cancelling workflow {workflow_id}: {reason}")
+
+        # Save final checkpoint
+        if self._state_manager:
+            context.state["_cancelled"] = True
+            context.state["_cancel_reason"] = reason
+            await self._checkpoint_workflow(context)
+
+        # Remove from active executions
+        del self._active_executions[workflow_id]
+
+        return True
+
+    def list_active_workflows(self) -> List[Dict[str, Any]]:
+        """List all active workflow executions."""
+        return [
+            {
+                "workflow_id": wid,
+                "started_at": ctx.started_at.isoformat() if ctx.started_at else None,
+                "nodes_executed": len(ctx.execution_path),
+                "current_depth": ctx.depth,
+            }
+            for wid, ctx in self._active_executions.items()
+        ]
+
+    def get_health_status(self) -> Dict[str, Any]:
+        """Get workflow engine health status."""
+        return {
+            "healthy": True,
+            "active_workflows": len(self._active_executions),
+            "registered_handlers": list(self._node_handlers.keys()),
+            "config": {
+                "max_graph_depth": self.max_graph_depth,
+                "max_parallel_branches": self.max_parallel_branches,
+                "cycle_detection": self.cycle_detection,
+                "checkpoint_enabled": self.checkpoint_on_node_complete,
+                "timeout_seconds": self.workflow_timeout,
+            },
+            "state_manager_available": self._state_manager is not None,
+            "agent_executor_available": self._agent_executor is not None,
+        }
+
+    def get_metrics(self) -> Dict[str, Any]:
+        """Get workflow execution metrics."""
+        return {
+            "active_workflows": len(self._active_executions),
+            "workflows_by_depth": {
+                wid: ctx.depth
+                for wid, ctx in self._active_executions.items()
+            },
+            "total_nodes_executed": sum(
+                len(ctx.execution_path)
+                for ctx in self._active_executions.values()
+            ),
+        }
+
     async def cleanup(self) -> None:
         """Cleanup with timeout protection."""
         logger.info("Cleaning up WorkflowEngine")
         try:
             async with asyncio.timeout(2.0):
+                # Save checkpoints for active workflows
+                for workflow_id, context in list(self._active_executions.items()):
+                    try:
+                        context.state["_cleanup_interrupted"] = True
+                        await self._checkpoint_workflow(context)
+                    except Exception as e:
+                        logger.warning(f"Failed to checkpoint {workflow_id}: {e}")
+
                 # Clear active executions and handlers
                 self._active_executions.clear()
                 self._node_handlers.clear()

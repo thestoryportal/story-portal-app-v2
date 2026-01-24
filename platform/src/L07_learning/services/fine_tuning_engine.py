@@ -1,13 +1,17 @@
 """L07 Learning Layer - Fine-Tuning Engine Service.
 
 Orchestrates supervised fine-tuning with LoRA. Uses simulation for local development.
+Includes checkpoint management, training progress tracking, and recovery support.
 """
 
 import asyncio
 import logging
 import time
-from typing import Dict, Any, Optional
-from datetime import datetime
+import os
+import json
+from typing import Dict, Any, Optional, List
+from datetime import datetime, timezone
+from dataclasses import dataclass, field, asdict
 import random
 import math
 
@@ -31,18 +35,60 @@ from ..models.error_codes import LearningErrorCode, TrainingError
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class TrainingCheckpoint:
+    """Checkpoint during training."""
+    checkpoint_id: str
+    job_id: str
+    epoch: int
+    step: int
+    train_loss: float
+    eval_loss: Optional[float]
+    created_at: str
+    checkpoint_path: str
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class TrainingProgress:
+    """Real-time training progress."""
+    job_id: str
+    status: str
+    current_epoch: int
+    total_epochs: int
+    current_step: int
+    steps_per_epoch: int
+    train_loss: float
+    eval_loss: Optional[float]
+    learning_rate: float
+    elapsed_seconds: float
+    estimated_remaining_seconds: float
+    checkpoints_saved: int
+    gpu_utilization_percent: float
+    throughput_samples_per_second: float
+
+
 class FineTuningEngine:
     """Supervised fine-tuning engine with LoRA adapters.
 
     For local development, implements simulated training to test pipeline flow
     without requiring GPU resources. Production would use HuggingFace + PyTorch.
+
+    Features:
+    - Checkpoint management during training
+    - Real-time progress tracking
+    - Training recovery from checkpoints
+    - Configurable evaluation intervals
     """
 
     def __init__(
         self,
         model_registry=None,
         dataset_curator=None,
-        simulate_training: bool = True
+        simulate_training: bool = True,
+        checkpoint_dir: str = "/tmp/l07_checkpoints",
+        checkpoint_interval_epochs: int = 1,
+        evaluation_interval_steps: int = 100
     ):
         """Initialize Fine-Tuning Engine.
 
@@ -50,15 +96,29 @@ class FineTuningEngine:
             model_registry: Model registry service
             dataset_curator: Dataset curator service
             simulate_training: Use simulation instead of actual training
+            checkpoint_dir: Directory for checkpoints
+            checkpoint_interval_epochs: Epochs between checkpoints
+            evaluation_interval_steps: Steps between evaluations
         """
         self.model_registry = model_registry
         self.dataset_curator = dataset_curator
         self.simulate_training = simulate_training
+        self.checkpoint_dir = checkpoint_dir
+        self.checkpoint_interval_epochs = checkpoint_interval_epochs
+        self.evaluation_interval_steps = evaluation_interval_steps
+
         self.active_jobs: Dict[str, TrainingJob] = {}
+        self._checkpoints: Dict[str, List[TrainingCheckpoint]] = {}
+        self._progress: Dict[str, TrainingProgress] = {}
+        self._job_tasks: Dict[str, asyncio.Task] = {}
+
+        # Ensure checkpoint directory exists
+        os.makedirs(checkpoint_dir, exist_ok=True)
 
         logger.info(
             f"Initialized FineTuningEngine "
-            f"(simulation={'ON' if simulate_training else 'OFF'})"
+            f"(simulation={'ON' if simulate_training else 'OFF'}, "
+            f"checkpoint_interval={checkpoint_interval_epochs} epochs)"
         )
 
     async def start_training(
@@ -112,9 +172,11 @@ class FineTuningEngine:
 
         # Store job
         self.active_jobs[job.job_id] = job
+        self._checkpoints[job.job_id] = []
 
-        # Start training asynchronously
-        asyncio.create_task(self._execute_training(job))
+        # Start training asynchronously and track task
+        task = asyncio.create_task(self._execute_training(job))
+        self._job_tasks[job.job_id] = task
 
         logger.info(f"Started training job {job.job_id}")
 
@@ -141,10 +203,13 @@ class FineTuningEngine:
     async def _simulate_training_loop(self, job: TrainingJob) -> None:
         """Simulate training loop for local development.
 
+        Includes checkpoint management and real-time progress updates.
+
         Args:
             job: Training job
         """
         logger.info(f"Simulating training for job {job.job_id}")
+        start_time = time.time()
 
         # Preparation phase
         job.update_status(JobStatus.PREPARING_DATA, "Loading dataset")
@@ -159,6 +224,7 @@ class FineTuningEngine:
         # Simulate training with decreasing loss
         initial_loss = 2.5
         target_loss = 0.3
+        eval_loss = None
 
         for epoch in range(num_epochs):
             logger.info(f"Job {job.job_id}: Epoch {epoch + 1}/{num_epochs}")
@@ -172,22 +238,53 @@ class FineTuningEngine:
                 base_loss = initial_loss - (initial_loss - target_loss) * progress
                 noise = random.gauss(0, 0.05)
                 train_loss = max(0.1, base_loss + noise)
+                current_lr = job.config.learning_rate * (1 - progress * 0.5)
+                gpu_util = random.uniform(70, 95)
+                throughput = random.uniform(50, 100)
 
                 # Create training metric
                 metric = TrainingMetrics(
                     epoch=epoch + 1,
                     step=step + 1,
                     train_loss=train_loss,
-                    learning_rate=job.config.learning_rate * (1 - progress * 0.5),
+                    learning_rate=current_lr,
                     grad_norm=random.uniform(0.5, 1.5),
                     gpu_memory_mb=random.uniform(2000, 4000),
-                    gpu_utilization_percent=random.uniform(70, 95),
-                    throughput_samples_per_second=random.uniform(50, 100)
+                    gpu_utilization_percent=gpu_util,
+                    throughput_samples_per_second=throughput
                 )
 
                 job.add_training_metric(metric)
 
-            # Epoch evaluation
+                # Update progress
+                elapsed = time.time() - start_time
+                total_steps = num_epochs * steps_per_epoch
+                current_total_step = epoch * steps_per_epoch + step
+                estimated_total = (elapsed / max(1, current_total_step)) * total_steps
+                remaining = max(0, estimated_total - elapsed)
+
+                self._progress[job.job_id] = TrainingProgress(
+                    job_id=job.job_id,
+                    status=job.status.value if hasattr(job.status, 'value') else str(job.status),
+                    current_epoch=epoch + 1,
+                    total_epochs=num_epochs,
+                    current_step=step + 1,
+                    steps_per_epoch=steps_per_epoch,
+                    train_loss=train_loss,
+                    eval_loss=eval_loss,
+                    learning_rate=current_lr,
+                    elapsed_seconds=elapsed,
+                    estimated_remaining_seconds=remaining,
+                    checkpoints_saved=len(self._checkpoints.get(job.job_id, [])),
+                    gpu_utilization_percent=gpu_util,
+                    throughput_samples_per_second=throughput
+                )
+
+                # Periodic evaluation
+                if step > 0 and step % self.evaluation_interval_steps == 0:
+                    eval_loss = train_loss * random.uniform(1.0, 1.1)
+
+            # End of epoch evaluation
             eval_loss = train_loss * random.uniform(1.0, 1.1)
             logger.info(
                 f"Job {job.job_id}: Epoch {epoch + 1} complete - "
@@ -197,12 +294,22 @@ class FineTuningEngine:
             # Add eval metric
             eval_metric = TrainingMetrics(
                 epoch=epoch + 1,
-                step=step + 1,
+                step=steps_per_epoch,
                 train_loss=train_loss,
                 eval_loss=eval_loss,
-                learning_rate=job.config.learning_rate
+                learning_rate=current_lr
             )
             job.add_training_metric(eval_metric)
+
+            # Save checkpoint at interval
+            if (epoch + 1) % self.checkpoint_interval_epochs == 0:
+                await self._save_checkpoint(
+                    job=job,
+                    epoch=epoch + 1,
+                    step=steps_per_epoch,
+                    train_loss=train_loss,
+                    eval_loss=eval_loss
+                )
 
         # Validation phase
         job.update_status(JobStatus.VALIDATING, "Running validation")
@@ -381,10 +488,222 @@ class FineTuningEngine:
         failed = len([j for j in jobs if j.status == JobStatus.FAILED])
         active = len([j for j in jobs if j.status == JobStatus.TRAINING])
 
+        total_checkpoints = sum(
+            len(chkpts) for chkpts in self._checkpoints.values()
+        )
+
         return {
             'total_jobs': len(jobs),
             'completed_jobs': completed,
             'failed_jobs': failed,
             'active_jobs': active,
-            'success_rate': completed / max(1, completed + failed)
+            'success_rate': completed / max(1, completed + failed),
+            'total_checkpoints': total_checkpoints
+        }
+
+    # ==================== Checkpoint Management ====================
+
+    async def _save_checkpoint(
+        self,
+        job: TrainingJob,
+        epoch: int,
+        step: int,
+        train_loss: float,
+        eval_loss: Optional[float]
+    ) -> TrainingCheckpoint:
+        """Save a training checkpoint.
+
+        Args:
+            job: Training job
+            epoch: Current epoch
+            step: Current step
+            train_loss: Training loss
+            eval_loss: Evaluation loss
+
+        Returns:
+            TrainingCheckpoint
+        """
+        checkpoint_id = f"{job.job_id}_epoch{epoch}_step{step}"
+        checkpoint_path = os.path.join(
+            self.checkpoint_dir,
+            job.job_id,
+            f"checkpoint_epoch{epoch}.json"
+        )
+
+        # Create checkpoint directory
+        os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
+
+        checkpoint = TrainingCheckpoint(
+            checkpoint_id=checkpoint_id,
+            job_id=job.job_id,
+            epoch=epoch,
+            step=step,
+            train_loss=train_loss,
+            eval_loss=eval_loss,
+            created_at=datetime.now(timezone.utc).isoformat(),
+            checkpoint_path=checkpoint_path,
+            metadata={
+                "learning_rate": job.config.learning_rate,
+                "batch_size": job.config.batch_size,
+                "base_model_id": job.base_model_id,
+            }
+        )
+
+        # Save checkpoint metadata
+        try:
+            with open(checkpoint_path, 'w') as f:
+                json.dump(asdict(checkpoint), f, indent=2)
+        except Exception as e:
+            logger.warning(f"Failed to save checkpoint file: {e}")
+
+        # Track checkpoint
+        if job.job_id not in self._checkpoints:
+            self._checkpoints[job.job_id] = []
+        self._checkpoints[job.job_id].append(checkpoint)
+
+        logger.info(
+            f"Saved checkpoint: {checkpoint_id} "
+            f"(train_loss={train_loss:.4f}, eval_loss={eval_loss:.4f if eval_loss else 'N/A'})"
+        )
+
+        return checkpoint
+
+    async def get_checkpoints(
+        self,
+        job_id: str
+    ) -> List[TrainingCheckpoint]:
+        """Get all checkpoints for a job.
+
+        Args:
+            job_id: Job identifier
+
+        Returns:
+            List of checkpoints
+        """
+        return self._checkpoints.get(job_id, [])
+
+    async def get_latest_checkpoint(
+        self,
+        job_id: str
+    ) -> Optional[TrainingCheckpoint]:
+        """Get the latest checkpoint for a job.
+
+        Args:
+            job_id: Job identifier
+
+        Returns:
+            Latest checkpoint or None
+        """
+        checkpoints = self._checkpoints.get(job_id, [])
+        if not checkpoints:
+            return None
+        return checkpoints[-1]
+
+    async def resume_from_checkpoint(
+        self,
+        job_id: str,
+        checkpoint_id: Optional[str] = None
+    ) -> TrainingJob:
+        """Resume training from a checkpoint.
+
+        Args:
+            job_id: Original job ID
+            checkpoint_id: Specific checkpoint (uses latest if not provided)
+
+        Returns:
+            New training job
+
+        Raises:
+            TrainingError: If job or checkpoint not found
+        """
+        original_job = self.active_jobs.get(job_id)
+        if not original_job:
+            raise TrainingError(
+                LearningErrorCode.E7900,
+                f"Job not found: {job_id}"
+            )
+
+        checkpoints = self._checkpoints.get(job_id, [])
+        if not checkpoints:
+            raise TrainingError(
+                LearningErrorCode.E7903,
+                f"No checkpoints for job: {job_id}"
+            )
+
+        # Find checkpoint
+        if checkpoint_id:
+            checkpoint = next(
+                (c for c in checkpoints if c.checkpoint_id == checkpoint_id),
+                None
+            )
+            if not checkpoint:
+                raise TrainingError(
+                    LearningErrorCode.E7903,
+                    f"Checkpoint not found: {checkpoint_id}"
+                )
+        else:
+            checkpoint = checkpoints[-1]
+
+        logger.info(
+            f"Resuming job {job_id} from checkpoint: {checkpoint.checkpoint_id}"
+        )
+
+        # Create resumed job with adjusted config
+        remaining_epochs = original_job.config.num_epochs - checkpoint.epoch
+        resumed_config = JobConfig(
+            num_epochs=remaining_epochs,
+            batch_size=original_job.config.batch_size,
+            learning_rate=original_job.config.learning_rate,
+            optimizer=original_job.config.optimizer,
+            warmup_steps=0,  # Skip warmup on resume
+        )
+
+        # Start new job
+        return await self.start_training(
+            dataset_id=original_job.dataset_id,
+            base_model_id=original_job.base_model_id,
+            config=resumed_config
+        )
+
+    # ==================== Progress Tracking ====================
+
+    async def get_training_progress(
+        self,
+        job_id: str
+    ) -> Optional[TrainingProgress]:
+        """Get real-time training progress.
+
+        Args:
+            job_id: Job identifier
+
+        Returns:
+            TrainingProgress or None
+        """
+        return self._progress.get(job_id)
+
+    async def get_all_progress(self) -> Dict[str, TrainingProgress]:
+        """Get progress for all active jobs.
+
+        Returns:
+            Dictionary of job_id -> TrainingProgress
+        """
+        return dict(self._progress)
+
+    def get_health_status(self) -> Dict[str, Any]:
+        """Get engine health status.
+
+        Returns:
+            Health status dictionary
+        """
+        stats = self.get_statistics()
+        active_jobs = stats.get('active_jobs', 0)
+
+        return {
+            "healthy": True,
+            "active_jobs": active_jobs,
+            "completed_jobs": stats.get('completed_jobs', 0),
+            "failed_jobs": stats.get('failed_jobs', 0),
+            "success_rate_percent": round(stats.get('success_rate', 0) * 100, 2),
+            "total_checkpoints": stats.get('total_checkpoints', 0),
+            "simulation_mode": self.simulate_training,
         }

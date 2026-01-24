@@ -11,7 +11,7 @@ import json
 import hashlib
 import hmac
 import logging
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from uuid import uuid4
 from datetime import datetime
 
@@ -483,6 +483,117 @@ Output JSON format:
 
         expected_signature = self._sign_plan(plan)
         return hmac.compare_digest(plan.signature, expected_signature)
+
+    async def extract_pattern(self, goal: Goal) -> Optional[Dict[str, Any]]:
+        """
+        Extract a reusable pattern from a goal for caching.
+
+        Args:
+            goal: Goal to extract pattern from
+
+        Returns:
+            Pattern dictionary or None if not extractable
+        """
+        # Normalize goal text
+        normalized = goal.goal_text.lower().strip()
+
+        # Extract common pattern indicators
+        pattern = {
+            "goal_type": self._classify_goal_type(normalized),
+            "entities": self._extract_entities(goal.goal_text),
+            "action_verbs": self._extract_action_verbs(normalized),
+            "complexity": self._estimate_complexity(normalized),
+        }
+
+        return pattern
+
+    def _classify_goal_type(self, text: str) -> str:
+        """Classify goal into a type category."""
+        type_keywords = {
+            "create": ["create", "build", "make", "generate", "add"],
+            "modify": ["update", "change", "edit", "modify", "fix"],
+            "delete": ["delete", "remove", "drop", "clean"],
+            "analyze": ["analyze", "check", "review", "evaluate", "assess"],
+            "deploy": ["deploy", "release", "publish", "launch"],
+            "test": ["test", "verify", "validate", "check"],
+        }
+
+        for goal_type, keywords in type_keywords.items():
+            if any(keyword in text for keyword in keywords):
+                return goal_type
+
+        return "generic"
+
+    def _extract_entities(self, text: str) -> List[str]:
+        """Extract entity references from goal text."""
+        import re
+
+        entities = []
+
+        # Extract quoted strings
+        quoted = re.findall(r'"([^"]*)"', text)
+        entities.extend(quoted)
+
+        # Extract code-like references (snake_case, camelCase)
+        code_refs = re.findall(r'\b[a-z_][a-z0-9_]*(?:[A-Z][a-z0-9]*)*\b', text)
+        entities.extend([ref for ref in code_refs if len(ref) > 3])
+
+        return list(set(entities))[:10]  # Limit to 10 entities
+
+    def _extract_action_verbs(self, text: str) -> List[str]:
+        """Extract action verbs from goal text."""
+        common_verbs = [
+            "create", "build", "make", "update", "delete", "remove",
+            "add", "fix", "change", "deploy", "test", "analyze",
+            "implement", "refactor", "optimize", "configure", "setup"
+        ]
+
+        found = [verb for verb in common_verbs if verb in text]
+        return found
+
+    def _estimate_complexity(self, text: str) -> str:
+        """Estimate goal complexity."""
+        word_count = len(text.split())
+
+        if word_count < 10:
+            return "simple"
+        elif word_count < 30:
+            return "moderate"
+        else:
+            return "complex"
+
+    async def suggest_template(self, goal: Goal) -> Optional[Dict[str, Any]]:
+        """
+        Suggest a template for a goal.
+
+        Args:
+            goal: Goal to find template for
+
+        Returns:
+            Template suggestion with confidence or None
+        """
+        template_match = self.template_registry.find_similar(goal.goal_text)
+
+        if template_match:
+            return {
+                "template_id": template_match.template.template_id,
+                "template_name": template_match.template.name,
+                "confidence": template_match.confidence,
+                "extracted_params": template_match.extracted_params,
+                "recommended": template_match.confidence >= 0.85,
+            }
+
+        return None
+
+    def get_health_status(self) -> Dict[str, Any]:
+        """Get health status of decomposer."""
+        return {
+            "healthy": True,
+            "stats": self.get_stats(),
+            "template_count": len(self.template_registry.get_all_templates()),
+            "gateway_available": self.gateway_client is not None,
+            "cache_available": self.cache is not None,
+        }
 
     def get_stats(self) -> dict:
         """Get decomposer statistics."""
