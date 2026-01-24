@@ -1,3 +1,21 @@
+# Stage 1: Build React frontend
+FROM node:20-alpine AS frontend-builder
+
+WORKDIR /frontend
+
+# Copy package files from ui directory
+COPY ui/package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy source code
+COPY ui/ ./
+
+# Build the frontend
+RUN npm run build
+
+# Stage 2: Python backend with frontend static files
 FROM python:3.11-slim
 
 # Install curl for health checks
@@ -19,11 +37,14 @@ RUN if [ -f L10_human_interface/requirements.txt ]; then pip install --no-cache-
 # Copy application
 COPY src/L10_human_interface ./L10_human_interface/
 
-# Expose port
+# Copy built frontend from Stage 1
+COPY --from=frontend-builder /frontend/dist /app/static
+
+# Expose ports (8010 for API/WebSocket, 3000 optional for backward compat)
 EXPOSE 8010
 
 # Set Python path so package imports work (include both /app and /app/src)
 ENV PYTHONPATH=/app:/app/src
 
-# Run as a package module
-CMD ["uvicorn", "L10_human_interface.app:app", "--host", "0.0.0.0", "--port", "8010"]
+# Run as a package module with Socket.IO support
+CMD ["uvicorn", "L10_human_interface.app_socketio:socket_app", "--host", "0.0.0.0", "--port", "8010"]

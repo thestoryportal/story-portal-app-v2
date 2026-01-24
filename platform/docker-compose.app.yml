@@ -337,17 +337,22 @@ services:
     networks:
       - agentic-network
 
-  # L10 Human Interface Layer
+  # L10 Human Interface Layer (includes Platform UI)
   l10-human-interface:
     image: l10-human-interface:latest
     container_name: l10-human-interface
     ports:
-      - "8010:8010"
+      - "3000:8010"  # UI accessible at :3000
+      - "8010:8010"  # API/WebSocket at :8010
     environment:
       - L01_URL=http://l01-data-layer:8001
       - L01_API_KEY=dev_key_local_ONLY
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agentic_platform
       - REDIS_URL=redis://redis:6379
+      - VITE_API_BASE_URL=http://localhost:8012
+      - VITE_L01_URL=http://localhost:8001
+      - VITE_L10_URL=http://localhost:8010
+      - VITE_API_KEY=dev_key_local_ONLY
     depends_on:
       l01-data-layer:
         condition: service_healthy
@@ -514,38 +519,42 @@ services:
     networks:
       - agentic-network
 
-  # Platform Control Center UI
-  platform-ui:
-    image: platform-ui:latest
-    container_name: platform-ui
-    ports:
-      - "3000:80"
-    environment:
-      - VITE_API_GATEWAY_URL=http://localhost:8009
-      - VITE_WS_URL=ws://localhost:8010
-    depends_on:
-      l09-api-gateway:
-        condition: service_healthy
-      l10-human-interface:
-        condition: service_healthy
-      l12-service-hub:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
-        reservations:
-          cpus: '0.1'
-          memory: 64M
-    networks:
-      - agentic-network
+  # ==========================================================================
+  # NOTE: Platform UI is now consolidated into L10 Human Interface Layer.
+  # The React frontend is built and served by L10 at port 3000.
+  # This standalone platform-ui service is deprecated.
+  # ==========================================================================
+  # platform-ui:
+  #   image: platform-ui:latest
+  #   container_name: platform-ui
+  #   ports:
+  #     - "3000:80"
+  #   environment:
+  #     - VITE_API_GATEWAY_URL=http://localhost:8009
+  #     - VITE_WS_URL=ws://localhost:8010
+  #   depends_on:
+  #     l09-api-gateway:
+  #       condition: service_healthy
+  #     l10-human-interface:
+  #       condition: service_healthy
+  #     l12-service-hub:
+  #       condition: service_healthy
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost/health"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 10s
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '0.5'
+  #         memory: 256M
+  #       reservations:
+  #         cpus: '0.1'
+  #         memory: 64M
+  #   networks:
+  #     - agentic-network
 
   # Monitoring - Prometheus
   prometheus:
