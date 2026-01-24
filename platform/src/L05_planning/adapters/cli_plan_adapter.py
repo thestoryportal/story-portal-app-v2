@@ -35,8 +35,29 @@ from ..models import (
     TaskDependency,
     DependencyType,
 )
-from ..services.goal_decomposer import GoalDecomposer
-from ..services.planning_service import PlanningService
+
+# Lazy imports to avoid circular dependencies and heavy L02/L04 imports
+# These are only needed if actually using GoalDecomposer enrichment or PlanningService execution
+GoalDecomposer = None
+PlanningService = None
+
+
+def _get_goal_decomposer():
+    """Lazy import GoalDecomposer to avoid import cycles."""
+    global GoalDecomposer
+    if GoalDecomposer is None:
+        from ..services.goal_decomposer import GoalDecomposer as GD
+        GoalDecomposer = GD
+    return GoalDecomposer
+
+
+def _get_planning_service():
+    """Lazy import PlanningService to avoid import cycles."""
+    global PlanningService
+    if PlanningService is None:
+        from ..services.planning_service import PlanningService as PS
+        PlanningService = PS
+    return PlanningService
 
 logger = logging.getLogger(__name__)
 
@@ -139,8 +160,8 @@ class CLIPlanAdapter:
 
     def __init__(
         self,
-        goal_decomposer: Optional[GoalDecomposer] = None,
-        planning_service: Optional[PlanningService] = None,
+        goal_decomposer: Optional[Any] = None,
+        planning_service: Optional[Any] = None,
         enrich_with_decomposer: bool = True,
         default_agent_did: str = "did:agent:cli-plan-mode",
     ):
@@ -170,7 +191,9 @@ class CLIPlanAdapter:
         """
         Parse CLI plan mode markdown into structured format.
 
-        Expected format:
+        Supports two formats:
+
+        Format 1 (Simple Steps):
         ```
         # Plan: <goal>
 
@@ -183,6 +206,25 @@ class CLIPlanAdapter:
            Files: file1.py, file2.py
            Depends: step-1
            Tags: tag1, tag2
+        ```
+
+        Format 2 (Phased Plan):
+        ```
+        # <Goal Title> Plan
+
+        ## Executive Summary
+        <context description>
+
+        ## Phase 1: Foundation (Week 1-2)
+        ### 1.1 Database Schema
+        Description...
+        Files to create: ...
+
+        ### 1.2 Service Layer
+        ...
+
+        ## Phase 2: Implementation (Week 3-4)
+        ...
         ```
 
         Args:
@@ -201,27 +243,67 @@ class CLIPlanAdapter:
             context = ""
             steps: List[ParsedStep] = []
             current_section: Optional[str] = None
+            current_phase: Optional[str] = None
             current_step: Optional[ParsedStep] = None
             step_description_lines: List[str] = []
+            phase_count = 0
+            step_count = 0
+            global_step_counter = 0  # Global counter for unique step IDs
 
-            for line in lines:
+            for i, line in enumerate(lines):
                 # Goal header - various formats
                 if line.startswith('# Plan:'):
                     goal = line.replace('# Plan:', '').strip()
                 elif line.startswith('# ') and not goal:
-                    # Alternative: just "# Goal Title"
+                    # Alternative: "# Goal Title Plan" or just "# Goal Title"
                     goal = line.replace('# ', '').strip()
+                    # Clean up trailing "Plan" or "Implementation Plan"
+                    if goal.endswith(' Implementation Plan'):
+                        goal = goal.replace(' Implementation Plan', '')
+                    elif goal.endswith(' Plan'):
+                        goal = goal.replace(' Plan', '')
 
-                # Section headers
-                elif line.startswith('## Context'):
+                # Phase headers (Format 2)
+                elif re.match(r'^## Phase \d+:', line):
+                    current_section = 'phase'
+                    phase_match = re.match(r'^## Phase (\d+):\s*(.+?)(?:\s*\([^)]+\))?$', line)
+                    if phase_match:
+                        phase_count = int(phase_match.group(1))
+                        current_phase = phase_match.group(2).strip()
+
+                # Subsection headers within phases (Format 2) - ### X.Y Title
+                elif current_section == 'phase' and line.startswith('### '):
+                    # Save previous step
+                    if current_step:
+                        current_step.description = ' '.join(step_description_lines).strip()
+                        steps.append(current_step)
+                        step_description_lines = []
+
+                    # Parse subsection: ### 1.1 Title or ### Title
+                    subsection_match = re.match(r'^###\s+(\d+\.\d+)?\s*(.+?)$', line)
+                    if subsection_match:
+                        global_step_counter += 1
+                        subsection_title = subsection_match.group(2).strip()
+
+                        current_step = ParsedStep(
+                            id=f"step-{global_step_counter}",
+                            title=subsection_title,
+                            tags=[current_phase.lower().replace(' ', '-')] if current_phase else [],
+                        )
+
+                # Section headers (Format 1)
+                elif line.startswith('## Context') or line.startswith('## Executive Summary'):
                     current_section = 'context'
                 elif line.startswith('## Steps') or line.startswith('## Implementation'):
                     current_section = 'steps'
-                elif line.startswith('## '):
-                    # Other sections - skip
-                    current_section = 'other'
+                elif line.startswith('## ') and current_section not in ['phase', 'steps']:
+                    # Other sections like ## Architecture Overview, ## Verification
+                    if 'summary' in line.lower() or 'overview' in line.lower():
+                        current_section = 'context'
+                    else:
+                        current_section = 'other'
 
-                # Step parsing
+                # Step parsing (Format 1)
                 elif current_section == 'steps':
                     # New numbered step with bold title
                     step_match = re.match(r'^(\d+)\.\s+\*\*(.+?)\*\*', line)
@@ -236,42 +318,25 @@ class CLIPlanAdapter:
                             steps.append(current_step)
                             step_description_lines = []
 
-                        step_num = step_match.group(1)
+                        global_step_counter += 1
                         step_title = step_match.group(2).strip()
                         current_step = ParsedStep(
-                            id=f"step-{step_num}",
+                            id=f"step-{global_step_counter}",
                             title=step_title,
                         )
 
                     # Step metadata
                     elif current_step:
-                        stripped = line.strip()
+                        self._parse_step_metadata(line, current_step, step_description_lines)
 
-                        if stripped.startswith('Files:'):
-                            files = stripped.replace('Files:', '').strip()
-                            current_step.file_targets = [
-                                f.strip() for f in files.split(',') if f.strip()
-                            ]
-                        elif stripped.startswith('Depends:'):
-                            deps = stripped.replace('Depends:', '').strip()
-                            current_step.dependencies = [
-                                d.strip() for d in deps.split(',') if d.strip()
-                            ]
-                        elif stripped.startswith('Tags:'):
-                            tags = stripped.replace('Tags:', '').strip()
-                            current_step.tags = [
-                                t.strip().lower() for t in tags.split(',') if t.strip()
-                            ]
-                        elif stripped.startswith('- '):
-                            # Sub-bullet description
-                            step_description_lines.append(stripped[2:])
-                        elif stripped and not stripped.startswith('#'):
-                            # Regular description line
-                            step_description_lines.append(stripped)
+                # Step metadata for phased plans (Format 2)
+                elif current_section == 'phase' and current_step:
+                    self._parse_step_metadata(line, current_step, step_description_lines)
 
                 # Context content
                 elif current_section == 'context' and line.strip():
-                    context += line.strip() + ' '
+                    if not line.startswith('#') and not line.startswith('```'):
+                        context += line.strip() + ' '
 
             # Don't forget last step
             if current_step:
@@ -281,6 +346,11 @@ class CLIPlanAdapter:
             # Detect parallelizable steps (no dependencies = parallelizable)
             for step in steps:
                 step.parallelizable = len(step.dependencies) == 0
+
+            # Infer files from descriptions if not explicitly listed
+            for step in steps:
+                if not step.file_targets:
+                    step.file_targets = self._infer_files_from_description(step.description)
 
             # Generate session ID
             session_id = self._generate_session_id(markdown)
@@ -306,6 +376,59 @@ class CLIPlanAdapter:
             self.parse_errors += 1
             logger.error(f"Failed to parse plan markdown: {e}")
             raise ValueError(f"Failed to parse plan markdown: {e}")
+
+    def _parse_step_metadata(
+        self,
+        line: str,
+        current_step: ParsedStep,
+        step_description_lines: List[str],
+    ) -> None:
+        """Parse metadata from a step line."""
+        stripped = line.strip()
+
+        # Skip empty lines, headers, and code blocks
+        if not stripped or stripped.startswith('#') or stripped.startswith('```'):
+            return
+
+        # Explicit file targets
+        if stripped.startswith('Files:') or stripped.startswith('Files to create:'):
+            files_text = stripped.split(':', 1)[1].strip()
+            current_step.file_targets.extend([
+                f.strip() for f in files_text.split(',') if f.strip()
+            ])
+        # Dependencies
+        elif stripped.startswith('Depends:') or stripped.startswith('Dependencies:'):
+            deps_text = stripped.split(':', 1)[1].strip()
+            current_step.dependencies.extend([
+                d.strip() for d in deps_text.split(',') if d.strip()
+            ])
+        # Tags
+        elif stripped.startswith('Tags:'):
+            tags_text = stripped.split(':', 1)[1].strip()
+            current_step.tags.extend([
+                t.strip().lower() for t in tags_text.split(',') if t.strip()
+            ])
+        # File paths in description (detect patterns like /path/to/file.py)
+        elif '/' in stripped and stripped.startswith('Create:'):
+            file_path = stripped.replace('Create:', '').strip().strip('`')
+            current_step.file_targets.append(file_path)
+        # Bullet points as description
+        elif stripped.startswith('- ') or stripped.startswith('* '):
+            step_description_lines.append(stripped[2:])
+        # Regular description line
+        elif not stripped.startswith('|') and not stripped.startswith('---'):
+            step_description_lines.append(stripped)
+
+    def _infer_files_from_description(self, description: str) -> List[str]:
+        """Infer file targets from description text."""
+        files = []
+        # Match file paths like /path/to/file.py or `file.py`
+        path_pattern = r'[`/]([a-zA-Z0-9_\-./]+\.[a-zA-Z]+)[`]?'
+        matches = re.findall(path_pattern, description)
+        for match in matches:
+            if '.' in match and not match.startswith('.'):
+                files.append(match)
+        return files
 
     def to_goal(
         self,

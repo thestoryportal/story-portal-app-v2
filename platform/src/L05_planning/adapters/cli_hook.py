@@ -15,7 +15,18 @@ from typing import Optional, Dict, Any, List
 
 from .cli_plan_adapter import CLIPlanAdapter, ParsedPlan
 from ..models import ExecutionPlan, Goal
-from ..services.planning_service import PlanningService
+
+# Lazy import to avoid circular dependencies and heavy L02/L04 imports
+PlanningService = None
+
+
+def _get_planning_service():
+    """Lazy import PlanningService to avoid import cycles."""
+    global PlanningService
+    if PlanningService is None:
+        from ..services.planning_service import PlanningService as PS
+        PlanningService = PS
+    return PlanningService
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +135,7 @@ class CLIPlanModeHook:
     def __init__(
         self,
         adapter: CLIPlanAdapter,
-        planning_service: Optional[PlanningService] = None,
+        planning_service: Optional[Any] = None,
         complexity_threshold: str = "medium",
     ):
         """

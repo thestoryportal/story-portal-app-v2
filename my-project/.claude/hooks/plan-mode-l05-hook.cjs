@@ -14,14 +14,14 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { spawn } = require('child_process');
 
 // Configuration
 const CONFIG = {
   enabled: true,
   platformDir: '../platform',  // Relative to project dir
   minStepsForL05: 3,           // Minimum steps to offer L05
-  timeout: 10000,              // 10 second timeout for Python bridge
+  timeout: 30000,              // 30 second timeout for Python bridge (includes Python startup)
   debug: true,                 // Enable debug logging to file
 };
 
@@ -133,33 +133,103 @@ function extractPlanPath(input) {
 }
 
 /**
- * Run the L05 adapter via Python bridge script
+ * Run the L05 adapter via Python bridge script (async version)
  */
-function runL05Adapter(planPath, projectDir) {
+async function runL05Adapter(planPath, projectDir) {
   const platformDir = path.resolve(projectDir, CONFIG.platformDir);
   const bridgeScript = path.join(projectDir, '.claude', 'hooks', 'l05-bridge.py');
 
-  try {
-    const result = execSync(
-      `python3 "${bridgeScript}" "${planPath}" "${platformDir}"`,
-      {
+  debugLog('Running L05 adapter (async)', {
+    planPath,
+    platformDir,
+    bridgeScript,
+  });
+
+  return new Promise((resolve) => {
+    try {
+      // Close stdin to prevent any interference with child process
+      if (process.stdin.readable) {
+        process.stdin.destroy();
+      }
+
+      const child = spawn('/usr/local/bin/python3', [bridgeScript, planPath, platformDir], {
         cwd: platformDir,
-        timeout: CONFIG.timeout,
-        encoding: 'utf8',
         env: {
           ...process.env,
           PYTHONPATH: platformDir,
-        }
-      }
-    );
+        },
+        stdio: ['ignore', 'pipe', 'pipe'],
+        detached: false,
+      });
 
-    return JSON.parse(result.trim());
-  } catch (error) {
-    return {
-      success: false,
-      error: error.message || 'Python bridge failed'
-    };
-  }
+      let stdout = '';
+      let stderr = '';
+      let timedOut = false;
+
+      // Set timeout
+      const timeoutId = setTimeout(() => {
+        timedOut = true;
+        child.kill('SIGTERM');
+        debugLog('L05 adapter timed out');
+        resolve({
+          success: false,
+          error: 'Python bridge timed out'
+        });
+      }, CONFIG.timeout);
+
+      child.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+
+      child.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      child.on('error', (error) => {
+        clearTimeout(timeoutId);
+        debugLog('L05 adapter spawn error', { error: error.message });
+        resolve({
+          success: false,
+          error: error.message || 'Python bridge spawn failed'
+        });
+      });
+
+      child.on('close', (code) => {
+        clearTimeout(timeoutId);
+        if (timedOut) return; // Already resolved
+
+        debugLog('L05 adapter completed', {
+          code,
+          stdoutLength: stdout.length,
+          stderrLength: stderr.length,
+        });
+
+        if (code !== 0) {
+          resolve({
+            success: false,
+            error: stderr || `Python bridge exited with code ${code}`
+          });
+          return;
+        }
+
+        try {
+          resolve(JSON.parse(stdout.trim()));
+        } catch (parseError) {
+          debugLog('L05 adapter parse error', { stdout: stdout.substring(0, 500) });
+          resolve({
+            success: false,
+            error: `Failed to parse output: ${parseError.message}`
+          });
+        }
+      });
+    } catch (error) {
+      debugLog('L05 adapter exception', { error: error.message });
+      resolve({
+        success: false,
+        error: error.message || 'Python bridge failed'
+      });
+    }
+  });
 }
 
 /**
@@ -298,7 +368,7 @@ async function main() {
   }
 
   // Run the L05 adapter
-  const adapterResult = runL05Adapter(planPath, projectDir);
+  const adapterResult = await runL05Adapter(planPath, projectDir);
 
   // Save state for execution
   if (adapterResult.success) {
