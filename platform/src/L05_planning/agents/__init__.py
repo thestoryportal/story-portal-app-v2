@@ -23,6 +23,12 @@ from .integration_sentinel import (
     IntegrationCheckType,
     HealthStatus,
 )
+from .rollback_coordinator import (
+    RollbackCoordinator,
+    RollbackResult,
+    RollbackStrategy,
+    Checkpoint,
+)
 
 __all__ = [
     "SpecDecomposer",
@@ -41,4 +47,8 @@ __all__ = [
     "IntegrationIssue",
     "IntegrationCheckType",
     "HealthStatus",
+    "RollbackCoordinator",
+    "RollbackResult",
+    "RollbackStrategy",
+    "Checkpoint",
 ]
