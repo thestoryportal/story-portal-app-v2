@@ -1,0 +1,523 @@
+{
+    "version": "1.0.0",
+    "description": "Platform Service Catalog for MCP Integration",
+    "services": [
+        {
+            "service_name": "PlanningService",
+            "layer": "L05",
+            "module_path": "src.L05_planning.services.planning_service",
+            "class_name": "PlanningService",
+            "description": "Strategic planning coordinator with goal decomposition and execution",
+            "standalone": true,
+            "requires_async_init": true,
+            "methods": [
+                {
+                    "name": "create_plan",
+                    "description": "Create an execution plan from a goal",
+                    "parameters": [
+                        {
+                            "name": "goal",
+                            "type": "Goal",
+                            "description": "Goal object to decompose"
+                        }
+                    ],
+                    "return_type": "ExecutionPlan",
+                    "async_method": true
+                },
+                {
+                    "name": "execute_plan",
+                    "description": "Execute a plan by ID (requires plan to be in cache)",
+                    "parameters": [
+                        {
+                            "name": "plan_id",
+                            "type": "str",
+                            "description": "UUID of cached plan"
+                        }
+                    ],
+                    "return_type": "Dict",
+                    "async_method": true
+                },
+                {
+                    "name": "execute_plan_direct",
+                    "description": "Execute a plan directly from ExecutionPlan object (recommended)",
+                    "parameters": [
+                        {
+                            "name": "execution_plan",
+                            "type": "ExecutionPlan",
+                            "description": "Full execution plan object"
+                        }
+                    ],
+                    "return_type": "Dict",
+                    "async_method": true
+                },
+                {
+                    "name": "create_and_execute",
+                    "description": "Create plan from goal and execute immediately",
+                    "parameters": [
+                        {
+                            "name": "goal",
+                            "type": "Goal",
+                            "description": "Goal to plan and execute"
+                        }
+                    ],
+                    "return_type": "Dict",
+                    "async_method": true
+                },
+                {
+                    "name": "get_plan_status",
+                    "description": "Get status of plan from L01 persistence",
+                    "parameters": [
+                        {
+                            "name": "plan_id",
+                            "type": "str",
+                            "description": "Plan ID"
+                        }
+                    ],
+                    "return_type": "Dict",
+                    "async_method": true
+                },
+                {
+                    "name": "list_plans",
+                    "description": "List plans with optional filtering",
+                    "parameters": [
+                        {
+                            "name": "goal_id",
+                            "type": "str",
+                            "description": "Filter by goal ID",
+                            "optional": true
+                        },
+                        {
+                            "name": "status",
+                            "type": "str",
+                            "description": "Filter by status",
+                            "optional": true
+                        },
+                        {
+                            "name": "limit",
+                            "type": "int",
+                            "description": "Maximum number of plans to return",
+                            "default": 100
+                        }
+                    ],
+                    "return_type": "List[Dict]",
+                    "async_method": true
+                },
+                {
+                    "name": "cancel_plan",
+                    "description": "Cancel a running plan",
+                    "parameters": [
+                        {
+                            "name": "plan_id",
+                            "type": "str",
+                            "description": "Plan ID to cancel"
+                        }
+                    ],
+                    "return_type": "bool",
+                    "async_method": true
+                },
+                {
+                    "name": "get_stats",
+                    "description": "Get service statistics from all components",
+                    "parameters": [],
+                    "return_type": "Dict",
+                    "async_method": false
+                },
+                {
+                    "name": "get_health_status",
+                    "description": "Get health status of planning service",
+                    "parameters": [],
+                    "return_type": "Dict",
+                    "async_method": false
+                }
+            ]
+        },
+        {
+            "service_name": "PlanCache",
+            "layer": "L05",
+            "module_path": "src.L05_planning.services.plan_cache",
+            "class_name": "PlanCache",
+            "description": "LRU cache for execution plans with TTL support",
+            "standalone": true,
+            "methods": [
+                {
+                    "name": "store",
+                    "description": "Store a plan in cache",
+                    "parameters": [
+                        {
+                            "name": "plan_id",
+                            "type": "str",
+                            "description": "Plan ID"
+                        },
+                        {
+                            "name": "plan",
+                            "type": "ExecutionPlan",
+                            "description": "Plan to store"
+                        }
+                    ],
+                    "return_type": "None",
+                    "async_method": false
+                },
+                {
+                    "name": "retrieve",
+                    "description": "Retrieve a plan from cache",
+                    "parameters": [
+                        {
+                            "name": "plan_id",
+                            "type": "str",
+                            "description": "Plan ID to retrieve"
+                        }
+                    ],
+                    "return_type": "ExecutionPlan",
+                    "async_method": false
+                },
+                {
+                    "name": "invalidate",
+                    "description": "Invalidate a plan in cache",
+                    "parameters": [
+                        {
+                            "name": "plan_id",
+                            "type": "str",
+                            "description": "Plan ID to invalidate"
+                        }
+                    ],
+                    "return_type": "None",
+                    "async_method": false
+                },
+                {
+                    "name": "get_stats",
+                    "description": "Get cache statistics",
+                    "parameters": [],
+                    "return_type": "Dict",
+                    "async_method": false
+                }
+            ]
+        },
+        {
+            "service_name": "ExecutionMonitor",
+            "layer": "L05",
+            "module_path": "src.L05_planning.services.execution_monitor",
+            "class_name": "ExecutionMonitor",
+            "description": "Real-time execution monitoring with failure detection",
+            "standalone": true,
+            "requires_async_init": true,
+            "methods": [
+                {
+                    "name": "start_monitoring",
+                    "description": "Start monitoring a plan execution",
+                    "parameters": [
+                        {
+                            "name": "plan",
+                            "type": "ExecutionPlan",
+                            "description": "Plan to monitor"
+                        }
+                    ],
+                    "return_type": "None",
+                    "async_method": true
+                },
+                {
+                    "name": "stop_monitoring",
+                    "description": "Stop monitoring a plan",
+                    "parameters": [
+                        {
+                            "name": "plan_id",
+                            "type": "str",
+                            "description": "Plan ID to stop monitoring"
+                        }
+                    ],
+                    "return_type": "None",
+                    "async_method": true
+                },
+                {
+                    "name": "get_status",
+                    "description": "Get current monitoring status",
+                    "parameters": [
+                        {
+                            "name": "plan_id",
+                            "type": "str",
+                            "description": "Plan ID"
+                        }
+                    ],
+                    "return_type": "Dict",
+                    "async_method": false
+                },
+                {
+                    "name": "get_stats",
+                    "description": "Get monitor statistics",
+                    "parameters": [],
+                    "return_type": "Dict",
+                    "async_method": false
+                }
+            ]
+        },
+        {
+            "service_name": "DependencyResolver",
+            "layer": "L05",
+            "module_path": "src.L05_planning.services.dependency_resolver",
+            "class_name": "DependencyResolver",
+            "description": "DAG-based task dependency resolution",
+            "standalone": true,
+            "methods": [
+                {
+                    "name": "resolve",
+                    "description": "Resolve dependencies for a plan",
+                    "parameters": [
+                        {
+                            "name": "plan",
+                            "type": "ExecutionPlan",
+                            "description": "Plan with tasks to resolve"
+                        }
+                    ],
+                    "return_type": "DependencyGraph",
+                    "async_method": false
+                },
+                {
+                    "name": "get_ready_tasks",
+                    "description": "Get tasks that are ready to execute",
+                    "parameters": [
+                        {
+                            "name": "plan",
+                            "type": "ExecutionPlan",
+                            "description": "Plan to check"
+                        }
+                    ],
+                    "return_type": "List[Task]",
+                    "async_method": false
+                },
+                {
+                    "name": "validate_dependencies",
+                    "description": "Validate dependency graph for cycles",
+                    "parameters": [
+                        {
+                            "name": "plan",
+                            "type": "ExecutionPlan",
+                            "description": "Plan to validate"
+                        }
+                    ],
+                    "return_type": "bool",
+                    "async_method": false
+                },
+                {
+                    "name": "get_stats",
+                    "description": "Get resolver statistics",
+                    "parameters": [],
+                    "return_type": "Dict",
+                    "async_method": false
+                }
+            ]
+        },
+        {
+            "service_name": "PlanValidator",
+            "layer": "L05",
+            "module_path": "src.L05_planning.services.plan_validator",
+            "class_name": "PlanValidator",
+            "description": "Multi-stage plan validation (syntax, semantic, feasibility, security)",
+            "standalone": true,
+            "requires_async_init": true,
+            "methods": [
+                {
+                    "name": "validate",
+                    "description": "Run full validation on a plan",
+                    "parameters": [
+                        {
+                            "name": "plan",
+                            "type": "ExecutionPlan",
+                            "description": "Plan to validate"
+                        }
+                    ],
+                    "return_type": "ValidationResult",
+                    "async_method": true
+                },
+                {
+                    "name": "validate_syntax",
+                    "description": "Validate plan syntax only",
+                    "parameters": [
+                        {
+                            "name": "plan",
+                            "type": "ExecutionPlan",
+                            "description": "Plan to validate"
+                        }
+                    ],
+                    "return_type": "ValidationResult",
+                    "async_method": false
+                },
+                {
+                    "name": "validate_security",
+                    "description": "Validate plan security constraints",
+                    "parameters": [
+                        {
+                            "name": "plan",
+                            "type": "ExecutionPlan",
+                            "description": "Plan to validate"
+                        }
+                    ],
+                    "return_type": "ValidationResult",
+                    "async_method": false
+                },
+                {
+                    "name": "get_stats",
+                    "description": "Get validator statistics",
+                    "parameters": [],
+                    "return_type": "Dict",
+                    "async_method": false
+                }
+            ]
+        },
+        {
+            "service_name": "ResourceEstimator",
+            "layer": "L05",
+            "module_path": "src.L05_planning.services.resource_estimator",
+            "class_name": "ResourceEstimator",
+            "description": "Execution resource estimation (tokens, time, cost)",
+            "standalone": true,
+            "methods": [
+                {
+                    "name": "estimate",
+                    "description": "Estimate resources for a plan",
+                    "parameters": [
+                        {
+                            "name": "plan",
+                            "type": "ExecutionPlan",
+                            "description": "Plan to estimate"
+                        }
+                    ],
+                    "return_type": "ResourceEstimate",
+                    "async_method": false
+                },
+                {
+                    "name": "estimate_task",
+                    "description": "Estimate resources for a single task",
+                    "parameters": [
+                        {
+                            "name": "task",
+                            "type": "Task",
+                            "description": "Task to estimate"
+                        }
+                    ],
+                    "return_type": "ResourceEstimate",
+                    "async_method": false
+                },
+                {
+                    "name": "get_stats",
+                    "description": "Get estimator statistics",
+                    "parameters": [],
+                    "return_type": "Dict",
+                    "async_method": false
+                }
+            ]
+        },
+        {
+            "service_name": "ContextInjector",
+            "layer": "L05",
+            "module_path": "src.L05_planning.services.context_injector",
+            "class_name": "ContextInjector",
+            "description": "Task context preparation and secret resolution",
+            "standalone": true,
+            "methods": [
+                {
+                    "name": "inject",
+                    "description": "Inject context into a task",
+                    "parameters": [
+                        {
+                            "name": "task",
+                            "type": "Task",
+                            "description": "Task to inject into"
+                        },
+                        {
+                            "name": "context",
+                            "type": "Dict",
+                            "description": "Context to inject"
+                        }
+                    ],
+                    "return_type": "Task",
+                    "async_method": false
+                },
+                {
+                    "name": "resolve_secrets",
+                    "description": "Resolve secret references in a task",
+                    "parameters": [
+                        {
+                            "name": "task",
+                            "type": "Task",
+                            "description": "Task with secret references"
+                        }
+                    ],
+                    "return_type": "Task",
+                    "async_method": false
+                },
+                {
+                    "name": "get_stats",
+                    "description": "Get injector statistics",
+                    "parameters": [],
+                    "return_type": "Dict",
+                    "async_method": false
+                }
+            ]
+        },
+        {
+            "service_name": "GoalDecomposer",
+            "layer": "L05",
+            "module_path": "src.L05_planning.services.goal_decomposer",
+            "class_name": "GoalDecomposer",
+            "description": "Goal decomposition into executable tasks",
+            "standalone": true,
+            "methods": [
+                {
+                    "name": "decompose",
+                    "description": "Decompose a goal into an execution plan",
+                    "parameters": [
+                        {
+                            "name": "goal",
+                            "type": "Goal",
+                            "description": "Goal to decompose"
+                        }
+                    ],
+                    "return_type": "ExecutionPlan",
+                    "async_method": true
+                },
+                {
+                    "name": "get_stats",
+                    "description": "Get decomposer statistics",
+                    "parameters": [],
+                    "return_type": "Dict",
+                    "async_method": false
+                }
+            ]
+        },
+        {
+            "service_name": "TaskOrchestrator",
+            "layer": "L05",
+            "module_path": "src.L05_planning.services.task_orchestrator",
+            "class_name": "TaskOrchestrator",
+            "description": "Task execution orchestration with parallel support",
+            "standalone": true,
+            "methods": [
+                {
+                    "name": "execute_plan",
+                    "description": "Execute a plan with task orchestration",
+                    "parameters": [
+                        {
+                            "name": "plan",
+                            "type": "ExecutionPlan",
+                            "description": "Plan to execute"
+                        },
+                        {
+                            "name": "context",
+                            "type": "Dict",
+                            "description": "Execution context",
+                            "optional": true
+                        }
+                    ],
+                    "return_type": "Dict",
+                    "async_method": true
+                },
+                {
+                    "name": "get_stats",
+                    "description": "Get orchestrator statistics",
+                    "parameters": [],
+                    "return_type": "Dict",
+                    "async_method": false
+                }
+            ]
+        }
+    ]
+}
