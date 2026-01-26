@@ -555,7 +555,7 @@ class PipelineOrchestrator:
         # Find the last successful checkpoint
         for unit_result in reversed(result.unit_results):
             if unit_result.checkpoint_hash:
-                checkpoint = self.checkpoint_manager.get_checkpoint_by_hash(unit_result.checkpoint_hash)
+                checkpoint = self.checkpoint_manager.get_checkpoint(unit_result.checkpoint_hash)
                 if checkpoint:
                     logger.info(f"Rolling back to checkpoint: {checkpoint.hash}")
                     self.checkpoint_manager.restore_checkpoint(checkpoint.checkpoint_id)

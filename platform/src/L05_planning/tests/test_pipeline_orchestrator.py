@@ -105,7 +105,7 @@ def mock_checkpoint_manager():
     checkpoint.hash = "abc123"
     checkpoint.checkpoint_id = "cp-001"
     manager.create_checkpoint.return_value = checkpoint
-    manager.get_checkpoint_by_hash.return_value = checkpoint
+    manager.get_checkpoint.return_value = checkpoint
     manager.restore_checkpoint.return_value = True
     return manager
 
