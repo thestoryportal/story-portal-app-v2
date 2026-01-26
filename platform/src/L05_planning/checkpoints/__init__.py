@@ -11,6 +11,13 @@ from .compensation_engine import (
     CompensationStatus,
     CompensationAction,
 )
+from .recovery_protocol import (
+    RecoveryProtocol,
+    RecoveryResult,
+    RecoveryStrategy,
+    RecoveryState,
+    FailureContext,
+)
 
 __all__ = [
     "CheckpointManager",
@@ -20,4 +27,9 @@ __all__ = [
     "CompensationType",
     "CompensationStatus",
     "CompensationAction",
+    "RecoveryProtocol",
+    "RecoveryResult",
+    "RecoveryStrategy",
+    "RecoveryState",
+    "FailureContext",
 ]
