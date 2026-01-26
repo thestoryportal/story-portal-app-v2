@@ -9,15 +9,20 @@ Based on Section 3.3.1 of agent-runtime-layer-specification-v1.2-final-ASCII.md
 
 import asyncio
 import logging
-from typing import Dict, Any, Optional, List, AsyncIterator, Callable
+from typing import Dict, Any, Optional, List, AsyncIterator, Callable, TYPE_CHECKING
 from datetime import datetime, timezone
 from dataclasses import dataclass, field
+import uuid
 
 from ..models import (
     AgentConfig,
     AgentState,
     ToolDefinition,
 )
+
+# Type hints for L04 integration (avoid circular imports)
+if TYPE_CHECKING:
+    from L04_model_gateway.services import ModelGateway
 
 
 logger = logging.getLogger(__name__)
@@ -88,7 +93,11 @@ class AgentExecutor:
     - Retry logic for failed tools
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        config: Optional[Dict[str, Any]] = None,
+        model_gateway: Optional["ModelGateway"] = None
+    ):
         """
         Initialize AgentExecutor.
 
@@ -100,6 +109,7 @@ class AgentExecutor:
                 - enable_streaming: Enable streaming responses
                 - retry_on_tool_failure: Retry failed tools
                 - max_tool_retries: Maximum retry attempts
+            model_gateway: Optional L04 ModelGateway for LLM inference
         """
         self.config = config or {}
 
@@ -111,6 +121,9 @@ class AgentExecutor:
         self.retry_on_failure = self.config.get("retry_on_tool_failure", True)
         self.max_tool_retries = self.config.get("max_tool_retries", 3)
 
+        # L04 ModelGateway integration
+        self._model_gateway = model_gateway
+
         # Tool registry: tool_name -> callable
         self._tool_registry: Dict[str, Callable] = {}
 
@@ -120,15 +133,27 @@ class AgentExecutor:
         # Tool execution semaphore
         self._tool_semaphore = asyncio.Semaphore(self.max_concurrent_tools)
 
+        gateway_status = "connected" if model_gateway else "not configured"
         logger.info(
             f"AgentExecutor initialized: "
             f"max_concurrent_tools={self.max_concurrent_tools}, "
-            f"context_window={self.context_window_tokens}"
+            f"context_window={self.context_window_tokens}, "
+            f"model_gateway={gateway_status}"
         )
 
     async def initialize(self) -> None:
         """Initialize executor"""
         logger.info("AgentExecutor initialization complete")
+
+    def set_model_gateway(self, gateway: "ModelGateway") -> None:
+        """
+        Set the L04 ModelGateway for LLM inference.
+
+        Args:
+            gateway: L04 ModelGateway instance
+        """
+        self._model_gateway = gateway
+        logger.info("ModelGateway connected to AgentExecutor")
 
     def register_tool(self, name: str, handler: Callable) -> None:
         """
@@ -227,7 +252,19 @@ class AgentExecutor:
         """
         logger.info(f"Executing agent {agent_id} (stream={stream})")
 
-        context = await self.get_context(agent_id)
+        # Auto-create context if not exists (allows L05 to call execute directly)
+        if agent_id not in self._contexts:
+            from uuid import uuid4
+            session_id = input_data.get("session_id", f"auto-{uuid4().hex[:8]}")
+            context = ExecutionContext(
+                agent_id=agent_id,
+                session_id=session_id,
+                context_window_tokens=self.context_window_tokens,
+            )
+            self._contexts[agent_id] = context
+            logger.info(f"Auto-created execution context for agent {agent_id}")
+        else:
+            context = await self.get_context(agent_id)
 
         # Check context overflow
         if context.is_context_full():
@@ -271,12 +308,16 @@ class AgentExecutor:
         Returns:
             Execution result
         """
-        # TODO: Integrate with ModelBridge for LLM inference
-        # For now, return a mock result
+        # If ModelGateway is configured, use real LLM inference
+        if self._model_gateway:
+            return await self._execute_with_gateway(agent_id, context, input_data)
+
+        # Fallback to stub result (for testing or when gateway not configured)
+        logger.warning(f"No ModelGateway configured for agent {agent_id}, returning stub result")
         result = {
             "agent_id": agent_id,
             "session_id": context.session_id,
-            "response": "Agent execution result (stub)",
+            "response": "Agent execution result (stub - no ModelGateway configured)",
             "tool_calls": [],
             "tokens_used": 0,
         }
@@ -286,6 +327,114 @@ class AgentExecutor:
         context.add_message("assistant", result["response"], response_tokens)
 
         return result
+
+    async def _execute_with_gateway(
+        self,
+        agent_id: str,
+        context: ExecutionContext,
+        input_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Execute agent using L04 ModelGateway for real LLM inference.
+
+        Args:
+            agent_id: Agent identifier
+            context: Execution context
+            input_data: Input data
+
+        Returns:
+            Execution result with real LLM response
+        """
+        # Import L04 models (deferred to avoid circular imports)
+        from L04_model_gateway.models import (
+            InferenceRequest,
+            LogicalPrompt,
+            Message,
+            MessageRole,
+        )
+
+        logger.info(f"Executing agent {agent_id} via L04 ModelGateway")
+
+        # Build messages from context
+        messages = []
+        for msg in context.messages:
+            role_map = {
+                "system": MessageRole.SYSTEM,
+                "user": MessageRole.USER,
+                "assistant": MessageRole.ASSISTANT,
+                "tool": MessageRole.TOOL,
+            }
+            role = role_map.get(msg["role"], MessageRole.USER)
+            messages.append(Message(role=role, content=msg["content"]))
+
+        # Add current input as user message if not already in context
+        input_content = input_data.get("content", "")
+        if input_content and (not messages or messages[-1].content != input_content):
+            messages.append(Message(role=MessageRole.USER, content=input_content))
+
+        # Build system prompt from task metadata
+        system_prompt = input_data.get("system_prompt")
+        if not system_prompt:
+            task_name = input_data.get("task_name", "task")
+            task_type = input_data.get("task_type", "general")
+            system_prompt = f"You are an AI agent executing a {task_type} task: {task_name}. Complete the task based on the user's request."
+
+        # Create logical prompt
+        logical_prompt = LogicalPrompt(
+            messages=messages,
+            system_prompt=system_prompt,
+            temperature=input_data.get("temperature", 0.7),
+            max_tokens=input_data.get("max_tokens", 4096),
+        )
+
+        # Create inference request
+        request = InferenceRequest(
+            request_id=str(uuid.uuid4()),
+            agent_did=agent_id,
+            logical_prompt=logical_prompt,
+            metadata={
+                "task_id": input_data.get("task_id"),
+                "task_name": input_data.get("task_name"),
+                "task_type": input_data.get("task_type"),
+            },
+            enable_cache=input_data.get("enable_cache", True),
+        )
+
+        # Execute via ModelGateway
+        try:
+            response = await self._model_gateway.execute(request)
+
+            # Build result
+            result = {
+                "agent_id": agent_id,
+                "session_id": context.session_id,
+                "response": response.content,
+                "tool_calls": [tc.to_dict() for tc in (response.tool_calls or [])],
+                "tokens_used": response.token_usage.total_tokens,
+                "model_id": response.model_id,
+                "provider": response.provider,
+                "latency_ms": response.latency_ms,
+                "cached": response.cached,
+            }
+
+            # Add response to context
+            response_tokens = response.token_usage.output_tokens
+            context.add_message("assistant", response.content, response_tokens)
+
+            logger.info(
+                f"Agent {agent_id} execution complete: "
+                f"model={response.model_id}, tokens={response.token_usage.total_tokens}, "
+                f"latency={response.latency_ms}ms, cached={response.cached}"
+            )
+
+            return result
+
+        except Exception as e:
+            logger.error(f"ModelGateway execution failed for agent {agent_id}: {e}")
+            raise ExecutorError(
+                code="E2005",
+                message=f"LLM inference failed: {str(e)}"
+            )
 
     async def _execute_streaming(
         self,
@@ -304,20 +453,139 @@ class AgentExecutor:
         Yields:
             Streaming response chunks
         """
-        # TODO: Integrate with ModelBridge for streaming inference
-        # For now, yield mock chunks
+        # If ModelGateway is configured, use real streaming
+        if self._model_gateway:
+            async for chunk in self._stream_with_gateway(agent_id, context, input_data):
+                yield chunk
+            return
+
+        # Fallback to stub chunks (for testing or when gateway not configured)
+        logger.warning(f"No ModelGateway configured for agent {agent_id}, returning stub stream")
         chunks = [
             {"type": "start", "agent_id": agent_id},
             {"type": "content", "delta": "Agent "},
             {"type": "content", "delta": "execution "},
             {"type": "content", "delta": "result "},
-            {"type": "content", "delta": "(stub)"},
+            {"type": "content", "delta": "(stub - no ModelGateway)"},
             {"type": "end", "tokens_used": 0},
         ]
 
         for chunk in chunks:
             yield chunk
             await asyncio.sleep(0.1)  # Simulate streaming delay
+
+    async def _stream_with_gateway(
+        self,
+        agent_id: str,
+        context: ExecutionContext,
+        input_data: Dict[str, Any]
+    ) -> AsyncIterator[Dict[str, Any]]:
+        """
+        Stream agent execution using L04 ModelGateway.
+
+        Args:
+            agent_id: Agent identifier
+            context: Execution context
+            input_data: Input data
+
+        Yields:
+            Streaming response chunks
+        """
+        # Import L04 models (deferred to avoid circular imports)
+        from L04_model_gateway.models import (
+            InferenceRequest,
+            LogicalPrompt,
+            Message,
+            MessageRole,
+        )
+
+        logger.info(f"Streaming agent {agent_id} execution via L04 ModelGateway")
+
+        # Build messages from context (same as _execute_with_gateway)
+        messages = []
+        for msg in context.messages:
+            role_map = {
+                "system": MessageRole.SYSTEM,
+                "user": MessageRole.USER,
+                "assistant": MessageRole.ASSISTANT,
+                "tool": MessageRole.TOOL,
+            }
+            role = role_map.get(msg["role"], MessageRole.USER)
+            messages.append(Message(role=role, content=msg["content"]))
+
+        input_content = input_data.get("content", "")
+        if input_content and (not messages or messages[-1].content != input_content):
+            messages.append(Message(role=MessageRole.USER, content=input_content))
+
+        # Build system prompt
+        system_prompt = input_data.get("system_prompt")
+        if not system_prompt:
+            task_name = input_data.get("task_name", "task")
+            task_type = input_data.get("task_type", "general")
+            system_prompt = f"You are an AI agent executing a {task_type} task: {task_name}. Complete the task based on the user's request."
+
+        # Create inference request with streaming enabled
+        logical_prompt = LogicalPrompt(
+            messages=messages,
+            system_prompt=system_prompt,
+            temperature=input_data.get("temperature", 0.7),
+            max_tokens=input_data.get("max_tokens", 4096),
+        )
+
+        request = InferenceRequest(
+            request_id=str(uuid.uuid4()),
+            agent_did=agent_id,
+            logical_prompt=logical_prompt,
+            metadata={
+                "task_id": input_data.get("task_id"),
+                "task_name": input_data.get("task_name"),
+                "task_type": input_data.get("task_type"),
+            },
+            enable_streaming=True,
+        )
+
+        # Yield start chunk
+        yield {"type": "start", "agent_id": agent_id, "request_id": request.request_id}
+
+        # Stream via ModelGateway
+        full_content = ""
+        total_tokens = 0
+
+        try:
+            async for chunk in self._model_gateway.stream(request):
+                full_content += chunk.content_delta
+                if chunk.token_count:
+                    total_tokens = chunk.token_count
+
+                yield {
+                    "type": "content",
+                    "delta": chunk.content_delta,
+                    "is_final": chunk.is_final,
+                }
+
+                if chunk.is_final:
+                    break
+
+            # Add full response to context
+            context.add_message("assistant", full_content, total_tokens)
+
+            # Yield end chunk
+            yield {
+                "type": "end",
+                "agent_id": agent_id,
+                "tokens_used": total_tokens,
+                "full_content": full_content,
+            }
+
+            logger.info(f"Agent {agent_id} streaming complete: tokens={total_tokens}")
+
+        except Exception as e:
+            logger.error(f"ModelGateway streaming failed for agent {agent_id}: {e}")
+            yield {
+                "type": "error",
+                "agent_id": agent_id,
+                "error": str(e),
+            }
 
     async def invoke_tool(
         self,

@@ -12,7 +12,13 @@ import uuid
 from contextvars import ContextVar
 from datetime import datetime
 from typing import Any, Dict, Optional
-from pythonjsonlogger.json import JsonFormatter as BaseJsonFormatter
+try:
+    # python-json-logger 3.x
+    from pythonjsonlogger.json import JsonFormatter as BaseJsonFormatter
+except ImportError:
+    # python-json-logger 2.x
+    from pythonjsonlogger import jsonlogger
+    BaseJsonFormatter = jsonlogger.JsonFormatter
 
 
 # Context variable for storing correlation ID across async contexts

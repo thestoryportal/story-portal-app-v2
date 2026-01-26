@@ -11,7 +11,7 @@ Main orchestrator that coordinates all planning components:
 
 import logging
 import os
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 from uuid import uuid4
 
 # Mock mode for testing without infrastructure
@@ -37,20 +37,30 @@ from .plan_cache import PlanCache
 from .l01_bridge import L05Bridge
 
 # Cross-layer imports (optional - may not be available in all environments)
+# Try both import patterns to support different execution contexts
 try:
     from L04_model_gateway.services.model_gateway import ModelGateway
 except ImportError:
-    ModelGateway = None  # type: ignore
+    try:
+        from src.L04_model_gateway.services.model_gateway import ModelGateway
+    except ImportError:
+        ModelGateway = None  # type: ignore
 
 try:
     from L02_runtime.services.agent_executor import AgentExecutor
 except ImportError:
-    AgentExecutor = None  # type: ignore
+    try:
+        from src.L02_runtime.services.agent_executor import AgentExecutor
+    except ImportError:
+        AgentExecutor = None  # type: ignore
 
 try:
     from L03_tool_execution.services.tool_executor import ToolExecutor
 except ImportError:
-    ToolExecutor = None  # type: ignore
+    try:
+        from src.L03_tool_execution.services.tool_executor import ToolExecutor
+    except ImportError:
+        ToolExecutor = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -103,8 +113,16 @@ class PlanningService:
             self.gateway = gateway_client  # Don't auto-create in mock mode
             self.executor = executor_client
         else:
-            self.gateway = gateway_client or ModelGateway()
-            self.executor = executor_client or AgentExecutor()
+            # Create ModelGateway first
+            self.gateway = gateway_client or (ModelGateway() if ModelGateway else None)
+            # Wire ModelGateway into AgentExecutor for real LLM inference
+            if executor_client:
+                self.executor = executor_client
+            elif AgentExecutor:
+                self.executor = AgentExecutor(model_gateway=self.gateway)
+                logger.info("AgentExecutor wired with ModelGateway for real LLM execution")
+            else:
+                self.executor = None
         # ToolExecutor requires ToolRegistry and ToolSandbox, so only use if provided
         self.tool_executor = tool_executor_client
 
@@ -278,14 +296,14 @@ class PlanningService:
 
     async def execute_plan_direct(
         self,
-        plan: ExecutionPlan,
+        plan: Union[ExecutionPlan, Dict[str, Any]],
         agent_did: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Execute plan directly (with plan object).
+        Execute plan directly (with plan object or dict).
 
         Args:
-            plan: Execution plan to execute
+            plan: Execution plan to execute (ExecutionPlan object or dict)
             agent_did: Optional agent DID for execution
 
         Returns:
@@ -294,6 +312,10 @@ class PlanningService:
         Raises:
             PlanningError: On execution failure
         """
+        # Convert dict to ExecutionPlan if needed (for MCP invocation)
+        if isinstance(plan, dict):
+            plan = ExecutionPlan.from_dict(plan)
+
         self.plans_executed += 1
 
         try:
