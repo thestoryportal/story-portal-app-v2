@@ -1,13 +1,6 @@
 [
   {
     "sessionId": "08974920-10d3-4e78-991f-0e6f7457c05f",
-    "timestamp": "2026-01-24T09:27:38.142Z",
-    "activeTask": null,
-    "usedHotContext": false,
-    "promptHash": "b8f1ef8d"
-  },
-  {
-    "sessionId": "08974920-10d3-4e78-991f-0e6f7457c05f",
     "timestamp": "2026-01-24T09:27:47.546Z",
     "activeTask": null,
     "usedHotContext": false,
@@ -698,5 +691,12 @@
     "activeTask": null,
     "usedHotContext": false,
     "promptHash": "db48f545"
+  },
+  {
+    "sessionId": "7c521ff4-6d98-40dd-8052-40484d8fccf0",
+    "timestamp": "2026-01-26T07:47:15.765Z",
+    "activeTask": null,
+    "usedHotContext": false,
+    "promptHash": "e017ae19"
   }
 ]
