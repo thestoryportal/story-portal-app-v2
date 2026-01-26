@@ -1,0 +1,3 @@
+Method,Name,Error,Occurrences
+POST,POST /api/v1/tasks/,RemoteDisconnected('Remote end closed connection without response'),1
+POST,POST /api/v1/goals/,HTTPError('500 Server Error: Internal Server Error for url: POST /api/v1/goals/'),2

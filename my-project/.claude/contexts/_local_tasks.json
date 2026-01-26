@@ -1,0 +1,87 @@
+{
+  "version": "1.0",
+  "description": "Local task definitions - NOT overwritten by MCP sync",
+  "lastUpdated": "2026-01-23T22:40:00.000Z",
+  "tasks": {
+    "steam-modal-refinement": {
+      "name": "Steam Modal UX/UI Refinement",
+      "contextFile": "steam-modal-refinement.json",
+      "status": "active",
+      "priority": 1,
+      "tokenEstimate": 800,
+      "keywords": [
+        "steam-modal",
+        "steam modal",
+        "smoke-modal",
+        "smoke modal",
+        "modal component",
+        "modal ux",
+        "modal ui",
+        "ux refinement",
+        "ui development",
+        "modal animation",
+        "modal design"
+      ],
+      "description": "Refining steam-modal using integrated platform services"
+    },
+    "context-management": {
+      "name": "Context Management System",
+      "contextFile": "context-management.json",
+      "status": "active",
+      "priority": 1,
+      "tokenEstimate": 600,
+      "keywords": [
+        "context management",
+        "context orchestrator",
+        "mcp context",
+        "context persistence",
+        "session recovery",
+        "compaction",
+        "task context",
+        "unified context",
+        "hot context",
+        "context hooks",
+        "checkpoint",
+        "rollback"
+      ],
+      "description": "Building and maintaining the context management infrastructure"
+    },
+    "platform-services": {
+      "name": "Platform Services Integration",
+      "contextFile": "platform-services.json",
+      "status": "active",
+      "priority": 2,
+      "tokenEstimate": 500,
+      "keywords": [
+        "platform services",
+        "mcp tools",
+        "service registry",
+        "workflow execution",
+        "planning service",
+        "invoke service",
+        "browse services"
+      ],
+      "description": "Platform services MCP integration and workflow automation"
+    },
+    "electricity-ortho": {
+      "name": "Electricity Orthographic Renderer",
+      "contextFile": "electricity-ortho.json",
+      "status": "active",
+      "priority": 2,
+      "tokenEstimate": 700,
+      "keywords": [
+        "electricity",
+        "electricityortho",
+        "ortho renderer",
+        "three.js",
+        "threejs",
+        "3d rendering",
+        "react three fiber",
+        "r3f",
+        "webgl",
+        "shader"
+      ],
+      "description": "Three.js-based orthographic electricity rendering system"
+    }
+  }
+}

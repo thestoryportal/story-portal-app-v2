@@ -1,0 +1,35 @@
+{
+  "taskId": "context-management",
+  "name": "Context Management System",
+  "description": "Building and maintaining the context management infrastructure for long-running tasks",
+  "status": "active",
+  "currentPhase": "implementation",
+  "iteration": 1,
+  "immediateContext": {
+    "workingOn": "Setting up automatic context hooks and /context skill",
+    "lastAction": "Created global hooks, updated registry with keywords, created /context skill",
+    "nextStep": "Test the system with a session restart",
+    "blockers": []
+  },
+  "keyFiles": [
+    ".claude/settings.json",
+    ".claude/hooks/session-start-hook.cjs",
+    ".claude/hooks/task-detector-hook.cjs",
+    ".claude/hooks/pre-compact-hook.cjs",
+    ".claude/hooks/post-compact-hook.cjs",
+    ".claude/contexts/_registry.json",
+    ".claude/contexts/_hot_context.json",
+    ".claude/commands/context.md"
+  ],
+  "technicalDecisions": [
+    "Use keyword-based task detection for automatic context injection",
+    "Keep auto-injected context minimal (<1000 tokens) to preserve context window",
+    "Full context available on-demand via MCP tools",
+    "Pre-compaction hook saves state, post-compaction hook hints at recovery",
+    "Global hooks check for project-level hooks, fall back gracefully"
+  ],
+  "resumePrompt": "Context management system is implemented. Global hooks are in ~/.claude/settings.json, project hooks in .claude/hooks/. The /context skill provides manual control. Test by restarting session and checking if context is auto-injected.",
+  "createdAt": "2026-01-23T22:35:00.000Z",
+  "updatedAt": "2026-01-23T22:35:00.000Z",
+  "version": 1
+}

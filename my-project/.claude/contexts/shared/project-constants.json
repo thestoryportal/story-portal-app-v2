@@ -1,0 +1,23 @@
+{
+  "version": "1.0",
+  "project": "agentic-platform",
+  "hardRules": [
+    "Canvas 2D is DEPRECATED - use ElectricityOrtho only",
+    "Animation timing via React Spring"
+  ],
+  "techStack": [
+    "React 19",
+    "Three.js",
+    "PostgreSQL",
+    "Redis"
+  ],
+  "paths": {
+    "contexts": ".claude/contexts/",
+    "electricity": "src/components/electricity/ortho/"
+  },
+  "services": {
+    "redis": "localhost:6379",
+    "ollama": "localhost:11434",
+    "postgres": "localhost:5432"
+  }
+}

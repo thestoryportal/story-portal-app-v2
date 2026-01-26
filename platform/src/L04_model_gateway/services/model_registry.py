@@ -204,6 +204,15 @@ class ModelRegistry:
         """
         return [m for m in self._models.values() if m.is_available()]
 
+    def get_all_models(self) -> List[ModelConfig]:
+        """
+        Get all registered models regardless of status
+
+        Returns:
+            List of all ModelConfig objects
+        """
+        return list(self._models.values())
+
     def get_providers(self) -> List[str]:
         """
         Get list of all registered providers
@@ -273,6 +282,33 @@ class ModelRegistry:
             )
         )
 
+        # Ollama llama3.2:1b (fastest, for development/testing)
+        llama32_1b = ModelConfig(
+            model_id="llama3.2:1b",
+            provider="ollama",
+            display_name="Llama 3.2 1B (Fast)",
+            capabilities=ModelCapabilities(
+                supports_streaming=True,
+                supports_tool_use=False,
+                supports_json_mode=True
+            ),
+            context_window=128000,
+            max_output_tokens=8192,
+            cost_per_1m_input_tokens=0.0,
+            cost_per_1m_output_tokens=0.0,
+            rate_limit_rpm=1000,
+            rate_limit_tpm=100000,
+            latency_p50_ms=100,  # Fastest model
+            latency_p99_ms=500,
+            status=ModelStatus.ACTIVE,
+            quality_scores=QualityScores(
+                reasoning=0.55,
+                coding=0.50,
+                creative=0.60,
+                summarization=0.58
+            )
+        )
+
         # Ollama llama3.2:3b
         llama32_3b = ModelConfig(
             model_id="llama3.2:3b",
@@ -327,8 +363,8 @@ class ModelRegistry:
             )
         )
 
-        # Register all default models
-        for model in [llama31_8b, llama32_3b, llava]:
+        # Register all default models (ordered by latency - fastest first)
+        for model in [llama32_1b, llama32_3b, llama31_8b, llava]:
             self.register_model(model)
 
         self._initialized = True

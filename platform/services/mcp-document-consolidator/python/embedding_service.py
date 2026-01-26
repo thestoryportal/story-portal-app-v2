@@ -24,8 +24,18 @@ import sys
 import json
 import argparse
 import logging
+import signal
+import os
 from typing import List, Optional, Dict, Any
 import numpy as np
+
+# Disable tokenizers parallelism to avoid deadlocks
+os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+
+def force_exit(signum=None, frame=None):
+    """Force exit without cleanup to avoid transformers/torch deadlock."""
+    # os._exit bypasses atexit handlers that can hang
+    os._exit(0)
 
 # Configure logging to stderr (stdout is for JSON-RPC)
 logging.basicConfig(
@@ -281,6 +291,11 @@ class JSONRPCServer:
 
 def main():
     """Main entry point."""
+    # Register signal handlers for clean shutdown
+    # Use force_exit to avoid transformers/torch deadlocks on exit
+    signal.signal(signal.SIGTERM, force_exit)
+    signal.signal(signal.SIGINT, force_exit)
+
     parser = argparse.ArgumentParser(description='Embedding Service for MCP Document Consolidator')
     parser.add_argument(
         '--model',
@@ -302,12 +317,14 @@ def main():
         service = EmbeddingService(model_name=args.model, device=args.device)
         server = JSONRPCServer(service)
         server.run()
+        # Use force_exit on normal completion to avoid deadlock
+        force_exit()
     except Exception as e:
         logger.error(f"Failed to start service: {e}")
         # Output error as JSON for the parent process
         error_msg = json.dumps({'status': 'error', 'message': str(e)})
         print(error_msg, flush=True)
-        sys.exit(1)
+        force_exit()
 
 
 if __name__ == '__main__':

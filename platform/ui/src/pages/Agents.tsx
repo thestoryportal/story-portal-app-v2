@@ -234,56 +234,60 @@ export default function Agents() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {agents.map((agent) => (
-                  <tr key={agent.agent_id}>
+                  <tr key={agent.id}>
                     <td className="px-4 py-3 text-sm font-mono text-gray-900">
-                      {agent.agent_id.slice(0, 12)}...
+                      {agent.id.slice(0, 12)}...
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{agent.type}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{agent.agent_type}</td>
                     <td className="px-4 py-3 text-sm">
                       <span
                         className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                          agent.status === 'running'
+                          agent.status === 'active' || agent.status === 'busy'
                             ? 'bg-green-100 text-green-800'
-                            : agent.status === 'paused'
+                            : agent.status === 'idle'
+                            ? 'bg-blue-100 text-blue-800'
+                            : agent.status === 'suspended'
                             ? 'bg-yellow-100 text-yellow-800'
                             : agent.status === 'terminated'
                             ? 'bg-gray-100 text-gray-800'
-                            : 'bg-red-100 text-red-800'
+                            : agent.status === 'error'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-gray-100 text-gray-800'
                         }`}
                       >
                         {agent.status}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900">
-                      {agent.capabilities?.slice(0, 2).join(', ') || 'None'}
-                      {agent.capabilities && agent.capabilities.length > 2 && '...'}
+                      {agent.configuration?.capabilities?.slice(0, 2).join(', ') || 'None'}
+                      {agent.configuration?.capabilities && agent.configuration.capabilities.length > 2 && '...'}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
                       {new Date(agent.created_at).toLocaleString()}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <div className="flex items-center space-x-2">
-                        {agent.status === 'running' && (
+                        {(agent.status === 'active' || agent.status === 'busy') && (
                           <button
-                            onClick={() => pauseMutation.mutate(agent.agent_id)}
+                            onClick={() => pauseMutation.mutate(agent.id)}
                             className="p-1 hover:bg-gray-100 rounded"
-                            title="Pause"
+                            title="Suspend"
                           >
                             <Pause className="w-4 h-4 text-yellow-600" />
                           </button>
                         )}
-                        {agent.status === 'paused' && (
+                        {agent.status === 'suspended' && (
                           <button
-                            onClick={() => resumeMutation.mutate(agent.agent_id)}
+                            onClick={() => resumeMutation.mutate(agent.id)}
                             className="p-1 hover:bg-gray-100 rounded"
                             title="Resume"
                           >
                             <Play className="w-4 h-4 text-green-600" />
                           </button>
                         )}
-                        {(agent.status === 'running' || agent.status === 'paused') && (
+                        {(agent.status === 'active' || agent.status === 'busy' || agent.status === 'suspended') && (
                           <button
-                            onClick={() => terminateMutation.mutate(agent.agent_id)}
+                            onClick={() => terminateMutation.mutate(agent.id)}
                             className="p-1 hover:bg-gray-100 rounded"
                             title="Terminate"
                           >

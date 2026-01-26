@@ -754,6 +754,138 @@ CREATE TABLE IF NOT EXISTS service_registry_events (
 CREATE INDEX IF NOT EXISTS idx_service_registry_events_timestamp ON service_registry_events(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_service_registry_events_service ON service_registry_events(service_id);
 CREATE INDEX IF NOT EXISTS idx_service_registry_events_type ON service_registry_events(event_type);
+
+-- ============================================================================
+-- L02 WORKFLOW BUILDER LAYER
+-- Enhanced workflow orchestration with saga pattern support
+-- ============================================================================
+
+-- Workflow definitions store the DAG structure and configuration
+CREATE TABLE IF NOT EXISTS workflow_definitions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workflow_id VARCHAR(255) UNIQUE NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    version VARCHAR(50) DEFAULT '1.0.0',
+    definition JSONB NOT NULL,  -- Full workflow graph: nodes, edges, parameters
+    category VARCHAR(100) DEFAULT 'general',
+    tags TEXT[] DEFAULT '{}',
+    status VARCHAR(50) DEFAULT 'draft',  -- draft, active, deprecated, archived
+    owner_agent_id UUID REFERENCES agents(id),
+    visibility VARCHAR(50) DEFAULT 'private',  -- private, team, public
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_workflow_definitions_workflow_id ON workflow_definitions(workflow_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_definitions_name ON workflow_definitions(name);
+CREATE INDEX IF NOT EXISTS idx_workflow_definitions_status ON workflow_definitions(status);
+CREATE INDEX IF NOT EXISTS idx_workflow_definitions_category ON workflow_definitions(category);
+CREATE INDEX IF NOT EXISTS idx_workflow_definitions_owner ON workflow_definitions(owner_agent_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_definitions_tags ON workflow_definitions USING GIN(tags);
+CREATE INDEX IF NOT EXISTS idx_workflow_definitions_created ON workflow_definitions(created_at DESC);
+
+-- Workflow executions track running instances of workflows
+CREATE TABLE IF NOT EXISTS workflow_executions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    execution_id VARCHAR(255) UNIQUE NOT NULL,
+    workflow_id VARCHAR(255) NOT NULL,
+    workflow_version VARCHAR(50) NOT NULL,
+    agent_id UUID REFERENCES agents(id),
+    session_id VARCHAR(255),
+    parent_execution_id VARCHAR(255),  -- For nested/subworkflow executions
+    input_parameters JSONB DEFAULT '{}',
+    output_result JSONB,
+    status VARCHAR(50) DEFAULT 'pending',  -- pending, running, paused, waiting_approval, completed, failed, cancelled, compensating
+    current_node_id VARCHAR(255),
+    execution_state JSONB DEFAULT '{}',  -- Full state including completed nodes, variable context
+    checkpoint_id VARCHAR(255),
+    error_code VARCHAR(100),
+    error_message TEXT,
+    compensation_required BOOLEAN DEFAULT false,
+    compensation_status VARCHAR(50),  -- pending, in_progress, completed, failed
+    compensated_nodes JSONB DEFAULT '[]',
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    duration_ms INTEGER,
+    trace_id VARCHAR(255),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_execution_id ON workflow_executions(execution_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_workflow ON workflow_executions(workflow_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_status ON workflow_executions(status);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_agent ON workflow_executions(agent_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_session ON workflow_executions(session_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_parent ON workflow_executions(parent_execution_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_started ON workflow_executions(started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_trace ON workflow_executions(trace_id);
+
+-- Node executions track individual step executions within a workflow
+CREATE TABLE IF NOT EXISTS workflow_node_executions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    node_execution_id VARCHAR(255) UNIQUE NOT NULL,
+    execution_id VARCHAR(255) NOT NULL REFERENCES workflow_executions(execution_id),
+    node_id VARCHAR(255) NOT NULL,
+    node_type VARCHAR(100) NOT NULL,  -- agent, service, conditional, parallel, subworkflow, human_approval, wait, transform
+    status VARCHAR(50) DEFAULT 'pending',  -- pending, running, completed, failed, skipped, compensated
+    input_data JSONB DEFAULT '{}',
+    output_data JSONB,
+    error_code VARCHAR(100),
+    error_message TEXT,
+    retry_count INTEGER DEFAULT 0,
+    max_retries INTEGER DEFAULT 3,
+    compensation_action JSONB,  -- Action to execute if rollback needed
+    compensated BOOLEAN DEFAULT false,
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    duration_ms INTEGER,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_workflow_node_executions_node_id ON workflow_node_executions(node_execution_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_node_executions_execution ON workflow_node_executions(execution_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_node_executions_node ON workflow_node_executions(node_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_node_executions_status ON workflow_node_executions(status);
+CREATE INDEX IF NOT EXISTS idx_workflow_node_executions_type ON workflow_node_executions(node_type);
+
+-- Workflow triggers define how workflows are started (events, schedules, webhooks)
+CREATE TABLE IF NOT EXISTS workflow_triggers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    trigger_id VARCHAR(255) UNIQUE NOT NULL,
+    workflow_id VARCHAR(255) NOT NULL REFERENCES workflow_definitions(workflow_id),
+    trigger_type VARCHAR(100) NOT NULL,  -- event, schedule, webhook, manual
+    trigger_config JSONB NOT NULL,  -- Type-specific config (event patterns, cron, webhook secret)
+    enabled BOOLEAN DEFAULT true,
+    last_triggered_at TIMESTAMP,
+    trigger_count INTEGER DEFAULT 0,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_workflow_triggers_trigger_id ON workflow_triggers(trigger_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_triggers_workflow ON workflow_triggers(workflow_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_triggers_type ON workflow_triggers(trigger_type);
+CREATE INDEX IF NOT EXISTS idx_workflow_triggers_enabled ON workflow_triggers(enabled);
+
+-- Approval requests for human-in-the-loop workflow steps
+CREATE TABLE IF NOT EXISTS workflow_approval_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    approval_id VARCHAR(255) UNIQUE NOT NULL,
+    execution_id VARCHAR(255) NOT NULL REFERENCES workflow_executions(execution_id),
+    node_id VARCHAR(255) NOT NULL,
+    request_type VARCHAR(100) NOT NULL,  -- approval, confirmation, input_required
+    request_message TEXT,
+    request_data JSONB DEFAULT '{}',  -- Additional context for the approver
+    status VARCHAR(50) DEFAULT 'pending',  -- pending, approved, rejected, expired
+    responded_by VARCHAR(255),
+    response_data JSONB,
+    responded_at TIMESTAMP,
+    expires_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_workflow_approval_requests_approval_id ON workflow_approval_requests(approval_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_approval_requests_execution ON workflow_approval_requests(execution_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_approval_requests_status ON workflow_approval_requests(status);
+CREATE INDEX IF NOT EXISTS idx_workflow_approval_requests_expires ON workflow_approval_requests(expires_at);
 """
 
 

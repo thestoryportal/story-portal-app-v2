@@ -1,0 +1,49 @@
+# Consul Service Discovery - Docker Compose Configuration
+#
+# Provides service discovery, health checking, and key-value store
+# for the Agentic Platform.
+#
+# Usage:
+#   docker-compose -f docker-compose.consul.yml up -d
+
+version: '3.8'
+
+services:
+  consul-server:
+    image: hashicorp/consul:1.17
+    container_name: agentic-consul
+    hostname: consul-server
+    command: agent -server -ui -node=consul-server -bootstrap-expect=1 -client=0.0.0.0
+    ports:
+      - "8500:8500"  # HTTP API
+      - "8600:8600/tcp"  # DNS
+      - "8600:8600/udp"  # DNS
+    volumes:
+      - consul_data:/consul/data
+      - ./consul/config:/consul/config
+    environment:
+      - CONSUL_BIND_INTERFACE=eth0
+      - CONSUL_CLIENT_INTERFACE=eth0
+    networks:
+      - agentic-network
+    healthcheck:
+      test: ["CMD", "consul", "members"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    labels:
+      - "com.agentic.service=consul"
+      - "com.agentic.description=Service Discovery"
+
+volumes:
+  consul_data:
+    driver: local
+    labels:
+      - "com.agentic.volume=consul-data"
+
+networks:
+  agentic-network:
+    name: agentic-network
+    driver: bridge

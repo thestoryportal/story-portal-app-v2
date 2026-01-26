@@ -1,0 +1,14 @@
+Method,Name,Error,Occurrences
+GET,GET /api/v1/goals/{id},HTTPError('404 Client Error: Not Found for url: GET /api/v1/goals/{id}'),903
+PATCH,PATCH /api/v1/agents/{id},HTTPError('500 Server Error: Internal Server Error for url: PATCH /api/v1/agents/{id}'),47
+PATCH,PATCH /api/v1/tasks/{id},HTTPError('404 Client Error: Not Found for url: PATCH /api/v1/tasks/{id}'),721
+DELETE,DELETE /api/v1/agents/{id},HTTPError('500 Server Error: Internal Server Error for url: DELETE /api/v1/agents/{id}'),21
+POST,POST /api/v1/tasks/,HTTPError('500 Server Error: Internal Server Error for url: POST /api/v1/tasks/'),165
+PATCH,PATCH /api/v1/tasks/{id},HTTPError('500 Server Error: Internal Server Error for url: PATCH /api/v1/tasks/{id}'),54
+PATCH,PATCH /api/v1/goals/{id},HTTPError('500 Server Error: Internal Server Error for url: PATCH /api/v1/goals/{id}'),62
+GET,GET /api/v1/agents/,HTTPError('500 Server Error: Internal Server Error for url: GET /api/v1/agents/'),246
+PATCH,PATCH /api/v1/goals/{id},HTTPError('404 Client Error: Not Found for url: PATCH /api/v1/goals/{id}'),591
+GET,GET /api/v1/agents/{id},HTTPError('500 Server Error: Internal Server Error for url: GET /api/v1/agents/{id}'),91
+GET,GET /api/v1/goals/{id},HTTPError('500 Server Error: Internal Server Error for url: GET /api/v1/goals/{id}'),70
+POST,POST /api/v1/goals/,HTTPError('500 Server Error: Internal Server Error for url: POST /api/v1/goals/'),131
+POST,POST /api/v1/agents/,HTTPError('500 Server Error: Internal Server Error for url: POST /api/v1/agents/'),116

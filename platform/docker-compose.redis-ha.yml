@@ -1,0 +1,338 @@
+# Redis High Availability - Docker Compose Configuration
+#
+# Provides Redis Cluster (3 primaries + 3 replicas) for the Agentic Platform
+#
+# Architecture:
+#   - redis-node-1, 2, 3: Primary nodes
+#   - redis-node-4, 5, 6: Replica nodes
+#   - Automatic failover with Redis Cluster
+#   - Distributed data across 3 shards
+#
+# Usage:
+#   docker-compose -f docker-compose.redis-ha.yml up -d
+#   docker exec -it agentic-redis-1 redis-cli --cluster create \
+#     redis-node-1:6379 redis-node-2:6379 redis-node-3:6379 \
+#     redis-node-4:6379 redis-node-5:6379 redis-node-6:6379 \
+#     --cluster-replicas 1 --cluster-yes
+
+version: '3.8'
+
+services:
+  # Redis Node 1 (Primary)
+  redis-node-1:
+    image: redis:7-alpine
+    container_name: agentic-redis-1
+    hostname: redis-node-1
+    command: >
+      redis-server
+      --port 6379
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --appendonly yes
+      --appendfilename "appendonly.aof"
+      --appendfsync everysec
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD:-redis_secure_password}
+      --masterauth ${REDIS_PASSWORD:-redis_secure_password}
+    ports:
+      - "6379:6379"
+      - "16379:16379"  # Cluster bus port
+    volumes:
+      - redis_node_1_data:/data
+    networks:
+      agentic-network:
+        ipv4_address: 172.28.0.11
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_secure_password}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    labels:
+      - "com.agentic.service=redis-node-1"
+      - "com.agentic.role=cache"
+      - "com.agentic.ha-role=primary"
+
+  # Redis Node 2 (Primary)
+  redis-node-2:
+    image: redis:7-alpine
+    container_name: agentic-redis-2
+    hostname: redis-node-2
+    command: >
+      redis-server
+      --port 6379
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --appendonly yes
+      --appendfilename "appendonly.aof"
+      --appendfsync everysec
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD:-redis_secure_password}
+      --masterauth ${REDIS_PASSWORD:-redis_secure_password}
+    ports:
+      - "6380:6379"
+      - "16380:16379"
+    volumes:
+      - redis_node_2_data:/data
+    networks:
+      agentic-network:
+        ipv4_address: 172.28.0.12
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_secure_password}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    labels:
+      - "com.agentic.service=redis-node-2"
+      - "com.agentic.role=cache"
+      - "com.agentic.ha-role=primary"
+
+  # Redis Node 3 (Primary)
+  redis-node-3:
+    image: redis:7-alpine
+    container_name: agentic-redis-3
+    hostname: redis-node-3
+    command: >
+      redis-server
+      --port 6379
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --appendonly yes
+      --appendfilename "appendonly.aof"
+      --appendfsync everysec
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD:-redis_secure_password}
+      --masterauth ${REDIS_PASSWORD:-redis_secure_password}
+    ports:
+      - "6381:6379"
+      - "16381:16379"
+    volumes:
+      - redis_node_3_data:/data
+    networks:
+      agentic-network:
+        ipv4_address: 172.28.0.13
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_secure_password}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    labels:
+      - "com.agentic.service=redis-node-3"
+      - "com.agentic.role=cache"
+      - "com.agentic.ha-role=primary"
+
+  # Redis Node 4 (Replica for Node 1)
+  redis-node-4:
+    image: redis:7-alpine
+    container_name: agentic-redis-4
+    hostname: redis-node-4
+    command: >
+      redis-server
+      --port 6379
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --appendonly yes
+      --appendfilename "appendonly.aof"
+      --appendfsync everysec
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD:-redis_secure_password}
+      --masterauth ${REDIS_PASSWORD:-redis_secure_password}
+    ports:
+      - "6382:6379"
+      - "16382:16379"
+    volumes:
+      - redis_node_4_data:/data
+    networks:
+      agentic-network:
+        ipv4_address: 172.28.0.14
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_secure_password}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    labels:
+      - "com.agentic.service=redis-node-4"
+      - "com.agentic.role=cache"
+      - "com.agentic.ha-role=replica"
+
+  # Redis Node 5 (Replica for Node 2)
+  redis-node-5:
+    image: redis:7-alpine
+    container_name: agentic-redis-5
+    hostname: redis-node-5
+    command: >
+      redis-server
+      --port 6379
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --appendonly yes
+      --appendfilename "appendonly.aof"
+      --appendfsync everysec
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD:-redis_secure_password}
+      --masterauth ${REDIS_PASSWORD:-redis_secure_password}
+    ports:
+      - "6383:6379"
+      - "16383:16379"
+    volumes:
+      - redis_node_5_data:/data
+    networks:
+      agentic-network:
+        ipv4_address: 172.28.0.15
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_secure_password}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    labels:
+      - "com.agentic.service=redis-node-5"
+      - "com.agentic.role=cache"
+      - "com.agentic.ha-role=replica"
+
+  # Redis Node 6 (Replica for Node 3)
+  redis-node-6:
+    image: redis:7-alpine
+    container_name: agentic-redis-6
+    hostname: redis-node-6
+    command: >
+      redis-server
+      --port 6379
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --appendonly yes
+      --appendfilename "appendonly.aof"
+      --appendfsync everysec
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD:-redis_secure_password}
+      --masterauth ${REDIS_PASSWORD:-redis_secure_password}
+    ports:
+      - "6384:6379"
+      - "16384:16379"
+    volumes:
+      - redis_node_6_data:/data
+    networks:
+      agentic-network:
+        ipv4_address: 172.28.0.16
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_secure_password}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    labels:
+      - "com.agentic.service=redis-node-6"
+      - "com.agentic.role=cache"
+      - "com.agentic.ha-role=replica"
+
+  # Redis Cluster Manager (for initialization and monitoring)
+  redis-cluster-init:
+    image: redis:7-alpine
+    container_name: agentic-redis-cluster-init
+    depends_on:
+      redis-node-1:
+        condition: service_healthy
+      redis-node-2:
+        condition: service_healthy
+      redis-node-3:
+        condition: service_healthy
+      redis-node-4:
+        condition: service_healthy
+      redis-node-5:
+        condition: service_healthy
+      redis-node-6:
+        condition: service_healthy
+    command: >
+      sh -c "
+      echo 'Waiting for all Redis nodes to be ready...';
+      sleep 10;
+      echo 'Creating Redis Cluster...';
+      redis-cli -a ${REDIS_PASSWORD:-redis_secure_password} --cluster create \
+        172.28.0.11:6379 \
+        172.28.0.12:6379 \
+        172.28.0.13:6379 \
+        172.28.0.14:6379 \
+        172.28.0.15:6379 \
+        172.28.0.16:6379 \
+        --cluster-replicas 1 \
+        --cluster-yes || true;
+      echo 'Redis Cluster created successfully';
+      echo 'Cluster Info:';
+      redis-cli -a ${REDIS_PASSWORD:-redis_secure_password} -h 172.28.0.11 cluster info;
+      echo 'Cluster Nodes:';
+      redis-cli -a ${REDIS_PASSWORD:-redis_secure_password} -h 172.28.0.11 cluster nodes;
+      tail -f /dev/null;
+      "
+    networks:
+      - agentic-network
+    restart: "no"
+    labels:
+      - "com.agentic.service=redis-cluster-init"
+      - "com.agentic.role=init"
+
+volumes:
+  redis_node_1_data:
+    driver: local
+    labels:
+      - "com.agentic.volume=redis-node-1-data"
+  redis_node_2_data:
+    driver: local
+    labels:
+      - "com.agentic.volume=redis-node-2-data"
+  redis_node_3_data:
+    driver: local
+    labels:
+      - "com.agentic.volume=redis-node-3-data"
+  redis_node_4_data:
+    driver: local
+    labels:
+      - "com.agentic.volume=redis-node-4-data"
+  redis_node_5_data:
+    driver: local
+    labels:
+      - "com.agentic.volume=redis-node-5-data"
+  redis_node_6_data:
+    driver: local
+    labels:
+      - "com.agentic.volume=redis-node-6-data"
+
+networks:
+  agentic-network:
+    name: agentic-network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

@@ -1,0 +1,1 @@
+llava-llama3:latest        44c161b1f465    5.5 GB    4 seconds ago    

@@ -1,0 +1,286 @@
+/**
+ * SteamField Styles
+ * 
+ * CRITICAL COLOR NOTE:
+ * These colors are from SmokeEffect.tsx (warm brown/tan).
+ * The original spec incorrectly specified amber - THAT WAS WRONG.
+ * 
+ * Correct color palette (from SmokeEffect.tsx):
+ * - Main: rgba(140, 120, 100, X) - warm brown
+ * - Secondary: rgba(130, 110, 90, X) - tan  
+ * - Tertiary: rgba(120, 100, 80, X) - darker brown
+ * 
+ * WRONG colors (from spec - DO NOT USE):
+ * - rgba(255, 160, 80, X) - amber (NO!)
+ * - rgba(255, 180, 100, X) - orange-amber (NO!)
+ */
+
+.steamField {
+  position: fixed;
+  inset: 0;
+  z-index: 1002;
+  overflow: hidden;
+  pointer-events: none;
+  
+  /* Entry animation for the whole field */
+  animation: steamFieldEntry 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+@keyframes steamFieldEntry {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ============================================
+   Layer 1: Base Cloud (Center)
+   ============================================ */
+.baseCloud {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 120%;
+  height: 100%;
+  transform: translate(-50%, -50%);
+  
+  /* Warm BROWN from SmokeEffect.tsx - NOT amber! */
+  background: radial-gradient(
+    ellipse 60% 50% at 50% 50%,
+    rgba(140, 120, 100, 0.12) 0%,
+    rgba(120, 100, 80, 0.06) 40%,
+    transparent 70%
+  );
+  
+  filter: blur(40px);
+  opacity: 0.6;
+  
+  animation: steamBaseFloat 8s ease-in-out infinite;
+}
+
+@keyframes steamBaseFloat {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -52%) scale(1.03);
+  }
+}
+
+/* ============================================
+   Layer 2-3: Side Wisps
+   ============================================ */
+.wispLeft {
+  position: absolute;
+  top: 30%;
+  left: 5%;
+  width: 40%;
+  height: 60%;
+  
+  /* Warm BROWN from SmokeEffect.tsx */
+  background: radial-gradient(
+    ellipse at 30% 50%,
+    rgba(130, 110, 90, 0.08) 0%,
+    transparent 60%
+  );
+  
+  filter: blur(30px);
+  
+  animation: smokeLingerLeft 12s ease-in-out infinite;
+}
+
+.wispRight {
+  position: absolute;
+  top: 30%;
+  right: 5%;
+  width: 40%;
+  height: 60%;
+  
+  /* Warm BROWN from SmokeEffect.tsx */
+  background: radial-gradient(
+    ellipse at 70% 50%,
+    rgba(130, 110, 90, 0.08) 0%,
+    transparent 60%
+  );
+  
+  filter: blur(30px);
+  
+  animation: smokeLingerRight 14s ease-in-out infinite;
+}
+
+/* ============================================
+   Layer 4: Rising Steam
+   ============================================ */
+.risingUpper {
+  position: absolute;
+  bottom: 40%;
+  left: 50%;
+  width: 80%;
+  height: 50%;
+  transform: translateX(-50%);
+  
+  /* Warm BROWN from SmokeEffect.tsx */
+  background: radial-gradient(
+    ellipse 50% 80% at 50% 100%,
+    rgba(140, 120, 100, 0.07) 0%,
+    transparent 60%
+  );
+  
+  filter: blur(35px);
+  
+  animation: smokeLingerUp 10s ease-in-out infinite;
+}
+
+/* ============================================
+   Layer 5-6: Accent Puffs
+   ============================================ */
+.puffA,
+.puffB {
+  position: absolute;
+  width: 15%;
+  height: 20%;
+  border-radius: 50%;
+  
+  /* Warm BROWN from SmokeEffect.tsx */
+  background: radial-gradient(
+    circle,
+    rgba(130, 110, 90, 0.1) 0%,
+    transparent 70%
+  );
+  
+  filter: blur(20px);
+}
+
+.puffA {
+  top: 25%;
+  left: 20%;
+  animation: steamPuffDrift 6s ease-in-out infinite;
+}
+
+.puffB {
+  top: 60%;
+  right: 25%;
+  animation: steamPuffDrift 7s ease-in-out infinite reverse;
+}
+
+@keyframes steamPuffDrift {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translate(10px, -15px) scale(1.1);
+    opacity: 0.7;
+  }
+}
+
+/* ============================================
+   Density Variants
+   ============================================ */
+.density_light .baseCloud { opacity: 0.4; }
+.density_light .wispLeft,
+.density_light .wispRight { opacity: 0.6; }
+.density_light .puffA,
+.density_light .puffB { opacity: 0.4; }
+
+.density_medium .baseCloud { opacity: 0.6; }
+.density_medium .wispLeft,
+.density_medium .wispRight { opacity: 0.8; }
+.density_medium .puffA,
+.density_medium .puffB { opacity: 0.6; }
+
+.density_dense .baseCloud { opacity: 0.8; }
+.density_dense .wispLeft,
+.density_dense .wispRight { opacity: 1; }
+.density_dense .puffA,
+.density_dense .puffB { opacity: 0.8; }
+
+/* ============================================
+   Keyframes for smoke movement
+   These match the existing animations.css patterns
+   ============================================ */
+@keyframes smokeLingerLeft {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translate(-30px, -20px);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(0, 0);
+    opacity: 0.6;
+  }
+}
+
+@keyframes smokeLingerRight {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translate(30px, -15px);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(0, 0);
+    opacity: 0.6;
+  }
+}
+
+@keyframes smokeLingerUp {
+  0% {
+    transform: translateX(-50%) translateY(0);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateX(-50%) translateY(-40px);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateX(-50%) translateY(0);
+    opacity: 0.5;
+  }
+}
+
+/* ============================================
+   Reduced Motion Support
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  .steamField {
+    animation: none;
+  }
+  
+  .baseCloud,
+  .wispLeft,
+  .wispRight,
+  .risingUpper,
+  .puffA,
+  .puffB {
+    animation: none;
+  }
+  
+  /* Static gradient fallback */
+  .steamField {
+    background: radial-gradient(
+      ellipse 70% 60% at 50% 45%,
+      rgba(140, 120, 100, 0.08) 0%,
+      rgba(120, 100, 80, 0.04) 50%,
+      transparent 80%
+    );
+  }
+  
+  .baseCloud,
+  .wispLeft,
+  .wispRight,
+  .risingUpper,
+  .puffA,
+  .puffB {
+    display: none;
+  }
+}

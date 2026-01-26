@@ -1,7 +1,7 @@
 """Tool registry service."""
 
 import asyncpg
-from typing import List, Optional
+from typing import List, Optional, Union, Any
 from uuid import UUID
 import logging
 from datetime import datetime
@@ -16,9 +16,30 @@ logger = logging.getLogger(__name__)
 class ToolRegistry:
     """Tool registry service."""
 
-    def __init__(self, db_pool: asyncpg.Pool, redis_client: RedisClient):
-        self.db_pool = db_pool
-        self.redis_client = redis_client
+    def __init__(
+        self,
+        db_pool: Union[asyncpg.Pool, Any],
+        redis_client: Union[RedisClient, Any]
+    ):
+        """Initialize ToolRegistry.
+
+        Args:
+            db_pool: Either an asyncpg.Pool directly, or a DatabasePool wrapper
+                     that has a .pool property
+            redis_client: Either a RedisClient directly, or a RedisPool wrapper
+                          that has a .client property
+        """
+        # Support both direct pool and wrapper with .pool property
+        if hasattr(db_pool, 'pool'):
+            self.db_pool = db_pool.pool
+        else:
+            self.db_pool = db_pool
+
+        # Support both direct client and wrapper with .client property
+        if hasattr(redis_client, 'client'):
+            self.redis_client = redis_client.client
+        else:
+            self.redis_client = redis_client
 
     async def register_tool(self, tool_data: ToolCreate) -> Tool:
         """Register a new tool."""

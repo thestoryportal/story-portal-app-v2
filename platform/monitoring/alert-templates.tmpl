@@ -1,0 +1,368 @@
+{{/* Alertmanager Notification Templates */}}
+
+{{/* ==================== Slack Templates ==================== */}}
+
+{{/* Default Slack message */}}
+{{ define "slack.default.title" }}
+[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .GroupLabels.alertname }}
+{{ end }}
+
+{{ define "slack.default.text" }}
+{{ range .Alerts }}
+*Alert:* {{ .Labels.alertname }}
+*Severity:* {{ .Labels.severity | toUpper }}
+*Summary:* {{ .Annotations.summary }}
+*Description:* {{ .Annotations.description }}
+{{ if .Labels.instance }}*Instance:* `{{ .Labels.instance }}`{{ end }}
+{{ if .Labels.job }}*Service:* `{{ .Labels.job }}`{{ end }}
+{{ if .Annotations.runbook_url }}*Runbook:* {{ .Annotations.runbook_url }}{{ end }}
+{{ if .Annotations.dashboard_url }}*Dashboard:* {{ .Annotations.dashboard_url }}{{ end }}
+*Started:* {{ .StartsAt.Format "2006-01-02 15:04:05 MST" }}
+{{ if gt (len .Labels) 0 }}
+*Labels:*
+  {{ range .Labels.SortedPairs }}• {{ .Name }}: `{{ .Value }}`
+  {{ end }}
+{{ end }}
+---
+{{ end }}
+{{ end }}
+
+{{/* Critical alert Slack format */}}
+{{ define "slack.critical.title" }}
+:rotating_light: CRITICAL ALERT :rotating_light: {{ .GroupLabels.alertname }}
+{{ end }}
+
+{{ define "slack.critical.text" }}
+*🚨 CRITICAL ALERT 🚨*
+
+{{ if gt (len .Alerts.Firing) 0 }}
+*Firing Alerts ({{ .Alerts.Firing | len }}):*
+{{ range .Alerts.Firing }}
+  • *{{ .Labels.alertname }}* on `{{ .Labels.instance }}`
+    _{{ .Annotations.summary }}_
+    {{ .Annotations.description }}
+    Runbook: {{ .Annotations.runbook_url }}
+{{ end }}
+{{ end }}
+
+{{ if gt (len .Alerts.Resolved) 0 }}
+*✅ Resolved Alerts ({{ .Alerts.Resolved | len }}):*
+{{ range .Alerts.Resolved }}
+  • *{{ .Labels.alertname }}* on `{{ .Labels.instance }}`
+    Duration: {{ (.EndsAt.Sub .StartsAt).Round time.Second }}
+{{ end }}
+{{ end }}
+
+*Action Required:* Review and resolve immediately
+*Escalation:* If not resolved in 15 minutes, escalate to on-call lead
+{{ end }}
+
+{{/* Performance alert Slack format */}}
+{{ define "slack.performance.text" }}
+*⚡ Performance Alert*
+
+{{ range .Alerts }}
+*Alert:* {{ .Labels.alertname }}
+*Service:* `{{ .Labels.job }}`
+*Threshold Exceeded:* {{ .Annotations.summary }}
+*Details:* {{ .Annotations.description }}
+
+*Recommended Actions:*
+1. Check dashboard for patterns: {{ .Annotations.dashboard_url }}
+2. Review recent deployments
+3. Check for traffic spikes
+4. Consult runbook: {{ .Annotations.runbook_url }}
+{{ end }}
+{{ end }}
+
+{{/* Security alert Slack format */}}
+{{ define "slack.security.text" }}
+*🛡️ Security Alert*
+
+{{ range .Alerts }}
+*Alert:* {{ .Labels.alertname }}
+*Severity:* {{ .Labels.severity | toUpper }}
+*Description:* {{ .Annotations.description }}
+*Source:* `{{ .Labels.instance }}`
+
+*Immediate Actions Required:*
+1. Review security logs
+2. Check for suspicious activity
+3. Verify access patterns
+4. Consult security runbook: {{ .Annotations.runbook_url }}
+
+*Security Team:* @security-oncall
+{{ end }}
+{{ end }}
+
+{{/* Database alert Slack format */}}
+{{ define "slack.database.text" }}
+*🗄️ Database Alert*
+
+{{ range .Alerts }}
+*Alert:* {{ .Labels.alertname }}
+*Instance:* `{{ .Labels.instance }}`
+*Issue:* {{ .Annotations.summary }}
+*Details:* {{ .Annotations.description }}
+
+*Recommended Actions:*
+1. Check database connections
+2. Review slow query logs
+3. Verify replication status (if applicable)
+4. Check disk space and I/O
+5. Consult runbook: {{ .Annotations.runbook_url }}
+
+*Database Team:* @dba-oncall
+{{ end }}
+{{ end }}
+
+{{/* ==================== Email Templates ==================== */}}
+
+{{/* Email subject */}}
+{{ define "email.default.subject" }}
+[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }} - {{ .CommonLabels.severity | toUpper }}
+{{ end }}
+
+{{/* Email HTML body */}}
+{{ define "email.default.html" }}
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: {{ if eq .Status "firing" }}#d9534f{{ else }}#5cb85c{{ end }};
+            color: white;
+            padding: 20px;
+            border-radius: 5px 5px 0 0;
+        }
+        .alert-box {
+            border: 1px solid #ddd;
+            border-radius: 0 0 5px 5px;
+            padding: 20px;
+            margin-bottom: 20px;
+            background: #f9f9f9;
+        }
+        .alert-item {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid {{ if eq .CommonLabels.severity "critical" }}#d9534f{{ else if eq .CommonLabels.severity "warning" }}#f0ad4e{{ else }}#5bc0de{{ end }};
+        }
+        .label {
+            font-weight: bold;
+            color: #666;
+        }
+        .value {
+            color: #333;
+        }
+        .severity {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+            color: white;
+            background: {{ if eq .CommonLabels.severity "critical" }}#d9534f{{ else if eq .CommonLabels.severity "warning" }}#f0ad4e{{ else if eq .CommonLabels.severity "info" }}#5bc0de{{ else }}#5cb85c{{ end }};
+        }
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #337ab7;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin: 10px 5px 10px 0;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+            font-size: 12px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        th, td {
+            text-align: left;
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #f0f0f0;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{ if eq .Status "firing" }}🚨 Alert Firing{{ else }}✅ Alert Resolved{{ end }}</h1>
+        <h2>{{ .GroupLabels.alertname }}</h2>
+    </div>
+
+    <div class="alert-box">
+        <p><span class="label">Status:</span> <span class="severity">{{ .CommonLabels.severity | toUpper }}</span></p>
+        <p><span class="label">Category:</span> <span class="value">{{ .CommonLabels.category }}</span></p>
+        <p><span class="label">Summary:</span> <span class="value">{{ .CommonAnnotations.summary }}</span></p>
+        <p><span class="label">Description:</span> <span class="value">{{ .CommonAnnotations.description }}</span></p>
+
+        {{ if .CommonAnnotations.runbook_url }}
+        <p>
+            <a href="{{ .CommonAnnotations.runbook_url }}" class="button">📖 View Runbook</a>
+            {{ if .CommonAnnotations.dashboard_url }}
+            <a href="{{ .CommonAnnotations.dashboard_url }}" class="button">📊 View Dashboard</a>
+            {{ end }}
+        </p>
+        {{ end }}
+
+        <h3>Affected Instances</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Instance</th>
+                    <th>Service</th>
+                    <th>Started</th>
+                    {{ if eq .Status "resolved" }}<th>Duration</th>{{ end }}
+                </tr>
+            </thead>
+            <tbody>
+                {{ range .Alerts }}
+                <tr>
+                    <td>{{ .Labels.instance }}</td>
+                    <td>{{ .Labels.job }}</td>
+                    <td>{{ .StartsAt.Format "2006-01-02 15:04:05 MST" }}</td>
+                    {{ if eq $.Status "resolved" }}<td>{{ (.EndsAt.Sub .StartsAt).Round time.Second }}</td>{{ end }}
+                </tr>
+                {{ end }}
+            </tbody>
+        </table>
+
+        {{ if gt (len .Alerts.Firing) 0 }}
+        <h3>Details</h3>
+        {{ range .Alerts.Firing }}
+        <div class="alert-item">
+            <p><strong>{{ .Labels.alertname }}</strong></p>
+            <p>{{ .Annotations.description }}</p>
+            {{ if .Labels.instance }}<p><span class="label">Instance:</span> <code>{{ .Labels.instance }}</code></p>{{ end }}
+            {{ if gt (len .Labels) 0 }}
+            <details>
+                <summary>All Labels</summary>
+                <ul>
+                {{ range .Labels.SortedPairs }}
+                    <li><strong>{{ .Name }}:</strong> {{ .Value }}</li>
+                {{ end }}
+                </ul>
+            </details>
+            {{ end }}
+        </div>
+        {{ end }}
+        {{ end }}
+    </div>
+
+    <div class="footer">
+        <p>This alert was generated by Prometheus Alertmanager</p>
+        <p>For support, contact: <a href="mailto:oncall@example.com">oncall@example.com</a></p>
+        <p>Generated at: {{ now.Format "2006-01-02 15:04:05 MST" }}</p>
+    </div>
+</body>
+</html>
+{{ end }}
+
+{{/* Critical alert email */}}
+{{ define "email.critical.subject" }}
+🚨 CRITICAL ALERT: {{ .GroupLabels.alertname }}
+{{ end }}
+
+{{ define "email.critical.html" }}
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; background: #fff3cd; padding: 20px; }
+        .critical-header { background: #d9534f; color: white; padding: 30px; text-align: center; }
+        .critical-header h1 { margin: 0; font-size: 32px; }
+        .content { background: white; padding: 30px; margin: 20px 0; border: 3px solid #d9534f; }
+        .action-required { background: #fcf8e3; border-left: 5px solid #f0ad4e; padding: 15px; margin: 20px 0; }
+        .button-critical { background: #d9534f; color: white; padding: 15px 30px; text-decoration: none; display: inline-block; border-radius: 5px; font-weight: bold; margin: 10px 5px; }
+    </style>
+</head>
+<body>
+    <div class="critical-header">
+        <h1>🚨 CRITICAL ALERT 🚨</h1>
+        <h2>{{ .GroupLabels.alertname }}</h2>
+    </div>
+
+    <div class="content">
+        <div class="action-required">
+            <h3>⚠️ IMMEDIATE ACTION REQUIRED</h3>
+            <p>A critical issue has been detected that requires immediate attention.</p>
+        </div>
+
+        <p><strong>Summary:</strong> {{ .CommonAnnotations.summary }}</p>
+        <p><strong>Description:</strong> {{ .CommonAnnotations.description }}</p>
+
+        <h3>Affected Systems ({{ .Alerts.Firing | len }})</h3>
+        <ul>
+        {{ range .Alerts.Firing }}
+            <li><strong>{{ .Labels.instance }}</strong> - {{ .Labels.job }}</li>
+        {{ end }}
+        </ul>
+
+        <p>
+            <a href="{{ .CommonAnnotations.runbook_url }}" class="button-critical">📖 VIEW RUNBOOK</a>
+            <a href="{{ .CommonAnnotations.dashboard_url }}" class="button-critical">📊 VIEW DASHBOARD</a>
+        </p>
+
+        <hr>
+
+        <h3>Response Protocol</h3>
+        <ol>
+            <li>Acknowledge this alert in PagerDuty</li>
+            <li>Follow the runbook procedures</li>
+            <li>Update the incident channel: #incident-response</li>
+            <li>If not resolved in 15 minutes, escalate to on-call lead</li>
+        </ol>
+
+        <h3>Escalation Contact</h3>
+        <p>On-call Lead: [Phone Number] | [Email]</p>
+    </div>
+</body>
+</html>
+{{ end }}
+
+{{/* ==================== PagerDuty Templates ==================== */}}
+
+{{ define "pagerduty.default.description" }}
+{{ .GroupLabels.alertname }}: {{ .CommonAnnotations.summary }}
+{{ end }}
+
+{{ define "pagerduty.default.details" }}
+{
+  "summary": "{{ .CommonAnnotations.summary }}",
+  "description": "{{ .CommonAnnotations.description }}",
+  "severity": "{{ .CommonLabels.severity }}",
+  "category": "{{ .CommonLabels.category }}",
+  "firing_count": {{ .Alerts.Firing | len }},
+  "instances": [
+    {{ range $i, $alert := .Alerts.Firing }}
+    {{ if $i }},{{ end }}
+    {
+      "instance": "{{ $alert.Labels.instance }}",
+      "job": "{{ $alert.Labels.job }}",
+      "started_at": "{{ $alert.StartsAt.Format "2006-01-02 15:04:05 MST" }}"
+    }
+    {{ end }}
+  ],
+  "runbook_url": "{{ .CommonAnnotations.runbook_url }}",
+  "dashboard_url": "{{ .CommonAnnotations.dashboard_url }}"
+}
+{{ end }}

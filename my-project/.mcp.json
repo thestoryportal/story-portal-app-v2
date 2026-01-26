@@ -1,22 +1,10 @@
 {
   "mcpServers": {
     "document-consolidator": {
-      "command": "node",
+      "command": "/bin/bash",
       "args": [
-        "/Volumes/Extreme SSD/projects/story-portal-app/platform/services/mcp-document-consolidator/dist/server.js"
-      ],
-      "env": {
-        "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/agentic_platform",
-        "POSTGRES_HOST": "localhost",
-        "POSTGRES_PORT": "5432",
-        "POSTGRES_DB": "agentic_platform",
-        "POSTGRES_USER": "postgres",
-        "POSTGRES_PASSWORD": "postgres",
-        "MCP_SCHEMA": "mcp_documents",
-        "OLLAMA_BASE_URL": "http://localhost:11434",
-        "OLLAMA_DEFAULT_MODEL": "llama3.1:8b",
-        "PYTHON_PATH": "/Volumes/Extreme SSD/projects/story-portal-app/platform/services/mcp-document-consolidator/python/venv/bin/python"
-      }
+        "/Volumes/Extreme SSD/projects/story-portal-app/platform/services/mcp-document-consolidator/start-mcp.sh"
+      ]
     },
     "context-orchestrator": {
       "command": "node",

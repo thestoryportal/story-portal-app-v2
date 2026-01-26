@@ -1,0 +1,2 @@
+Method,Name,Error,Occurrences
+PATCH,PATCH /api/v1/agents/{id},HTTPError('500 Server Error: Internal Server Error for url: PATCH /api/v1/agents/{id}'),35

@@ -1,0 +1,18 @@
+Backup Manifest
+===============
+Timestamp: 20260118-133121
+Date: Sun Jan 18 13:31:24 MST 2026
+Platform Version: 2.0.0
+
+PostgreSQL:
+  Container: agentic-postgres
+  Database: agentic_platform
+  File: postgres-20260118-133121.sql.gz
+  Size: 1.0M
+
+Redis:
+  Container: agentic-redis
+  File: redis-20260118-133121.rdb
+  Size: 1.0M
+
+Status: Complete

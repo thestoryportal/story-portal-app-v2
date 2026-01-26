@@ -1,0 +1,8 @@
+
+=== P1-002: Resource Limits Added ===
+All services in docker-compose.v2.yml now have resource limits:
+- PostgreSQL: 2GB/2.0 CPU (limit), 512MB/0.5 CPU (reservation)
+- Redis: 512MB/1.0 CPU (limit), 128MB/0.25 CPU (reservation)
+- Application Layers (L01-L07, L09-L11): 1GB/1.0 CPU (limit), 256MB/0.25 CPU (reservation)
+- Prometheus: 1GB/1.0 CPU (limit), 256MB/0.25 CPU (reservation)
+- Grafana: 512MB/0.5 CPU (limit), 128MB/0.25 CPU (reservation)

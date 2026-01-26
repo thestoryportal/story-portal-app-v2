@@ -23,7 +23,7 @@ l01_client = L01Client(
 
 class CreateTaskRequest(BaseModel):
     """Request model for creating a task."""
-    plan_id: UUID
+    plan_id: str  # String to match database schema (not strict UUID)
     agent_id: UUID
     description: str
     task_type: Optional[str] = None

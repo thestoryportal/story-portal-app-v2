@@ -1,0 +1,6 @@
+Method,Name,Error,Occurrences
+GET,GET /api/v1/agents/,RemoteDisconnected('Remote end closed connection without response'),2
+POST,POST /api/v1/tasks/,RemoteDisconnected('Remote end closed connection without response'),1
+GET,GET /api/v1/goals/,RemoteDisconnected('Remote end closed connection without response'),1
+POST,POST /api/v1/goals/,RemoteDisconnected('Remote end closed connection without response'),1
+POST,POST /api/v1/goals/,HTTPError('500 Server Error: Internal Server Error for url: POST /api/v1/goals/'),1

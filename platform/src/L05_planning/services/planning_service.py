@@ -10,8 +10,12 @@ Main orchestrator that coordinates all planning components:
 """
 
 import logging
+import os
 from typing import Optional, Dict, Any, List
 from uuid import uuid4
+
+# Mock mode for testing without infrastructure
+MOCK_MODE = os.environ.get("PLANNING_MOCK_MODE", "false").lower() == "true"
 
 from ..models import (
     Goal,
@@ -82,9 +86,14 @@ class PlanningService:
             tool_executor_client: L03 ToolExecutor client
             l01_bridge: L05Bridge for L01 Data Layer integration
         """
-        # Initialize cross-layer clients
-        self.gateway = gateway_client or ModelGateway()
-        self.executor = executor_client or AgentExecutor()
+        # Initialize cross-layer clients (with mock fallback)
+        if MOCK_MODE:
+            logger.info("PlanningService running in MOCK mode")
+            self.gateway = gateway_client  # Don't auto-create in mock mode
+            self.executor = executor_client
+        else:
+            self.gateway = gateway_client or ModelGateway()
+            self.executor = executor_client or AgentExecutor()
         # ToolExecutor requires ToolRegistry and ToolSandbox, so only use if provided
         self.tool_executor = tool_executor_client
 

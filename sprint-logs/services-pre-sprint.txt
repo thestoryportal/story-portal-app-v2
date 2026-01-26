@@ -1,0 +1,22 @@
+Port 8001: ❌
+Port 8002: ❌
+Port 8003: ❌
+Port 8004: ❌
+Port 8005: ❌
+Port 8006: ❌
+Port 8007: ❌
+Port 8009: ❌
+Port 8010: ❌
+Port 8011: ❌
+Port 8012: ✅
+Port 8001 /health/live: ✅
+Port 8002 /health/live: ✅
+Port 8003 /health/live: ✅
+Port 8004 /health/live: ✅
+Port 8005 /health/live: ✅
+Port 8006 /health/live: ✅
+Port 8007 /health/live: ✅
+Port 8009 /health/live: ✅
+Port 8010 /health/live: ✅
+Port 8011 /health/live: ✅
+Port 8012 /health/live: ❌

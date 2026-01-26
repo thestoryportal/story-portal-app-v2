@@ -1,0 +1,183 @@
+/**
+ * SteamModal Container Styles
+ * 
+ * Container for all modal layers.
+ * Z-index: 1000 (base for all modal content)
+ */
+
+.modalContainer {
+  /* Container for all modal layers */
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+
+  /* Prevent any overflow */
+  overflow: hidden;
+}
+
+/* Screen reader only content */
+:global(.sr-only) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Focus trap indicator - no visible outline on container */
+.modalContainer:focus {
+  outline: none;
+}
+
+/* ============================================
+   Closing State
+   Triggers exit animations on child components
+   ============================================ */
+.closing {
+  pointer-events: none;
+}
+
+/* Apply closing state to children */
+.closing [class*="backdrop"] {
+  animation: backdropFadeOut 0.3s ease-in forwards !important;
+}
+
+.closing [class*="steamField"] {
+  animation: steamFieldExit 0.4s ease-in forwards !important;
+}
+
+.closing [class*="header"] {
+  animation: headerTumbleOut 0.3s cubic-bezier(0.55, 0.06, 0.68, 0.19) forwards !important;
+}
+
+.closing [class*="contentPanel"] {
+  animation: contentDissolve 0.2s ease-in forwards !important;
+}
+
+.closing [class*="closeButton"] {
+  animation: closeFadeOut 0.15s ease-in forwards !important;
+}
+
+/* Exit keyframes */
+@keyframes backdropFadeOut {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes steamFieldExit {
+  to {
+    opacity: 0;
+    transform: scale(1.2);
+  }
+}
+
+@keyframes headerTumbleOut {
+  to {
+    opacity: 0;
+    transform: translateX(-50%) perspective(1000px) rotateX(-90deg) translateY(-100px);
+  }
+}
+
+@keyframes contentDissolve {
+  to {
+    opacity: 0;
+    filter: blur(8px);
+    transform: scale(0.98) translateY(20px);
+  }
+}
+
+@keyframes closeFadeOut {
+  to {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+/* ============================================
+   Variant Styles & Contextual Entry Animations
+   ============================================ */
+
+/* Standard variant - default styling (tumble in from above) */
+[data-variant="standard"] {
+  /* Uses default animations */
+}
+
+/* Form variant - rise from bottom */
+[data-variant="form"] [class*="header"] {
+  animation: headerRiseIn 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  animation-delay: 0.15s;
+}
+
+[data-variant="form"] [class*="contentPanel"] {
+  animation: contentRiseIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  animation-delay: 0.3s;
+  transform-origin: bottom center;
+}
+
+@keyframes headerRiseIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes contentRiseIn {
+  from {
+    opacity: 0;
+    transform: translateY(100px) scaleY(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+}
+
+/* Gallery variant - expand from center */
+[data-variant="gallery"] [class*="contentPanel"] {
+  animation: contentExpandIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  animation-delay: 0.3s;
+}
+
+@keyframes contentExpandIn {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Form variant - clearer steam for input visibility */
+[data-variant="form"] [class*="steamField"] {
+  opacity: 0.7;
+}
+
+/* Gallery variant - medium steam, darker for image contrast */
+[data-variant="gallery"] [class*="backdrop"] {
+  background: radial-gradient(
+    ellipse 80% 80% at 50% 45%,
+    rgba(15, 10, 5, 0.92) 0%,
+    rgba(5, 3, 2, 0.96) 60%,
+    rgba(0, 0, 0, 0.98) 100%
+  );
+}
+
+/* Legal variant - minimal steam for text readability */
+[data-variant="legal"] [class*="steamField"] {
+  opacity: 0.5;
+}
+
+[data-variant="legal"] [class*="contentPanel"] {
+  max-height: calc(90vh - 180px);
+}

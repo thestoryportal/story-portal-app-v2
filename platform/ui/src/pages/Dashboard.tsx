@@ -42,7 +42,7 @@ export default function Dashboard() {
   const stats = [
     {
       name: 'Active Agents',
-      value: agents?.filter((a) => a.status === 'running').length || 0,
+      value: agents?.filter((a) => a.status === 'active' || a.status === 'busy').length || 0,
       total: agents?.length || 0,
       icon: Users,
       color: 'text-blue-600',
@@ -217,18 +217,20 @@ export default function Dashboard() {
             <tbody className="bg-white divide-y divide-gray-200">
               {agents && agents.length > 0 ? (
                 agents.slice(0, 5).map((agent) => (
-                  <tr key={agent.agent_id}>
+                  <tr key={agent.id}>
                     <td className="px-4 py-3 text-sm font-mono text-gray-900">
-                      {agent.agent_id.slice(0, 12)}...
+                      {agent.did || agent.id.toString().slice(0, 12) + '...'}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{agent.type}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{agent.agent_type}</td>
                     <td className="px-4 py-3 text-sm">
                       <span
                         className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                          agent.status === 'running'
+                          agent.status === 'active' || agent.status === 'busy'
                             ? 'bg-green-100 text-green-800'
-                            : agent.status === 'paused'
+                            : agent.status === 'suspended' || agent.status === 'idle'
                             ? 'bg-yellow-100 text-yellow-800'
+                            : agent.status === 'error' || agent.status === 'terminated'
+                            ? 'bg-red-100 text-red-800'
                             : 'bg-gray-100 text-gray-800'
                         }`}
                       >
@@ -236,7 +238,7 @@ export default function Dashboard() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900">
-                      {agent.capabilities?.join(', ') || 'N/A'}
+                      {agent.configuration?.capabilities?.join(', ') || 'N/A'}
                     </td>
                   </tr>
                 ))

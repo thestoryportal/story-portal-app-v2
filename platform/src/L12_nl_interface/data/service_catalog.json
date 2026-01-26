@@ -2,7 +2,7 @@
   "AgentRegistry": {
     "service_name": "AgentRegistry",
     "layer": "L01",
-    "module_path": "L01_data_layer.services.agent_registry",
+    "module_path": "src.L01_data_layer.services.agent_registry",
     "class_name": "AgentRegistry",
     "description": "Registry for agent metadata management and lifecycle tracking",
     "keywords": ["agent", "registry", "metadata", "tracking"],
@@ -13,7 +13,7 @@
   "ConfigStore": {
     "service_name": "ConfigStore",
     "layer": "L01",
-    "module_path": "L01_data_layer.services.config_store",
+    "module_path": "src.L01_data_layer.services.config_store",
     "class_name": "ConfigStore",
     "description": "Configuration key-value store with versioning support",
     "keywords": ["config", "configuration", "store", "key-value"],
@@ -24,7 +24,7 @@
   "DatasetService": {
     "service_name": "DatasetService",
     "layer": "L01",
-    "module_path": "L01_data_layer.services.dataset_service",
+    "module_path": "src.L01_data_layer.services.dataset_service",
     "class_name": "DatasetService",
     "description": "Training dataset CRUD operations and split management",
     "keywords": ["dataset", "training", "data", "split"],
@@ -35,7 +35,7 @@
   "DocumentStore": {
     "service_name": "DocumentStore",
     "layer": "L01",
-    "module_path": "L01_data_layer.services.document_store",
+    "module_path": "src.L01_data_layer.services.document_store",
     "class_name": "DocumentStore",
     "description": "Document persistence and retrieval service",
     "keywords": ["document", "store", "persistence", "retrieval"],
@@ -46,7 +46,7 @@
   "EvaluationStore": {
     "service_name": "EvaluationStore",
     "layer": "L01",
-    "module_path": "L01_data_layer.services.evaluation_store",
+    "module_path": "src.L01_data_layer.services.evaluation_store",
     "class_name": "EvaluationStore",
     "description": "Evaluation results storage and analysis",
     "keywords": ["evaluation", "results", "metrics", "store"],
@@ -57,7 +57,7 @@
   "EventStore": {
     "service_name": "EventStore",
     "layer": "L01",
-    "module_path": "L01_data_layer.services.event_store",
+    "module_path": "src.L01_data_layer.services.event_store",
     "class_name": "EventStore",
     "description": "Event sourcing store for audit trails and replay",
     "keywords": ["event", "sourcing", "audit", "trail"],
@@ -135,7 +135,7 @@
   "FeedbackStore": {
     "service_name": "FeedbackStore",
     "layer": "L01",
-    "module_path": "L01_data_layer.services.feedback_store",
+    "module_path": "src.L01_data_layer.services.feedback_store",
     "class_name": "FeedbackStore",
     "description": "Feedback and correction storage for learning",
     "keywords": ["feedback", "correction", "learning", "store"],
@@ -146,7 +146,7 @@
   "GoalStore": {
     "service_name": "GoalStore",
     "layer": "L01",
-    "module_path": "L01_data_layer.services.goal_store",
+    "module_path": "src.L01_data_layer.services.goal_store",
     "class_name": "GoalStore",
     "description": "Goal and objective persistence service",
     "keywords": ["goal", "objective", "store", "persistence"],
@@ -157,7 +157,7 @@
   "PlanStore": {
     "service_name": "PlanStore",
     "layer": "L01",
-    "module_path": "L01_data_layer.services.plan_store",
+    "module_path": "src.L01_data_layer.services.plan_store",
     "class_name": "PlanStore",
     "description": "Execution plan storage and retrieval",
     "keywords": ["plan", "execution", "store", "strategy"],
@@ -168,7 +168,7 @@
   "SessionService": {
     "service_name": "SessionService",
     "layer": "L01",
-    "module_path": "L01_data_layer.services.session_service",
+    "module_path": "src.L01_data_layer.services.session_service",
     "class_name": "SessionService",
     "description": "Session lifecycle management and tracking",
     "keywords": ["session", "lifecycle", "tracking", "management"],
@@ -248,18 +248,51 @@
   "ToolRegistry": {
     "service_name": "ToolRegistry",
     "layer": "L01",
-    "module_path": "L01_data_layer.services.tool_registry",
+    "module_path": "src.L01_data_layer.services.tool_registry",
     "class_name": "ToolRegistry",
     "description": "Tool definition and metadata registry",
     "keywords": ["tool", "registry", "definition", "metadata"],
+    "dependencies": ["DatabasePool", "RedisPool"],
+    "requires_async_init": true,
+    "methods": []
+  },
+  "DatabasePool": {
+    "service_name": "DatabasePool",
+    "layer": "L00",
+    "module_path": "src.shared.infrastructure",
+    "class_name": "DatabasePool",
+    "description": "PostgreSQL connection pool provider",
+    "keywords": ["database", "postgres", "pool", "connection"],
     "dependencies": [],
-    "requires_async_init": false,
+    "requires_async_init": true,
+    "methods": []
+  },
+  "RedisPool": {
+    "service_name": "RedisPool",
+    "layer": "L00",
+    "module_path": "src.shared.infrastructure",
+    "class_name": "RedisPool",
+    "description": "Redis connection pool provider",
+    "keywords": ["redis", "cache", "pool", "connection"],
+    "dependencies": [],
+    "requires_async_init": true,
+    "methods": []
+  },
+  "L05Bridge": {
+    "service_name": "L05Bridge",
+    "layer": "L05",
+    "module_path": "src.L05_planning.services.l01_bridge",
+    "class_name": "L05Bridge",
+    "description": "Bridge between L05 Planning and L01 Data Layer",
+    "keywords": ["bridge", "planning", "data", "persistence"],
+    "dependencies": [],
+    "requires_async_init": true,
     "methods": []
   },
   "TrainingExampleService": {
     "service_name": "TrainingExampleService",
     "layer": "L01",
-    "module_path": "L01_data_layer.services.training_example_service",
+    "module_path": "src.L01_data_layer.services.training_example_service",
     "class_name": "TrainingExampleService",
     "description": "Training example CRUD operations and management",
     "keywords": ["training", "example", "data", "learning"],
@@ -270,7 +303,7 @@
   "AgentExecutor": {
     "service_name": "AgentExecutor",
     "layer": "L02",
-    "module_path": "L02_runtime.services.agent_executor",
+    "module_path": "src.L02_runtime.services.agent_executor",
     "class_name": "AgentExecutor",
     "description": "Code execution engine with tool support and sandboxing",
     "keywords": ["agent", "executor", "execute", "run", "code"],
@@ -281,7 +314,7 @@
   "FleetManager": {
     "service_name": "FleetManager",
     "layer": "L02",
-    "module_path": "L02_runtime.services.fleet_manager",
+    "module_path": "src.L02_runtime.services.fleet_manager",
     "class_name": "FleetManager",
     "description": "Agent fleet scaling orchestration and autoscaling",
     "keywords": ["fleet", "scaling", "autoscale", "orchestration"],
@@ -292,7 +325,7 @@
   "LifecycleManager": {
     "service_name": "LifecycleManager",
     "layer": "L02",
-    "module_path": "L02_runtime.services.lifecycle_manager",
+    "module_path": "src.L02_runtime.services.lifecycle_manager",
     "class_name": "LifecycleManager",
     "description": "Agent spawn, terminate, and recovery management",
     "keywords": ["lifecycle", "spawn", "terminate", "recovery", "manage"],
@@ -303,7 +336,7 @@
   "ResourceManager": {
     "service_name": "ResourceManager",
     "layer": "L02",
-    "module_path": "L02_runtime.services.resource_manager",
+    "module_path": "src.L02_runtime.services.resource_manager",
     "class_name": "ResourceManager",
     "description": "CPU and memory quota enforcement with monitoring",
     "keywords": ["resource", "quota", "memory", "cpu", "limits"],
@@ -311,10 +344,237 @@
     "requires_async_init": true,
     "methods": []
   },
+  "RoleContextBuilder": {
+    "service_name": "RoleContextBuilder",
+    "layer": "L13",
+    "module_path": "src.L13_role_management.services.role_context_builder",
+    "class_name": "RoleContextBuilder",
+    "description": "Token-budgeted context assembly for role execution including skills and constraints",
+    "keywords": ["context", "build", "token", "budget", "skill", "prompt", "assembly"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": [
+      {
+        "name": "build_context",
+        "description": "Build full context for role execution within token budget",
+        "parameters": [
+          {
+            "name": "role_id",
+            "type": "str",
+            "required": true,
+            "description": "Role identifier"
+          },
+          {
+            "name": "task",
+            "type": "Task",
+            "required": true,
+            "description": "Task requiring context"
+          },
+          {
+            "name": "token_budget",
+            "type": "int",
+            "required": false,
+            "description": "Maximum tokens for context (default: 4000)"
+          }
+        ],
+        "returns": "RoleContext",
+        "async_method": true
+      },
+      {
+        "name": "build_minimal_context",
+        "description": "Build minimal context for role execution",
+        "parameters": [
+          {
+            "name": "role_id",
+            "type": "str",
+            "required": true,
+            "description": "Role identifier"
+          }
+        ],
+        "returns": "RoleContext",
+        "async_method": true
+      },
+      {
+        "name": "extend_context",
+        "description": "Extend existing context with additional information",
+        "parameters": [
+          {
+            "name": "context",
+            "type": "RoleContext",
+            "required": true,
+            "description": "Existing context to extend"
+          },
+          {
+            "name": "extensions",
+            "type": "Dict[str, Any]",
+            "required": true,
+            "description": "Additional context data"
+          }
+        ],
+        "returns": "RoleContext",
+        "async_method": false
+      }
+    ]
+  },
+  "RoleDispatcher": {
+    "service_name": "RoleDispatcher",
+    "layer": "L13",
+    "module_path": "src.L13_role_management.services.role_dispatcher",
+    "class_name": "RoleDispatcher",
+    "description": "Task-to-role dispatch coordinator with classification and context assembly",
+    "keywords": ["dispatch", "task", "role", "assign", "classify", "route", "context"],
+    "dependencies": ["RoleRegistry", "ClassificationEngine", "RoleContextBuilder"],
+    "requires_async_init": false,
+    "methods": [
+      {
+        "name": "dispatch_task",
+        "description": "Dispatch a task to the appropriate role",
+        "parameters": [
+          {
+            "name": "task",
+            "type": "Task",
+            "required": true,
+            "description": "Task to dispatch"
+          },
+          {
+            "name": "constraints",
+            "type": "DispatchConstraints",
+            "required": false,
+            "description": "Optional dispatch constraints"
+          }
+        ],
+        "returns": "DispatchResult",
+        "async_method": true
+      },
+      {
+        "name": "batch_dispatch",
+        "description": "Dispatch multiple tasks in batch",
+        "parameters": [
+          {
+            "name": "tasks",
+            "type": "List[Task]",
+            "required": true,
+            "description": "Tasks to dispatch"
+          }
+        ],
+        "returns": "List[DispatchResult]",
+        "async_method": true
+      },
+      {
+        "name": "reassign_task",
+        "description": "Reassign a task to a different role",
+        "parameters": [
+          {
+            "name": "task_id",
+            "type": "str",
+            "required": true,
+            "description": "Task identifier"
+          },
+          {
+            "name": "new_role_id",
+            "type": "str",
+            "required": true,
+            "description": "New role to assign"
+          }
+        ],
+        "returns": "DispatchResult",
+        "async_method": true
+      },
+      {
+        "name": "get_dispatch_statistics",
+        "description": "Get dispatch statistics and metrics",
+        "parameters": [],
+        "returns": "DispatchStats",
+        "async_method": false
+      }
+    ]
+  },
+  "RoleRegistry": {
+    "service_name": "RoleRegistry",
+    "layer": "L13",
+    "module_path": "src.L13_role_management.services.role_registry",
+    "class_name": "RoleRegistry",
+    "description": "Registry for role definitions with dispatch matching and lifecycle management",
+    "keywords": ["role", "registry", "dispatch", "human", "ai", "hybrid", "classification", "assignment"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": [
+      {
+        "name": "register_role",
+        "description": "Register a new role definition",
+        "parameters": [
+          {
+            "name": "role",
+            "type": "RoleDefinition",
+            "required": true,
+            "description": "Role definition to register"
+          }
+        ],
+        "returns": "str (role_id)",
+        "async_method": false
+      },
+      {
+        "name": "get_role",
+        "description": "Get a role by ID",
+        "parameters": [
+          {
+            "name": "role_id",
+            "type": "str",
+            "required": true,
+            "description": "Role identifier"
+          }
+        ],
+        "returns": "Optional[RoleDefinition]",
+        "async_method": false
+      },
+      {
+        "name": "list_roles",
+        "description": "List all registered roles",
+        "parameters": [
+          {
+            "name": "role_type",
+            "type": "RoleType",
+            "required": false,
+            "description": "Filter by role type (human, ai, hybrid)"
+          }
+        ],
+        "returns": "List[RoleDefinition]",
+        "async_method": false
+      },
+      {
+        "name": "dispatch_for_task",
+        "description": "Find best matching role for a task",
+        "parameters": [
+          {
+            "name": "task",
+            "type": "Task",
+            "required": true,
+            "description": "Task to match"
+          }
+        ],
+        "returns": "Optional[RoleDefinition]",
+        "async_method": true
+      },
+      {
+        "name": "search_roles",
+        "description": "Search roles by keywords or capabilities",
+        "parameters": [
+          {
+            "name": "query",
+            "type": "str",
+            "required": true,
+            "description": "Search query"
+          }
+        ],
+        "returns": "List[RoleDefinition]",
+        "async_method": false
+      }
+    ]
+  },
   "SandboxManager": {
     "service_name": "SandboxManager",
     "layer": "L02",
-    "module_path": "L02_runtime.services.sandbox_manager",
+    "module_path": "src.L02_runtime.services.sandbox_manager",
     "class_name": "SandboxManager",
     "description": "Runtime sandbox configuration and isolation",
     "keywords": ["sandbox", "isolation", "security", "environment"],
@@ -325,7 +585,7 @@
   "StateManager": {
     "service_name": "StateManager",
     "layer": "L02",
-    "module_path": "L02_runtime.services.state_manager",
+    "module_path": "src.L02_runtime.services.state_manager",
     "class_name": "StateManager",
     "description": "Checkpoint and recovery state management",
     "keywords": ["state", "checkpoint", "recovery", "persistence"],
@@ -502,7 +762,7 @@
   "WorkflowEngine": {
     "service_name": "WorkflowEngine",
     "layer": "L02",
-    "module_path": "L02_runtime.services.workflow_engine",
+    "module_path": "src.L02_runtime.services.workflow_engine",
     "class_name": "WorkflowEngine",
     "description": "Graph-based workflow execution engine",
     "keywords": ["workflow", "graph", "execution", "orchestration"],
@@ -513,7 +773,7 @@
   "ToolComposer": {
     "service_name": "ToolComposer",
     "layer": "L03",
-    "module_path": "L03_tool_execution.services.tool_composer",
+    "module_path": "src.L03_tool_execution.services.tool_composer",
     "class_name": "ToolComposer",
     "description": "Multi-tool workflow composition and chaining",
     "keywords": ["tool", "compose", "workflow", "chain"],
@@ -524,7 +784,7 @@
   "ToolExecutor": {
     "service_name": "ToolExecutor",
     "layer": "L03",
-    "module_path": "L03_tool_execution.services.tool_executor",
+    "module_path": "src.L03_tool_execution.services.tool_executor",
     "class_name": "ToolExecutor",
     "description": "Sandboxed tool execution engine with result caching",
     "keywords": ["tool", "execute", "sandbox", "invoke"],
@@ -532,10 +792,98 @@
     "requires_async_init": false,
     "methods": []
   },
+  "ModelRegistry": {
+    "service_name": "ModelRegistry",
+    "layer": "L04",
+    "module_path": "src.L04_model_gateway.services.model_registry",
+    "class_name": "ModelRegistry",
+    "description": "Central registry of available models with capabilities and costs",
+    "keywords": ["model", "registry", "catalog", "capabilities", "llm"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": [
+      {
+        "name": "register_model",
+        "description": "Register a model in the registry",
+        "parameters": [
+          {
+            "name": "model",
+            "type": "ModelConfig",
+            "required": true,
+            "description": "ModelConfig instance to register"
+          }
+        ],
+        "returns": "None",
+        "async_method": false
+      },
+      {
+        "name": "get_model",
+        "description": "Get a model by ID",
+        "parameters": [
+          {
+            "name": "model_id",
+            "type": "str",
+            "required": true,
+            "description": "Model identifier"
+          }
+        ],
+        "returns": "Optional[ModelConfig]",
+        "async_method": false
+      },
+      {
+        "name": "list_models",
+        "description": "List models with optional filtering",
+        "parameters": [
+          {
+            "name": "provider",
+            "type": "str",
+            "required": false,
+            "description": "Filter by provider"
+          },
+          {
+            "name": "status",
+            "type": "ModelStatus",
+            "required": false,
+            "description": "Filter by status"
+          }
+        ],
+        "returns": "List[ModelConfig]",
+        "async_method": true
+      },
+      {
+        "name": "get_models_by_capability",
+        "description": "Get all models that support a specific capability",
+        "parameters": [
+          {
+            "name": "capability",
+            "type": "str",
+            "required": true,
+            "description": "Capability to filter by (e.g., vision, tool_use)"
+          }
+        ],
+        "returns": "List[ModelConfig]",
+        "async_method": false
+      },
+      {
+        "name": "load_default_models",
+        "description": "Load default model configurations for local development",
+        "parameters": [],
+        "returns": "None",
+        "async_method": false
+      },
+      {
+        "name": "get_stats",
+        "description": "Get registry statistics",
+        "parameters": [],
+        "returns": "dict",
+        "async_method": false
+      }
+    ]
+  },
   "ModelGateway": {
     "service_name": "ModelGateway",
     "layer": "L04",
-    "module_path": "L04_model_gateway.services.model_gateway",
+    "module_path": "src.L04_model_gateway.services.model_gateway",
     "class_name": "ModelGateway",
     "description": "Main LLM gateway orchestrator with routing and caching",
     "keywords": ["model", "gateway", "llm", "inference", "routing"],
@@ -546,7 +894,7 @@
   "LLMRouter": {
     "service_name": "LLMRouter",
     "layer": "L04",
-    "module_path": "L04_model_gateway.services.llm_router",
+    "module_path": "src.L04_model_gateway.services.llm_router",
     "class_name": "LLMRouter",
     "description": "Capability-aware model routing and selection",
     "keywords": ["llm", "router", "routing", "model", "selection"],
@@ -557,7 +905,7 @@
   "SemanticCache": {
     "service_name": "SemanticCache",
     "layer": "L04",
-    "module_path": "L04_model_gateway.services.semantic_cache",
+    "module_path": "src.L04_model_gateway.services.semantic_cache",
     "class_name": "SemanticCache",
     "description": "Embedding-based LLM result caching",
     "keywords": ["cache", "semantic", "embedding", "similarity"],
@@ -624,12 +972,14 @@
   "PlanningService": {
     "service_name": "PlanningService",
     "layer": "L05",
-    "module_path": "L05_planning.services.planning_service",
+    "module_path": "src.L05_planning.services.planning_service",
     "class_name": "PlanningService",
     "description": "Strategic planning coordinator for goal decomposition and execution",
     "keywords": ["planning", "plan", "goal", "decompose", "strategy"],
-    "dependencies": ["GoalDecomposer", "TaskOrchestrator", "AgentExecutor", "ModelGateway"],
+    "dependencies": [],
     "requires_async_init": true,
+    "standalone": true,
+    "notes": "Creates internal dependencies with defaults, no external injection needed",
     "methods": [
       {
         "name": "create_plan",
@@ -664,7 +1014,7 @@
   "GoalDecomposer": {
     "service_name": "GoalDecomposer",
     "layer": "L05",
-    "module_path": "L05_planning.services.goal_decomposer",
+    "module_path": "src.L05_planning.services.goal_decomposer",
     "class_name": "GoalDecomposer",
     "description": "Goal-to-plan decomposition using cache, templates, and LLM",
     "keywords": ["goal", "decompose", "plan", "breakdown", "tasks"],
@@ -675,7 +1025,7 @@
   "TaskOrchestrator": {
     "service_name": "TaskOrchestrator",
     "layer": "L05",
-    "module_path": "L05_planning.services.task_orchestrator",
+    "module_path": "src.L05_planning.services.task_orchestrator",
     "class_name": "TaskOrchestrator",
     "description": "Parallel task execution and coordination",
     "keywords": ["task", "orchestrate", "parallel", "execute", "coordinate"],
@@ -686,7 +1036,7 @@
   "AgentAssigner": {
     "service_name": "AgentAssigner",
     "layer": "L05",
-    "module_path": "L05_planning.services.agent_assigner",
+    "module_path": "src.L05_planning.services.agent_assigner",
     "class_name": "AgentAssigner",
     "description": "Task-to-agent assignment engine with capability matching",
     "keywords": ["agent", "assign", "task", "match", "capability"],
@@ -694,10 +1044,76 @@
     "requires_async_init": false,
     "methods": []
   },
+  "PlanCache": {
+    "service_name": "PlanCache",
+    "layer": "L05",
+    "module_path": "src.L05_planning.services.plan_cache",
+    "class_name": "PlanCache",
+    "description": "Two-level plan cache (L1 in-memory LRU + L2 Redis)",
+    "keywords": ["cache", "plan", "redis", "lru"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "ExecutionMonitor": {
+    "service_name": "ExecutionMonitor",
+    "layer": "L05",
+    "module_path": "src.L05_planning.services.execution_monitor",
+    "class_name": "ExecutionMonitor",
+    "description": "Plan execution monitoring with event emission",
+    "keywords": ["monitor", "execution", "events", "timeout"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "DependencyResolver": {
+    "service_name": "DependencyResolver",
+    "layer": "L05",
+    "module_path": "src.L05_planning.services.dependency_resolver",
+    "class_name": "DependencyResolver",
+    "description": "Task dependency analysis and topological sorting",
+    "keywords": ["dependency", "resolve", "graph", "topological"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "PlanValidator": {
+    "service_name": "PlanValidator",
+    "layer": "L05",
+    "module_path": "src.L05_planning.services.plan_validator",
+    "class_name": "PlanValidator",
+    "description": "Multi-level plan validation (syntax, semantic, feasibility, security)",
+    "keywords": ["validate", "plan", "check", "verify"],
+    "dependencies": ["ResourceEstimator", "DependencyResolver"],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "ResourceEstimator": {
+    "service_name": "ResourceEstimator",
+    "layer": "L05",
+    "module_path": "src.L05_planning.services.resource_estimator",
+    "class_name": "ResourceEstimator",
+    "description": "Resource and cost estimation for tasks and plans",
+    "keywords": ["resource", "estimate", "cost", "tokens"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  },
+  "ContextInjector": {
+    "service_name": "ContextInjector",
+    "layer": "L05",
+    "module_path": "src.L05_planning.services.context_injector",
+    "class_name": "ContextInjector",
+    "description": "Execution context preparation and input binding",
+    "keywords": ["context", "inject", "input", "binding"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": []
+  },
   "EvaluationService": {
     "service_name": "EvaluationService",
     "layer": "L06",
-    "module_path": "L06_evaluation.services.evaluation_service",
+    "module_path": "src.L06_evaluation.services.evaluation_service",
     "class_name": "EvaluationService",
     "description": "Quality assessment and metrics aggregation orchestrator",
     "keywords": ["evaluation", "quality", "assessment", "metrics", "scoring"],
@@ -708,7 +1124,7 @@
   "MetricsEngine": {
     "service_name": "MetricsEngine",
     "layer": "L06",
-    "module_path": "L06_evaluation.services.metrics_engine",
+    "module_path": "src.L06_evaluation.services.metrics_engine",
     "class_name": "MetricsEngine",
     "description": "Time-windowed statistics aggregation engine",
     "keywords": ["metrics", "statistics", "aggregation", "window", "analysis"],
@@ -719,7 +1135,7 @@
   "AlertManager": {
     "service_name": "AlertManager",
     "layer": "L06",
-    "module_path": "L06_evaluation.services.alert_manager",
+    "module_path": "src.L06_evaluation.services.alert_manager",
     "class_name": "AlertManager",
     "description": "Multi-channel alert routing and delivery",
     "keywords": ["alert", "notify", "notification", "warning"],
@@ -730,7 +1146,7 @@
   "LearningService": {
     "service_name": "LearningService",
     "layer": "L07",
-    "module_path": "L07_learning.services.learning_service",
+    "module_path": "src.L07_learning.services.learning_service",
     "class_name": "LearningService",
     "description": "Model training and optimization orchestrator",
     "keywords": ["learning", "training", "model", "optimize", "fine-tune"],
@@ -741,7 +1157,7 @@
   "FineTuningEngine": {
     "service_name": "FineTuningEngine",
     "layer": "L07",
-    "module_path": "L07_learning.services.finetuning_engine",
+    "module_path": "src.L07_learning.services.finetuning_engine",
     "class_name": "FineTuningEngine",
     "description": "LoRA-based supervised fine-tuning engine",
     "keywords": ["finetune", "training", "lora", "supervised"],
@@ -752,7 +1168,7 @@
   "DatasetCurator": {
     "service_name": "DatasetCurator",
     "layer": "L07",
-    "module_path": "L07_learning.services.dataset_curator",
+    "module_path": "src.L07_learning.services.dataset_curator",
     "class_name": "DatasetCurator",
     "description": "Training dataset curation and quality filtering",
     "keywords": ["dataset", "curate", "filter", "quality", "training"],
@@ -763,7 +1179,7 @@
   "AuthenticationHandler": {
     "service_name": "AuthenticationHandler",
     "layer": "L09",
-    "module_path": "L09_api_gateway.services.authentication",
+    "module_path": "src.L09_api_gateway.services.authentication",
     "class_name": "AuthenticationHandler",
     "description": "Multi-method authentication (API key, OAuth 2.0, SAML)",
     "keywords": ["authentication", "auth", "login", "identity", "security"],
@@ -774,7 +1190,7 @@
   "AuthorizationEngine": {
     "service_name": "AuthorizationEngine",
     "layer": "L09",
-    "module_path": "L09_api_gateway.services.authorization",
+    "module_path": "src.L09_api_gateway.services.authorization",
     "class_name": "AuthorizationEngine",
     "description": "RBAC and ABAC authorization enforcement",
     "keywords": ["authorization", "access", "rbac", "abac", "permissions"],
@@ -782,10 +1198,71 @@
     "requires_async_init": false,
     "methods": []
   },
+  "ClassificationEngine": {
+    "service_name": "ClassificationEngine",
+    "layer": "L13",
+    "module_path": "src.L13_role_management.services.classification_engine",
+    "class_name": "ClassificationEngine",
+    "description": "Intelligent task classification for human/AI/hybrid routing decisions",
+    "keywords": ["classify", "classification", "human", "ai", "hybrid", "route", "decision", "task"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": [
+      {
+        "name": "classify_task",
+        "description": "Classify a task for human/AI/hybrid routing",
+        "parameters": [
+          {
+            "name": "task",
+            "type": "Task",
+            "required": true,
+            "description": "Task to classify"
+          }
+        ],
+        "returns": "ClassificationResult",
+        "async_method": true
+      },
+      {
+        "name": "add_custom_rule",
+        "description": "Add a custom classification rule",
+        "parameters": [
+          {
+            "name": "rule",
+            "type": "ClassificationRule",
+            "required": true,
+            "description": "Custom rule to add"
+          }
+        ],
+        "returns": "None",
+        "async_method": false
+      },
+      {
+        "name": "update_weights",
+        "description": "Update classification scoring weights",
+        "parameters": [
+          {
+            "name": "weights",
+            "type": "Dict[str, float]",
+            "required": true,
+            "description": "Weight updates for classification factors"
+          }
+        ],
+        "returns": "None",
+        "async_method": false
+      },
+      {
+        "name": "get_statistics",
+        "description": "Get classification statistics and metrics",
+        "parameters": [],
+        "returns": "ClassificationStats",
+        "async_method": false
+      }
+    ]
+  },
   "RequestRouter": {
     "service_name": "RequestRouter",
     "layer": "L09",
-    "module_path": "L09_api_gateway.services.request_router",
+    "module_path": "src.L09_api_gateway.services.request_router",
     "class_name": "RequestRouter",
     "description": "Glob-pattern path routing to backend services",
     "keywords": ["router", "routing", "path", "request", "dispatch"],
@@ -796,7 +1273,7 @@
   "DashboardService": {
     "service_name": "DashboardService",
     "layer": "L10",
-    "module_path": "L10_human_interface.services.dashboard_service",
+    "module_path": "src.L10_human_interface.services.dashboard_service",
     "class_name": "DashboardService",
     "description": "Real-time system state aggregation for web dashboard",
     "keywords": ["dashboard", "ui", "interface", "monitoring", "visualization"],
@@ -807,7 +1284,7 @@
   "ControlService": {
     "service_name": "ControlService",
     "layer": "L10",
-    "module_path": "L10_human_interface.services.control_service",
+    "module_path": "src.L10_human_interface.services.control_service",
     "class_name": "ControlService",
     "description": "Agent operation controls (start, stop, pause, resume)",
     "keywords": ["control", "operate", "start", "stop", "manage"],
@@ -818,7 +1295,7 @@
   "WebSocketGateway": {
     "service_name": "WebSocketGateway",
     "layer": "L10",
-    "module_path": "L10_human_interface.services.websocket_gateway",
+    "module_path": "src.L10_human_interface.services.websocket_gateway",
     "class_name": "WebSocketGateway",
     "description": "Real-time client updates via WebSocket connections",
     "keywords": ["websocket", "realtime", "stream", "events", "push"],
@@ -829,7 +1306,7 @@
   "SagaOrchestrator": {
     "service_name": "SagaOrchestrator",
     "layer": "L11",
-    "module_path": "L11_integration.services.saga_orchestrator",
+    "module_path": "src.L11_integration.services.saga_orchestrator",
     "class_name": "SagaOrchestrator",
     "description": "Multi-step saga orchestration with compensation",
     "keywords": ["saga", "orchestrate", "transaction", "compensation", "distributed"],
@@ -840,7 +1317,7 @@
   "RequestOrchestrator": {
     "service_name": "RequestOrchestrator",
     "layer": "L11",
-    "module_path": "L11_integration.services.request_orchestrator",
+    "module_path": "src.L11_integration.services.request_orchestrator",
     "class_name": "RequestOrchestrator",
     "description": "Cross-layer request routing and orchestration",
     "keywords": ["orchestrate", "request", "routing", "integration", "cross-layer"],
@@ -851,7 +1328,7 @@
   "EventBusManager": {
     "service_name": "EventBusManager",
     "layer": "L11",
-    "module_path": "L11_integration.services.event_bus_manager",
+    "module_path": "src.L11_integration.services.event_bus_manager",
     "class_name": "EventBusManager",
     "description": "Redis Pub/Sub event broker for cross-layer communication",
     "keywords": ["event", "bus", "pubsub", "message", "broker"],
@@ -862,12 +1339,320 @@
   "ServiceRegistry": {
     "service_name": "ServiceRegistry",
     "layer": "L11",
-    "module_path": "L11_integration.services.service_registry",
+    "module_path": "src.L11_integration.services.service_registry",
     "class_name": "ServiceRegistry",
     "description": "Layer service discovery and health tracking",
     "keywords": ["service", "registry", "discovery", "health", "tracking"],
     "dependencies": [],
     "requires_async_init": false,
     "methods": []
+  },
+  "SkillGenerator": {
+    "service_name": "SkillGenerator",
+    "layer": "L14",
+    "module_path": "src.L14_skill_library.services.skill_generator",
+    "class_name": "SkillGenerator",
+    "description": "LLM-powered skill generation from role responsibilities via L04 Model Gateway",
+    "keywords": ["skill", "generate", "llm", "role", "template", "create", "ai"],
+    "dependencies": ["ModelGateway"],
+    "requires_async_init": false,
+    "methods": [
+      {
+        "name": "generate_skill",
+        "description": "Generate a skill definition from a role responsibility",
+        "parameters": [],
+        "returns": "Skill",
+        "async_method": true
+      },
+      {
+        "name": "generate_from_template",
+        "description": "Generate a skill from a predefined template",
+        "parameters": [],
+        "returns": "Skill",
+        "async_method": true
+      },
+      {
+        "name": "generate_yaml",
+        "description": "Generate skill definition in YAML format",
+        "parameters": [],
+        "returns": "str",
+        "async_method": true
+      }
+    ]
+  },
+  "SkillOptimizer": {
+    "service_name": "SkillOptimizer",
+    "layer": "L14",
+    "module_path": "src.L14_skill_library.services.skill_optimizer",
+    "class_name": "SkillOptimizer",
+    "description": "Token optimization for skill contexts with multiple loading strategies",
+    "keywords": ["skill", "optimize", "token", "budget", "priority", "context", "loading"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": [
+      {
+        "name": "optimize_skills",
+        "description": "Optimize skill selection within token budget",
+        "parameters": [],
+        "returns": "List[Skill]",
+        "async_method": false
+      },
+      {
+        "name": "get_loading_order",
+        "description": "Determine optimal skill loading order based on priority",
+        "parameters": [],
+        "returns": "List[str]",
+        "async_method": false
+      },
+      {
+        "name": "estimate_tokens",
+        "description": "Estimate token count for skill context",
+        "parameters": [],
+        "returns": "int",
+        "async_method": false
+      }
+    ]
+  },
+  "SkillStore": {
+    "service_name": "SkillStore",
+    "layer": "L14",
+    "module_path": "src.L14_skill_library.services.skill_store",
+    "class_name": "SkillStore",
+    "description": "Skill definition storage with CRUD operations and agent assignment",
+    "keywords": ["skill", "store", "crud", "agent", "assignment", "category", "priority"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": [
+      {
+        "name": "create",
+        "description": "Create a new skill definition",
+        "parameters": [],
+        "returns": "Skill",
+        "async_method": true
+      },
+      {
+        "name": "get",
+        "description": "Retrieve a skill by ID",
+        "parameters": [],
+        "returns": "Optional[Skill]",
+        "async_method": true
+      },
+      {
+        "name": "list",
+        "description": "List all skills with optional filtering",
+        "parameters": [],
+        "returns": "List[Skill]",
+        "async_method": true
+      },
+      {
+        "name": "update",
+        "description": "Update an existing skill definition",
+        "parameters": [],
+        "returns": "Optional[Skill]",
+        "async_method": true
+      },
+      {
+        "name": "delete",
+        "description": "Delete a skill by ID",
+        "parameters": [],
+        "returns": "bool",
+        "async_method": true
+      },
+      {
+        "name": "assign_to_agent",
+        "description": "Assign a skill to an agent",
+        "parameters": [],
+        "returns": "bool",
+        "async_method": true
+      },
+      {
+        "name": "get_by_agent",
+        "description": "Get all skills assigned to an agent",
+        "parameters": [],
+        "returns": "List[Skill]",
+        "async_method": true
+      }
+    ]
+  },
+  "SkillValidator": {
+    "service_name": "SkillValidator",
+    "layer": "L14",
+    "module_path": "src.L14_skill_library.services.skill_validator",
+    "class_name": "SkillValidator",
+    "description": "Comprehensive skill definition validation with schema checking and issue reporting",
+    "keywords": ["skill", "validate", "schema", "check", "verify", "yaml"],
+    "dependencies": [],
+    "requires_async_init": false,
+    "methods": [
+      {
+        "name": "validate_skill",
+        "description": "Validate a skill definition object",
+        "parameters": [],
+        "returns": "ValidationResult",
+        "async_method": false
+      },
+      {
+        "name": "validate_yaml",
+        "description": "Validate a skill definition in YAML format",
+        "parameters": [],
+        "returns": "ValidationResult",
+        "async_method": false
+      },
+      {
+        "name": "get_validation_issues",
+        "description": "Get detailed validation issues for a skill",
+        "parameters": [],
+        "returns": "List[ValidationIssue]",
+        "async_method": false
+      }
+    ]
+  },
+  "WorkflowStore": {
+    "service_name": "WorkflowStore",
+    "layer": "L01",
+    "module_path": "src.L01_data_layer.services.workflow_store",
+    "class_name": "WorkflowStore",
+    "description": "Persistent workflow definition and execution storage with saga pattern support",
+    "keywords": ["workflow", "orchestration", "execution", "saga", "compensation", "dag", "pipeline"],
+    "dependencies": [],
+    "requires_async_init": true,
+    "methods": [
+      {
+        "name": "create_workflow",
+        "description": "Create a new workflow definition",
+        "parameters": [
+          {
+            "name": "data",
+            "type": "WorkflowDefinitionCreate",
+            "required": true,
+            "description": "Workflow definition including nodes, edges, and parameters"
+          }
+        ],
+        "returns": "WorkflowDefinition",
+        "async_method": true
+      },
+      {
+        "name": "get_workflow",
+        "description": "Get a workflow definition by ID",
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "type": "str",
+            "required": true,
+            "description": "Unique workflow identifier"
+          }
+        ],
+        "returns": "Optional[WorkflowDefinition]",
+        "async_method": true
+      },
+      {
+        "name": "list_workflows",
+        "description": "List workflow definitions with optional filtering",
+        "parameters": [
+          {
+            "name": "status",
+            "type": "WorkflowStatus",
+            "required": false,
+            "description": "Filter by status (draft, active, deprecated, archived)"
+          },
+          {
+            "name": "category",
+            "type": "str",
+            "required": false,
+            "description": "Filter by category"
+          },
+          {
+            "name": "limit",
+            "type": "int",
+            "required": false,
+            "description": "Maximum results to return (default: 20)"
+          }
+        ],
+        "returns": "List[WorkflowDefinition]",
+        "async_method": true
+      },
+      {
+        "name": "create_execution",
+        "description": "Create a new workflow execution",
+        "parameters": [
+          {
+            "name": "data",
+            "type": "WorkflowExecutionCreate",
+            "required": true,
+            "description": "Execution request with workflow_id and parameters"
+          }
+        ],
+        "returns": "WorkflowExecution",
+        "async_method": true
+      },
+      {
+        "name": "get_execution",
+        "description": "Get workflow execution by ID",
+        "parameters": [
+          {
+            "name": "execution_id",
+            "type": "str",
+            "required": true,
+            "description": "Unique execution identifier"
+          }
+        ],
+        "returns": "Optional[WorkflowExecution]",
+        "async_method": true
+      },
+      {
+        "name": "update_execution_status",
+        "description": "Update execution status and optionally current node",
+        "parameters": [
+          {
+            "name": "execution_id",
+            "type": "str",
+            "required": true,
+            "description": "Execution identifier"
+          },
+          {
+            "name": "status",
+            "type": "ExecutionStatus",
+            "required": true,
+            "description": "New status (running, completed, failed, etc.)"
+          }
+        ],
+        "returns": "WorkflowExecution",
+        "async_method": true
+      },
+      {
+        "name": "save_checkpoint",
+        "description": "Save execution checkpoint for recovery",
+        "parameters": [
+          {
+            "name": "execution_id",
+            "type": "str",
+            "required": true,
+            "description": "Execution identifier"
+          },
+          {
+            "name": "state",
+            "type": "Dict",
+            "required": true,
+            "description": "State data to checkpoint"
+          }
+        ],
+        "returns": "str (checkpoint_id)",
+        "async_method": true
+      },
+      {
+        "name": "mark_for_compensation",
+        "description": "Mark execution for saga compensation rollback",
+        "parameters": [
+          {
+            "name": "execution_id",
+            "type": "str",
+            "required": true,
+            "description": "Execution identifier"
+          }
+        ],
+        "returns": "WorkflowExecution",
+        "async_method": true
+      }
+    ]
   }
 }

@@ -67,10 +67,13 @@ class ModelGateway:
         if not self.registry.is_initialized():
             self.registry.load_default_models()
 
-        # Initialize components
+        # Initialize components with environment config
+        import os
+        redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379")
+
         self.router = router or LLMRouter(self.registry)
-        self.cache = cache or SemanticCache()
-        self.rate_limiter = rate_limiter or RateLimiter()
+        self.cache = cache or SemanticCache(redis_url=redis_url)
+        self.rate_limiter = rate_limiter or RateLimiter(redis_url=redis_url)
         self.circuit_breaker = circuit_breaker or CircuitBreaker()
         self.request_queue = request_queue or RequestQueue()
 
@@ -86,8 +89,12 @@ class ModelGateway:
 
     def _setup_default_providers(self) -> None:
         """Setup default provider adapters"""
+        import os
+
         # Ollama (primary for local dev)
-        self.providers["ollama"] = OllamaAdapter()
+        ollama_url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
+        self.providers["ollama"] = OllamaAdapter(base_url=ollama_url)
+        logger.info(f"Ollama adapter initialized with URL: {ollama_url}")
 
         # Mock provider (for testing)
         self.providers["mock"] = MockAdapter()

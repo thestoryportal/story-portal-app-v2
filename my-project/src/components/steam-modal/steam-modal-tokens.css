@@ -1,0 +1,169 @@
+/**
+ * Steam Modal Design Tokens
+ *
+ * Centralized CSS custom properties for consistent theming
+ * and easy maintenance across all modal components.
+ */
+
+:root {
+  /* ============================================
+     Colors - Steam
+     ============================================ */
+  --modal-steam-primary: 140, 120, 100;
+  --modal-steam-secondary: 130, 110, 90;
+  --modal-steam-tertiary: 120, 100, 80;
+  --modal-steam-dark: 100, 80, 60;
+  --modal-steam-darker: 80, 60, 40;
+
+  /* ============================================
+     Colors - Materials
+     ============================================ */
+  --modal-brass-base: #6a5a4a;
+  --modal-brass-light: #8B6F47;
+  --modal-brass-highlight: #a89060;
+  --modal-bronze-dark: #4a3a2a;
+
+  --modal-wood-dark: #2a1a0a;
+  --modal-wood-mid: #4a3520;
+
+  --modal-parchment: #f4e4c8;
+  --modal-parchment-dark: #e4d4b8;
+
+  /* ============================================
+     Colors - Text
+     ============================================ */
+  --modal-text-light: #f5deb3; /* wheat */
+  --modal-text-dark: #2a1a0a; /* dark brown */
+  --modal-text-muted: #8a7a6a;
+
+  /* ============================================
+     Colors - Backdrop
+     ============================================ */
+  --modal-backdrop-inner: rgba(15, 10, 5, 0.88);
+  --modal-backdrop-mid: rgba(5, 3, 2, 0.92);
+  --modal-backdrop-outer: rgba(0, 0, 0, 0.96);
+
+  /* ============================================
+     Timing - Animations
+     ============================================ */
+  --modal-anim-enter-fast: 0.3s;
+  --modal-anim-enter: 0.5s;
+  --modal-anim-enter-slow: 0.8s;
+
+  --modal-anim-exit-fast: 0.15s;
+  --modal-anim-exit: 0.3s;
+  --modal-anim-exit-slow: 0.6s;
+
+  --modal-steam-burst: 1.0s;
+  --modal-steam-float: 8s;
+  --modal-steam-wisp: 1.4s;
+
+  /* ============================================
+     Timing - Delays
+     ============================================ */
+  --modal-delay-backdrop: 0s;
+  --modal-delay-steam: 0.1s;
+  --modal-delay-header: 0.15s;
+  --modal-delay-content: 0.4s;
+  --modal-delay-close-btn: 0.6s;
+
+  /* ============================================
+     Sizes - Layout
+     ============================================ */
+  --modal-header-height: 60px;
+  --modal-max-width: 800px;
+  --modal-max-height: 85vh;
+  --modal-min-height: 300px;
+
+  --modal-padding-desktop: 40px;
+  --modal-padding-tablet: 32px;
+  --modal-padding-mobile: 24px;
+
+  --modal-border-radius: 8px;
+  --modal-border-radius-small: 4px;
+
+  /* ============================================
+     Sizes - Interactive Elements
+     ============================================ */
+  --modal-close-btn-size: 48px;
+  --modal-close-btn-size-mobile: 56px;
+
+  --modal-rivet-size: 8px;
+  --modal-vent-size: 28px;
+
+  /* ============================================
+     Sizes - Decorative
+     ============================================ */
+  --modal-corner-bracket-size: 40px;
+  --modal-badge-size: 32px;
+
+  /* ============================================
+     Effects - Blur
+     ============================================ */
+  --modal-blur-sm: 4px;
+  --modal-blur-md: 8px;
+  --modal-blur-lg: 12px;
+  --modal-blur-xl: 20px;
+  --modal-blur-xxl: 40px;
+
+  /* ============================================
+     Effects - Opacity
+     ============================================ */
+  --modal-steam-opacity-light: 0.5;
+  --modal-steam-opacity-medium: 0.7;
+  --modal-steam-opacity-dense: 1.0;
+
+  /* ============================================
+     Z-Index Hierarchy
+     ============================================ */
+  --modal-z-base: 1000;
+  --modal-z-backdrop: 1001;
+  --modal-z-steam: 1002;
+  --modal-z-header: 1003;
+  --modal-z-content: 1004;
+  --modal-z-scroll-steam: 1005;
+  --modal-z-close-btn: 1006;
+  --modal-z-indicators: 1007;
+
+  /* ============================================
+     Easing Functions
+     ============================================ */
+  --modal-ease-entrance: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --modal-ease-exit: cubic-bezier(0.55, 0.06, 0.68, 0.19);
+  --modal-ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --modal-ease-smooth: cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* ============================================
+   Responsive Overrides
+   ============================================ */
+
+@media (max-width: 768px) {
+  :root {
+    --modal-padding-desktop: 32px;
+    --modal-max-width: calc(100vw - 32px);
+    --modal-header-height: 52px;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --modal-padding-desktop: 24px;
+    --modal-max-width: calc(100vw - 24px);
+    --modal-header-height: 48px;
+    --modal-close-btn-size: 56px;
+  }
+}
+
+/* ============================================
+   Reduced Motion Overrides
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --modal-anim-enter: 0.15s;
+    --modal-anim-exit: 0.1s;
+    --modal-steam-burst: 0s;
+    --modal-steam-float: 0s;
+  }
+}

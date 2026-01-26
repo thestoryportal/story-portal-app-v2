@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from typing import Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from ..database import db
 
@@ -189,3 +189,99 @@ async def list_plans(
     async with db.pool.acquire() as conn:
         rows = await conn.fetch(query, *params)
         return [dict(row) for row in rows]
+
+
+# ============================================================================
+# Task Endpoints (nested under /plans)
+# ============================================================================
+
+@router.post("/tasks", status_code=201)
+async def create_task(task_data: dict):
+    """Create a new task under a plan."""
+    query = """
+        INSERT INTO mcp_documents.tasks (
+            task_id, plan_id, agent_id, name, description, task_type,
+            status, inputs, outputs
+        ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9
+        )
+        RETURNING *
+    """
+
+    async with db.pool.acquire() as conn:
+        # Generate task_id if not provided
+        task_id = task_data.get("task_id", str(uuid4()))
+
+        # Convert input_data/inputs dict to JSONB
+        inputs = task_data.get("input_data") or task_data.get("inputs", {})
+        inputs_json = json.dumps(inputs) if inputs else "{}"
+
+        # Get task name (fallback to description if not provided)
+        task_name = task_data.get("name") or task_data.get("description", "Unnamed task")[:50]
+
+        row = await conn.fetchrow(
+            query,
+            task_id,
+            task_data["plan_id"],
+            task_data.get("agent_id"),
+            task_name,
+            task_data.get("description", ""),
+            task_data.get("task_type", "atomic"),
+            task_data.get("status", "pending"),
+            inputs_json,
+            "{}"  # outputs (empty initially)
+        )
+
+        return dict(row)
+
+
+@router.get("/tasks/{task_id}")
+async def get_task(task_id: str):
+    """Get task by task_id."""
+    query = "SELECT * FROM tasks WHERE task_id = $1"
+
+    async with db.pool.acquire() as conn:
+        row = await conn.fetchrow(query, task_id)
+        if not row:
+            raise HTTPException(status_code=404, detail="Task not found")
+        return dict(row)
+
+
+@router.patch("/tasks/{task_id}")
+async def update_task(task_id: str, update_data: dict):
+    """Update task status and outputs."""
+    updates = []
+    params = [task_id]
+    param_count = 2
+
+    if "status" in update_data:
+        updates.append(f"status = ${param_count}")
+        params.append(update_data["status"])
+        param_count += 1
+
+    # Support both "output_data" (from L01Client) and "outputs" (database column)
+    output_data = update_data.get("output_data") or update_data.get("outputs")
+    if output_data is not None:
+        updates.append(f"outputs = ${param_count}")
+        output_json = json.dumps(output_data)
+        params.append(output_json)
+        param_count += 1
+
+    if "completed_at" in update_data and update_data["status"] in ["completed", "failed"]:
+        updates.append(f"completed_at = NOW()")
+
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    query = f"""
+        UPDATE mcp_documents.tasks
+        SET {", ".join(updates)}
+        WHERE task_id = $1
+        RETURNING *
+    """
+
+    async with db.pool.acquire() as conn:
+        row = await conn.fetchrow(query, *params)
+        if not row:
+            raise HTTPException(status_code=404, detail="Task not found")
+        return dict(row)

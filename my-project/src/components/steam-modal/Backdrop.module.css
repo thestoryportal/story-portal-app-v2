@@ -1,0 +1,74 @@
+/**
+ * Backdrop Styles
+ *
+ * Creates warm, dark vignette overlay with progressive feedback.
+ * Z-index: 1001 (below all modal content)
+ */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1001;
+  cursor: pointer;
+
+  /* Warm dark gradient with vignette - from design system */
+  background: radial-gradient(
+    ellipse 80% 80% at 50% 45%,
+    rgba(20, 12, 8, 0.88) 0%,
+    rgba(8, 5, 3, 0.94) 60%,
+    rgba(0, 0, 0, 0.97) 100%
+  );
+
+  /* Entry animation */
+  animation: backdropFadeIn 0.3s ease-out forwards;
+
+  transition: background 0.3s ease;
+}
+
+/* Subtle warm tint overlay */
+.backdrop::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at 50% 40%,
+    rgba(255, 140, 50, 0.04) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
+  transition: background 0.3s ease;
+}
+
+
+@keyframes backdropFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Exit animation - applied via data attribute */
+.backdrop[data-closing="true"] {
+  animation: backdropFadeOut 0.3s ease-in forwards;
+}
+
+@keyframes backdropFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Focus state for accessibility */
+.backdrop:focus {
+  outline: none;
+}
+
+.backdrop:focus-visible {
+  outline: 2px solid rgba(255, 184, 54, 0.5);
+  outline-offset: -2px;
+}

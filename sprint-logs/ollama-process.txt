@@ -1,0 +1,5 @@
+robertrhu         9382   0.0  0.3 35697628  48168   ??  S     1:04AM   1:02.21 ollama serve
+robertrhu        97171   0.0  0.1 35309380  16296   ??  S    12:45AM   0:08.78 node /Users/robertrhu/.volta/tools/image/packages/pm2/bin/pm2 logs ollama --lines 100
+robertrhu        97170   0.0  0.0 34148752   1108   ??  S    12:45AM   0:00.01 pm2 logs ollama --lines 100
+robertrhu        97149   0.0  0.0 34186772    648   ??  Ss   12:45AM   0:00.04 /bin/zsh -c -l source /Users/robertrhu/.claude/shell-snapshots/snapshot-zsh-1768706717479-2xx5xj.sh && setopt NO_EXTENDED_GLOB 2>/dev/null || true && eval 'cd /Volumes/Extreme\ SSD/projects/story-portal-app && pm2 logs ollama --lines 100' \< /dev/null && pwd -P >| /var/folders/s8/r9j2c78554s4rr904s6tmyr80000gn/T/claude-1d84-cwd
+robertrhu        33054   0.0  0.0 33591648     96   ??  R     4:11AM   0:00.00 tee /Volumes/Extreme SSD/projects/story-portal-app/sprint-logs/ollama-process.txt

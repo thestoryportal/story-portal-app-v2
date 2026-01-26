@@ -1,16 +1,22 @@
 // Agent Types
 export interface Agent {
-  agent_id: string
-  type: string
-  status: 'idle' | 'running' | 'paused' | 'terminated' | 'failed'
-  capabilities: string[]
-  created_at: string
-  updated_at: string
-  resource_usage?: {
-    cpu: number
-    memory: number
+  id: string  // UUID from backend
+  did: string  // Decentralized identifier
+  name: string
+  agent_type: string  // Backend uses agent_type, not type
+  status: 'created' | 'active' | 'idle' | 'busy' | 'suspended' | 'terminated' | 'error'  // Backend enum values
+  configuration: {
+    capabilities?: string[]
+    [key: string]: any
   }
   metadata?: Record<string, any>
+  resource_limits?: Record<string, any>
+  created_at: string
+  updated_at: string
+  // Legacy fields for backwards compatibility
+  agent_id?: string  // Alias for id
+  type?: string  // Alias for agent_type
+  capabilities?: string[]  // Alias for configuration.capabilities
 }
 
 export interface AgentConfig {

@@ -21,6 +21,12 @@ export * from './switch-role.js';
 export * from './track-handoff.js';
 export * from './checkpoint-quality.js';
 
+// L14 Skill management tools
+export * from './generate-skill.js';
+export * from './validate-skill.js';
+export * from './get-skills-for-role.js';
+export * from './optimize-skills.js';
+
 // Common types
 export interface ToolDependencies {
   redis: import('../cache/redis-client.js').RedisCache;
@@ -29,6 +35,7 @@ export interface ToolDependencies {
   contextsDir: string;
   platform?: import('../platform/index.js').PlatformServices;
   roleContext?: import('../platform/role-context-adapter.js').RoleContextAdapter;
+  skillManagement?: import('../platform/skill-management-adapter.js').SkillManagementAdapter;
 }
 
 export interface Tool<TInput, TOutput> {

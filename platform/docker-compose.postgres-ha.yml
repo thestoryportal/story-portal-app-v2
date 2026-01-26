@@ -1,0 +1,251 @@
+# PostgreSQL High Availability - Docker Compose Configuration
+#
+# Provides PostgreSQL with streaming replication (1 primary + 2 replicas)
+# for the Agentic Platform.
+#
+# Architecture:
+#   - postgres-primary: Primary database (read/write)
+#   - postgres-replica-1: Hot standby replica (read-only)
+#   - postgres-replica-2: Hot standby replica (read-only)
+#
+# Features:
+#   - Streaming replication with WAL shipping
+#   - Automatic failover preparation (manual promotion)
+#   - Connection pooling via PgBouncer
+#
+# Usage:
+#   docker-compose -f docker-compose.postgres-ha.yml up -d
+
+version: '3.8'
+
+services:
+  # Primary PostgreSQL Server
+  postgres-primary:
+    image: postgres:16-alpine
+    container_name: agentic-postgres-primary
+    hostname: postgres-primary
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_secure_password_change_in_production}
+      POSTGRES_DB: agentic_platform
+      # Replication settings
+      POSTGRES_REPLICATION_USER: replicator
+      POSTGRES_REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:-replicator_secure_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_primary_data:/var/lib/postgresql/data
+      - ./postgres/primary-init:/docker-entrypoint-initdb.d
+      - ./postgres/primary-config/postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./postgres/primary-config/pg_hba.conf:/etc/postgresql/pg_hba.conf
+    command: >
+      postgres
+      -c config_file=/etc/postgresql/postgresql.conf
+      -c hba_file=/etc/postgresql/pg_hba.conf
+    networks:
+      - agentic-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    labels:
+      - "com.agentic.service=postgres-primary"
+      - "com.agentic.role=database"
+      - "com.agentic.ha-role=primary"
+
+  # Replica 1 - Hot Standby
+  postgres-replica-1:
+    image: postgres:16-alpine
+    container_name: agentic-postgres-replica-1
+    hostname: postgres-replica-1
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_secure_password_change_in_production}
+      # Replication settings
+      PGUSER: replicator
+      PGPASSWORD: ${REPLICATION_PASSWORD:-replicator_secure_password}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_replica_1_data:/var/lib/postgresql/data
+      - ./postgres/replica-config/postgresql.conf:/etc/postgresql/postgresql.conf
+    command: >
+      bash -c "
+      if [ ! -f /var/lib/postgresql/data/PG_VERSION ]; then
+        echo 'Initializing replica from primary...';
+        until pg_basebackup -h postgres-primary -D /var/lib/postgresql/data -U replicator -v -P --wal-method=stream; do
+          echo 'Waiting for primary to be ready...';
+          sleep 5;
+        done;
+        echo 'Replica initialized successfully';
+        touch /var/lib/postgresql/data/standby.signal;
+        cat > /var/lib/postgresql/data/postgresql.auto.conf << EOF
+primary_conninfo = 'host=postgres-primary port=5432 user=replicator password=${REPLICATION_PASSWORD:-replicator_secure_password}'
+primary_slot_name = 'replica_1_slot'
+EOF
+      fi;
+      postgres -c config_file=/etc/postgresql/postgresql.conf
+      "
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+    networks:
+      - agentic-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    labels:
+      - "com.agentic.service=postgres-replica-1"
+      - "com.agentic.role=database"
+      - "com.agentic.ha-role=replica"
+
+  # Replica 2 - Hot Standby
+  postgres-replica-2:
+    image: postgres:16-alpine
+    container_name: agentic-postgres-replica-2
+    hostname: postgres-replica-2
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_secure_password_change_in_production}
+      # Replication settings
+      PGUSER: replicator
+      PGPASSWORD: ${REPLICATION_PASSWORD:-replicator_secure_password}
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_replica_2_data:/var/lib/postgresql/data
+      - ./postgres/replica-config/postgresql.conf:/etc/postgresql/postgresql.conf
+    command: >
+      bash -c "
+      if [ ! -f /var/lib/postgresql/data/PG_VERSION ]; then
+        echo 'Initializing replica from primary...';
+        until pg_basebackup -h postgres-primary -D /var/lib/postgresql/data -U replicator -v -P --wal-method=stream; do
+          echo 'Waiting for primary to be ready...';
+          sleep 5;
+        done;
+        echo 'Replica initialized successfully';
+        touch /var/lib/postgresql/data/standby.signal;
+        cat > /var/lib/postgresql/data/postgresql.auto.conf << EOF
+primary_conninfo = 'host=postgres-primary port=5432 user=replicator password=${REPLICATION_PASSWORD:-replicator_secure_password}'
+primary_slot_name = 'replica_2_slot'
+EOF
+      fi;
+      postgres -c config_file=/etc/postgresql/postgresql.conf
+      "
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+    networks:
+      - agentic-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    labels:
+      - "com.agentic.service=postgres-replica-2"
+      - "com.agentic.role=database"
+      - "com.agentic.ha-role=replica"
+
+  # PgBouncer - Connection Pooler (Primary)
+  pgbouncer-primary:
+    image: bitnami/pgbouncer:1.21
+    container_name: agentic-pgbouncer-primary
+    hostname: pgbouncer-primary
+    environment:
+      POSTGRESQL_HOST: postgres-primary
+      POSTGRESQL_PORT: 5432
+      POSTGRESQL_USERNAME: postgres
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD:-postgres_secure_password_change_in_production}
+      POSTGRESQL_DATABASE: agentic_platform
+      PGBOUNCER_POOL_MODE: transaction
+      PGBOUNCER_MAX_CLIENT_CONN: 1000
+      PGBOUNCER_DEFAULT_POOL_SIZE: 25
+      PGBOUNCER_MIN_POOL_SIZE: 10
+      PGBOUNCER_RESERVE_POOL_SIZE: 5
+      PGBOUNCER_AUTH_TYPE: md5
+    ports:
+      - "6432:6432"
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+    networks:
+      - agentic-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "localhost", "-p", "6432"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    labels:
+      - "com.agentic.service=pgbouncer-primary"
+      - "com.agentic.role=connection-pool"
+      - "com.agentic.ha-role=primary"
+
+  # PgBouncer - Connection Pooler (Read Replicas)
+  pgbouncer-replica:
+    image: bitnami/pgbouncer:1.21
+    container_name: agentic-pgbouncer-replica
+    hostname: pgbouncer-replica
+    environment:
+      POSTGRESQL_HOST: postgres-replica-1
+      POSTGRESQL_PORT: 5432
+      POSTGRESQL_USERNAME: postgres
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD:-postgres_secure_password_change_in_production}
+      POSTGRESQL_DATABASE: agentic_platform
+      PGBOUNCER_POOL_MODE: transaction
+      PGBOUNCER_MAX_CLIENT_CONN: 1000
+      PGBOUNCER_DEFAULT_POOL_SIZE: 25
+      PGBOUNCER_MIN_POOL_SIZE: 10
+      PGBOUNCER_RESERVE_POOL_SIZE: 5
+      PGBOUNCER_AUTH_TYPE: md5
+    ports:
+      - "6433:6432"
+    depends_on:
+      postgres-replica-1:
+        condition: service_healthy
+    networks:
+      - agentic-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "localhost", "-p", "6432"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    labels:
+      - "com.agentic.service=pgbouncer-replica"
+      - "com.agentic.role=connection-pool"
+      - "com.agentic.ha-role=replica"
+
+volumes:
+  postgres_primary_data:
+    driver: local
+    labels:
+      - "com.agentic.volume=postgres-primary-data"
+      - "com.agentic.ha-role=primary"
+
+  postgres_replica_1_data:
+    driver: local
+    labels:
+      - "com.agentic.volume=postgres-replica-1-data"
+      - "com.agentic.ha-role=replica"
+
+  postgres_replica_2_data:
+    driver: local
+    labels:
+      - "com.agentic.volume=postgres-replica-2-data"
+      - "com.agentic.ha-role=replica"
+
+networks:
+  agentic-network:
+    name: agentic-network
+    external: true

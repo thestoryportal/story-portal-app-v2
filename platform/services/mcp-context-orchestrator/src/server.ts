@@ -21,7 +21,7 @@ import { loadConfig, type ServerConfig } from './config.js';
 import * as db from './db/client.js';
 import { RedisCache } from './cache/redis-client.js';
 import { Neo4jGraph } from './graph/neo4j-client.js';
-import { PlatformBridge } from './platform/index.js';
+import { PlatformBridge, RoleContextAdapter, SkillManagementAdapter } from './platform/index.js';
 import {
   createGetUnifiedContextTool,
   createSaveContextSnapshotTool,
@@ -33,6 +33,17 @@ import {
   createGetTaskGraphTool,
   createSyncHotContextTool,
   createCheckRecoveryTool,
+  // Role-aware tools
+  createGetRoleContextTool,
+  createSwitchRoleTool,
+  createTrackHandoffTool,
+  createCheckpointQualityTool,
+  // L14 Skill management tools
+  createGenerateSkillTool,
+  createValidateSkillTool,
+  createGetSkillsForRoleTool,
+  createOptimizeSkillsTool,
+  // Input schemas
   GetUnifiedContextInputSchema,
   SaveContextSnapshotInputSchema,
   SwitchTaskInputSchema,
@@ -42,7 +53,17 @@ import {
   ResolveConflictInputSchema,
   GetTaskGraphInputSchema,
   SyncHotContextInputSchema,
-  CheckRecoveryInputSchema
+  CheckRecoveryInputSchema,
+  // Role-aware input schemas
+  GetRoleContextInputSchema,
+  SwitchRoleInputSchema,
+  TrackHandoffInputSchema,
+  CheckpointQualityInputSchema,
+  // L14 Skill management input schemas
+  GenerateSkillInputSchema,
+  ValidateSkillInputSchema,
+  GetSkillsForRoleInputSchema,
+  OptimizeSkillsInputSchema
 } from './tools/index.js';
 
 interface ServerDependencies {
@@ -51,6 +72,8 @@ interface ServerDependencies {
   neo4j: Neo4jGraph | null;
   projectId: string;
   platform: PlatformBridge;
+  roleContext: RoleContextAdapter;
+  skillManagement: SkillManagementAdapter;
 }
 
 class ContextOrchestratorServer {
@@ -128,6 +151,48 @@ class ContextOrchestratorServer {
             name: 'check_recovery',
             description: 'Check for sessions needing recovery from crashes or compaction. Returns recovery prompts with context and tool history.',
             inputSchema: zodToJsonSchema(CheckRecoveryInputSchema)
+          },
+          // Role-aware tools
+          {
+            name: 'get_role_context',
+            description: 'Get role context from L13 RoleContextBuilder including skills, project context, and constraints within token budget.',
+            inputSchema: zodToJsonSchema(GetRoleContextInputSchema)
+          },
+          {
+            name: 'switch_role',
+            description: 'Switch from one role to another with handoff artifact creation. Saves current role state, creates handoff, and loads new role context.',
+            inputSchema: zodToJsonSchema(SwitchRoleInputSchema)
+          },
+          {
+            name: 'track_handoff',
+            description: 'Track handoff status and perform actions (create, acknowledge, reject) on handoff artifacts between roles.',
+            inputSchema: zodToJsonSchema(TrackHandoffInputSchema)
+          },
+          {
+            name: 'checkpoint_quality',
+            description: 'Record quality checkpoint during execution and determine whether to STOP, CONTINUE, or ESCALATE based on quality score.',
+            inputSchema: zodToJsonSchema(CheckpointQualityInputSchema)
+          },
+          // L14 Skill management tools
+          {
+            name: 'generate_skill',
+            description: 'Generate a skill definition from role description using LLM. Returns generated skill with YAML content and validation status.',
+            inputSchema: zodToJsonSchema(GenerateSkillInputSchema)
+          },
+          {
+            name: 'validate_skill',
+            description: 'Validate a skill definition against the schema. Returns validation result with issues and suggestions.',
+            inputSchema: zodToJsonSchema(ValidateSkillInputSchema)
+          },
+          {
+            name: 'get_skills_for_role',
+            description: 'Get all skills assigned to a specific role or agent. Returns list of skills with metadata.',
+            inputSchema: zodToJsonSchema(GetSkillsForRoleInputSchema)
+          },
+          {
+            name: 'optimize_skills',
+            description: 'Optimize a set of skills for token budget using specified strategy. Returns optimized skill set with loading order.',
+            inputSchema: zodToJsonSchema(OptimizeSkillsInputSchema)
           }
         ]
       };
@@ -217,13 +282,43 @@ class ContextOrchestratorServer {
       console.error('Platform services initialization failed (continuing with core features):', error instanceof Error ? error.message : error);
     }
 
+    // Initialize Role Context Adapter (L13 integration)
+    const roleContext = new RoleContextAdapter({
+      mode: process.env.L13_MODE as 'http' | 'file' || 'file',
+      apiUrl: process.env.L13_API_URL || 'http://localhost:8013',
+      contextsDir: config.contextsDir,
+    });
+
+    try {
+      await roleContext.initialize();
+      console.error('Role context adapter initialized');
+    } catch (error) {
+      console.error('Role context adapter initialization failed (continuing with core features):', error instanceof Error ? error.message : error);
+    }
+
+    // Initialize Skill Management Adapter (L14 integration)
+    const skillManagement = new SkillManagementAdapter({
+      mode: process.env.L14_MODE as 'http' | 'file' || 'file',
+      apiUrl: process.env.L14_API_URL || 'http://localhost:8014',
+      contextsDir: config.contextsDir,
+    });
+
+    try {
+      await skillManagement.initialize();
+      console.error('Skill management adapter initialized');
+    } catch (error) {
+      console.error('Skill management adapter initialization failed (continuing with core features):', error instanceof Error ? error.message : error);
+    }
+
     // Store dependencies
     this.deps = {
       config,
       redis,
       neo4j,
       projectId: config.projectId,
-      platform
+      platform,
+      roleContext,
+      skillManagement
     };
 
     // Create tools with platform services integration
@@ -232,7 +327,9 @@ class ContextOrchestratorServer {
       neo4j,
       projectId: config.projectId,
       contextsDir: config.contextsDir,
-      platform: platform.getServices()
+      platform: platform.getServices(),
+      roleContext,
+      skillManagement
     };
 
     const getUnifiedContextTool = createGetUnifiedContextTool(toolDeps);
@@ -246,6 +343,18 @@ class ContextOrchestratorServer {
     const syncHotContextTool = createSyncHotContextTool(toolDeps);
     const checkRecoveryTool = createCheckRecoveryTool(toolDeps);
 
+    // Role-aware tools
+    const getRoleContextTool = createGetRoleContextTool(toolDeps);
+    const switchRoleTool = createSwitchRoleTool(toolDeps);
+    const trackHandoffTool = createTrackHandoffTool(toolDeps);
+    const checkpointQualityTool = createCheckpointQualityTool(toolDeps);
+
+    // L14 Skill management tools
+    const generateSkillTool = createGenerateSkillTool(toolDeps);
+    const validateSkillTool = createValidateSkillTool(toolDeps);
+    const getSkillsForRoleTool = createGetSkillsForRoleTool(toolDeps);
+    const optimizeSkillsTool = createOptimizeSkillsTool(toolDeps);
+
     // Register tools
     this.tools.set('get_unified_context', { execute: (input: unknown) => getUnifiedContextTool.execute(input) });
     this.tools.set('save_context_snapshot', { execute: (input: unknown) => saveContextSnapshotTool.execute(input) });
@@ -258,6 +367,18 @@ class ContextOrchestratorServer {
     this.tools.set('sync_hot_context', { execute: (input: unknown) => syncHotContextTool.execute(input) });
     this.tools.set('check_recovery', { execute: (input: unknown) => checkRecoveryTool.execute(input) });
 
+    // Register role-aware tools
+    this.tools.set('get_role_context', { execute: (input: unknown) => getRoleContextTool.execute(input) });
+    this.tools.set('switch_role', { execute: (input: unknown) => switchRoleTool.execute(input) });
+    this.tools.set('track_handoff', { execute: (input: unknown) => trackHandoffTool.execute(input) });
+    this.tools.set('checkpoint_quality', { execute: (input: unknown) => checkpointQualityTool.execute(input) });
+
+    // Register L14 skill management tools
+    this.tools.set('generate_skill', { execute: (input: unknown) => generateSkillTool.execute(input) });
+    this.tools.set('validate_skill', { execute: (input: unknown) => validateSkillTool.execute(input) });
+    this.tools.set('get_skills_for_role', { execute: (input: unknown) => getSkillsForRoleTool.execute(input) });
+    this.tools.set('optimize_skills', { execute: (input: unknown) => optimizeSkillsTool.execute(input) });
+
     console.error('MCP Context Orchestrator server initialized');
   }
 
@@ -269,6 +390,8 @@ class ContextOrchestratorServer {
 
   async shutdown(): Promise<void> {
     if (this.deps) {
+      await this.deps.skillManagement.close();
+      await this.deps.roleContext.close();
       await this.deps.platform.close();
       await this.deps.redis.disconnect();
       if (this.deps.neo4j) {

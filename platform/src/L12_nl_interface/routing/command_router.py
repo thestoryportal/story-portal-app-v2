@@ -267,7 +267,7 @@ class CommandRouter:
                     service_metadata.service_name,
                     request.method_name,
                     request.session_id,
-                    ErrorCode.TIMEOUT,
+                    ErrorCode.TIMEOUT_ERROR,
                     f"Method execution exceeded timeout of {request.timeout_seconds}s",
                 )
             except Exception as e:

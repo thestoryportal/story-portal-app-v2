@@ -1,0 +1,615 @@
+#!/usr/bin/env python3
+"""
+Story Portal CLI (sp-cli)
+
+Unified command-line interface for managing the Agentic Platform.
+"""
+
+import click
+import subprocess
+import sys
+import os
+from pathlib import Path
+
+# Platform root directory
+PLATFORM_ROOT = Path(__file__).parent.parent
+os.chdir(PLATFORM_ROOT)
+
+
+@click.group()
+@click.version_option(version="1.0.0", prog_name="sp-cli")
+def cli():
+    """Story Portal Platform CLI - Unified management tool."""
+    pass
+
+
+# ==================== Platform Management ====================
+
+@cli.group()
+def platform():
+    """Platform lifecycle management commands."""
+    pass
+
+
+@platform.command()
+@click.option('--ha', is_flag=True, help='Start with high availability components')
+@click.option('--minimal', is_flag=True, help='Start minimal services only')
+def start(ha, minimal):
+    """Start the platform."""
+    click.echo("🚀 Starting Agentic Platform...")
+
+    if minimal:
+        cmd = ["docker-compose", "-f", "docker-compose.v2.yml", "up", "-d",
+               "postgres", "redis", "l01-data-layer", "l09-api-gateway", "l10-human-interface"]
+    elif ha:
+        cmd = ["docker-compose",
+               "-f", "docker-compose.v2.yml",
+               "-f", "docker-compose.postgres-ha.yml",
+               "-f", "docker-compose.redis-ha.yml",
+               "-f", "docker-compose.consul.yml",
+               "-f", "docker-compose.etcd.yml",
+               "up", "-d"]
+    else:
+        cmd = ["docker-compose", "-f", "docker-compose.v2.yml", "up", "-d"]
+
+    result = subprocess.run(cmd)
+    if result.returncode == 0:
+        click.echo("✅ Platform started successfully")
+        click.echo("\n📊 Service endpoints:")
+        click.echo("  UI:            http://localhost:3000")
+        click.echo("  API Gateway:   http://localhost:8009")
+        click.echo("  API Docs:      http://localhost:8099")
+        if ha:
+            click.echo("  Consul UI:     http://localhost:8500")
+            click.echo("  PostgreSQL:    localhost:5432 (primary), 5433, 5434 (replicas)")
+    else:
+        click.echo("❌ Failed to start platform", err=True)
+        sys.exit(1)
+
+
+@platform.command()
+def stop():
+    """Stop the platform."""
+    click.echo("🛑 Stopping Agentic Platform...")
+    cmd = ["docker-compose", "-f", "docker-compose.v2.yml", "down"]
+    result = subprocess.run(cmd)
+    if result.returncode == 0:
+        click.echo("✅ Platform stopped successfully")
+    else:
+        click.echo("❌ Failed to stop platform", err=True)
+        sys.exit(1)
+
+
+@platform.command()
+def restart():
+    """Restart the platform."""
+    click.echo("🔄 Restarting Agentic Platform...")
+    subprocess.run(["docker-compose", "-f", "docker-compose.v2.yml", "restart"])
+    click.echo("✅ Platform restarted")
+
+
+@platform.command()
+def status():
+    """Show platform status."""
+    click.echo("📊 Platform Status\n")
+    subprocess.run(["docker-compose", "-f", "docker-compose.v2.yml", "ps"])
+
+
+@platform.command()
+@click.option('--volumes', is_flag=True, help='Remove volumes (data will be lost)')
+def clean(volumes):
+    """Clean up platform resources."""
+    if click.confirm('⚠️  This will remove all containers. Continue?'):
+        click.echo("🧹 Cleaning up platform resources...")
+        cmd = ["docker-compose", "-f", "docker-compose.v2.yml", "down"]
+        if volumes:
+            if click.confirm('⚠️  This will DELETE ALL DATA. Are you sure?'):
+                cmd.append("--volumes")
+            else:
+                return
+
+        subprocess.run(cmd)
+        click.echo("✅ Cleanup complete")
+
+
+# ==================== Service Management ====================
+
+@cli.group()
+def service():
+    """Individual service management."""
+    pass
+
+
+@service.command()
+@click.argument('service_name')
+def logs(service_name):
+    """View logs for a specific service."""
+    click.echo(f"📜 Logs for {service_name}:\n")
+    subprocess.run(["docker", "logs", "-f", f"agentic-{service_name}"])
+
+
+@service.command()
+@click.argument('service_name')
+def restart_service(service_name):
+    """Restart a specific service."""
+    click.echo(f"🔄 Restarting {service_name}...")
+    subprocess.run(["docker", "restart", f"agentic-{service_name}"])
+    click.echo(f"✅ {service_name} restarted")
+
+
+@service.command()
+@click.argument('service_name')
+def shell(service_name):
+    """Open shell in service container."""
+    click.echo(f"🐚 Opening shell in {service_name}...")
+    subprocess.run(["docker", "exec", "-it", f"agentic-{service_name}", "/bin/sh"])
+
+
+@service.command()
+def list_services():
+    """List all available services."""
+    services = [
+        ("L01", "l01-data-layer", "8001", "Data persistence"),
+        ("L02", "l02-runtime", "8002", "Task execution"),
+        ("L03", "l03-tool-execution", "8003", "Tool integration"),
+        ("L04", "l04-model-gateway", "8004", "LLM gateway"),
+        ("L05", "l05-planning", "8005", "Task planning"),
+        ("L06", "l06-evaluation", "8006", "Evaluation"),
+        ("L07", "l07-learning", "8007", "Learning"),
+        ("L09", "l09-api-gateway", "8009", "API Gateway"),
+        ("L10", "l10-human-interface", "8010", "Web backend"),
+        ("L11", "l11-integration", "8011", "Integration"),
+        ("L12", "l12-nl-interface", "8012", "NL Interface"),
+    ]
+
+    click.echo("\n📋 Platform Services:\n")
+    for layer, name, port, desc in services:
+        click.echo(f"  {layer} - {name:25} Port {port}  {desc}")
+
+
+# ==================== Database Management ====================
+
+@cli.group()
+def db():
+    """Database management commands."""
+    pass
+
+
+@db.command()
+def migrate():
+    """Run database migrations."""
+    click.echo("🔄 Running database migrations...")
+    subprocess.run([
+        "docker", "exec", "agentic-postgres",
+        "psql", "-U", "postgres", "-d", "agentic_platform",
+        "-f", "/migrations/001_create_refresh_tokens_table.sql"
+    ])
+    click.echo("✅ Migrations complete")
+
+
+@db.command()
+def backup():
+    """Backup database."""
+    import datetime
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"backup_{timestamp}.sql"
+
+    click.echo(f"💾 Creating database backup: {filename}")
+    subprocess.run([
+        "docker", "exec", "agentic-postgres",
+        "pg_dump", "-U", "postgres", "agentic_platform",
+        "-f", f"/backups/{filename}"
+    ])
+    click.echo(f"✅ Backup created: {filename}")
+
+
+@db.command()
+@click.argument('backup_file')
+def restore(backup_file):
+    """Restore database from backup."""
+    if click.confirm(f'⚠️  This will restore from {backup_file}. Continue?'):
+        click.echo(f"📥 Restoring database from {backup_file}...")
+        subprocess.run([
+            "docker", "exec", "agentic-postgres",
+            "psql", "-U", "postgres", "agentic_platform",
+            "-f", f"/backups/{backup_file}"
+        ])
+        click.echo("✅ Restore complete")
+
+
+@db.command()
+def console():
+    """Open PostgreSQL console."""
+    click.echo("🗄️  Opening PostgreSQL console...")
+    subprocess.run([
+        "docker", "exec", "-it", "agentic-postgres",
+        "psql", "-U", "postgres", "-d", "agentic_platform"
+    ])
+
+
+# ==================== Health Checks ====================
+
+@cli.group()
+def health():
+    """Health check commands."""
+    pass
+
+
+@health.command()
+def check():
+    """Check health of all services."""
+    import httpx
+    import asyncio
+
+    services = [
+        ("L01", 8001), ("L02", 8002), ("L03", 8003), ("L04", 8004),
+        ("L05", 8005), ("L06", 8006), ("L07", 8007), ("L09", 8009),
+        ("L10", 8010), ("L11", 8011), ("L12", 8012),
+    ]
+
+    click.echo("\n🏥 Health Check Results:\n")
+
+    async def check_service(name, port):
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(f"http://localhost:{port}/health/live")
+                if response.status_code == 200:
+                    return (name, "✅ Healthy", port)
+                else:
+                    return (name, f"⚠️  Status {response.status_code}", port)
+        except Exception as e:
+            return (name, "❌ Unavailable", port)
+
+    async def check_all():
+        tasks = [check_service(name, port) for name, port in services]
+        results = await asyncio.gather(*tasks)
+        for name, status, port in results:
+            click.echo(f"  {name} (:{port}) - {status}")
+
+    asyncio.run(check_all())
+
+
+@health.command()
+@click.argument('service_name')
+def check_service(service_name):
+    """Check health of a specific service."""
+    import httpx
+
+    # Map service name to port
+    port_map = {
+        "l01": 8001, "l02": 8002, "l03": 8003, "l04": 8004,
+        "l05": 8005, "l06": 8006, "l07": 8007, "l09": 8009,
+        "l10": 8010, "l11": 8011, "l12": 8012,
+    }
+
+    port = port_map.get(service_name.lower())
+    if not port:
+        click.echo(f"❌ Unknown service: {service_name}", err=True)
+        sys.exit(1)
+
+    try:
+        response = httpx.get(f"http://localhost:{port}/health/live", timeout=5.0)
+        data = response.json()
+        click.echo(f"\n🏥 Health Check for {service_name}:\n")
+        click.echo(f"  Status: {data.get('status', 'unknown')}")
+        click.echo(f"  Service: {data.get('service', 'unknown')}")
+        click.echo(f"  Version: {data.get('version', 'unknown')}")
+    except Exception as e:
+        click.echo(f"❌ Health check failed: {e}", err=True)
+        sys.exit(1)
+
+
+# ==================== Logs ====================
+
+@cli.group()
+def logs_cmd():
+    """Log management commands."""
+    pass
+
+
+@logs_cmd.command(name="all")
+@click.option('--follow', '-f', is_flag=True, help='Follow log output')
+def logs_all(follow):
+    """View logs from all services."""
+    cmd = ["docker-compose", "-f", "docker-compose.v2.yml", "logs"]
+    if follow:
+        cmd.append("-f")
+    subprocess.run(cmd)
+
+
+@logs_cmd.command(name="service")
+@click.argument('service_name')
+@click.option('--follow', '-f', is_flag=True, help='Follow log output')
+@click.option('--tail', '-n', default=100, help='Number of lines to show')
+def logs_service(service_name, follow, tail):
+    """View logs for a specific service."""
+    cmd = ["docker", "logs", f"--tail={tail}"]
+    if follow:
+        cmd.append("-f")
+    cmd.append(f"agentic-{service_name}")
+    subprocess.run(cmd)
+
+
+# ==================== Development ====================
+
+@cli.group()
+def dev():
+    """Development tools and utilities."""
+    pass
+
+
+@dev.command()
+def setup():
+    """Setup development environment."""
+    click.echo("🔧 Setting up development environment...")
+
+    # Create necessary directories
+    dirs = [
+        "backups",
+        "logs",
+        "postgres/primary-config",
+        "postgres/replica-config",
+        "postgres/primary-init",
+    ]
+
+    for dir_path in dirs:
+        Path(dir_path).mkdir(parents=True, exist_ok=True)
+        click.echo(f"  ✅ Created {dir_path}")
+
+    click.echo("\n✅ Development environment ready")
+
+
+@dev.command()
+def test():
+    """Run platform tests."""
+    click.echo("🧪 Running platform tests...")
+    subprocess.run(["pytest", "tests/", "-v"])
+
+
+@dev.command()
+def docs():
+    """Generate platform documentation."""
+    click.echo("📚 Generating documentation...")
+    click.echo("  Opening API documentation at http://localhost:8099")
+    import webbrowser
+    webbrowser.open("http://localhost:8099")
+
+
+# ==================== Configuration ====================
+
+@cli.group()
+def config():
+    """Configuration management."""
+    pass
+
+
+@config.command(name="get")
+@click.argument('key')
+def config_get(key):
+    """Get configuration value from etcd."""
+    import httpx
+
+    try:
+        response = httpx.get(f"http://localhost:2379/v3/kv/range", json={"key": key})
+        data = response.json()
+        if data.get("kvs"):
+            import base64
+            value = base64.b64decode(data["kvs"][0]["value"]).decode()
+            click.echo(f"{key} = {value}")
+        else:
+            click.echo(f"❌ Key not found: {key}")
+    except Exception as e:
+        click.echo(f"❌ Failed to get config: {e}", err=True)
+
+
+@config.command(name="set")
+@click.argument('key')
+@click.argument('value')
+def config_set(key, value):
+    """Set configuration value in etcd."""
+    import httpx
+    import base64
+
+    try:
+        encoded_key = base64.b64encode(key.encode()).decode()
+        encoded_value = base64.b64encode(value.encode()).decode()
+
+        response = httpx.post(
+            f"http://localhost:2379/v3/kv/put",
+            json={"key": encoded_key, "value": encoded_value}
+        )
+        response.raise_for_status()
+        click.echo(f"✅ Set {key} = {value}")
+    except Exception as e:
+        click.echo(f"❌ Failed to set config: {e}", err=True)
+
+
+# ==================== Monitoring ====================
+
+@cli.command()
+def dashboard():
+    """Open monitoring dashboards."""
+    click.echo("📊 Opening monitoring dashboards...")
+    import webbrowser
+
+    click.echo("\nAvailable dashboards:")
+    click.echo("  1. API Documentation:  http://localhost:8099")
+    click.echo("  2. Consul UI:          http://localhost:8500")
+    click.echo("  3. Platform UI:        http://localhost:3000")
+
+    choice = click.prompt("Select dashboard (1-3)", type=int)
+
+    urls = {
+        1: "http://localhost:8099",
+        2: "http://localhost:8500",
+        3: "http://localhost:3000",
+    }
+
+    if choice in urls:
+        webbrowser.open(urls[choice])
+    else:
+        click.echo("❌ Invalid choice")
+
+
+# ==================== Security ====================
+
+@cli.group()
+def security():
+    """Security scanning and analysis commands."""
+    pass
+
+
+@security.command()
+@click.option('--no-containers', is_flag=True, help='Skip container scanning')
+@click.option('--format', type=click.Choice(['markdown', 'json', 'html', 'all']),
+              default='all', help='Report format')
+def scan(no_containers, format):
+    """Run comprehensive security scan."""
+    click.echo("🔍 Running security scan...")
+    click.echo("This may take several minutes...\n")
+
+    # Import security scanner
+    sys.path.insert(0, str(PLATFORM_ROOT / "src"))
+
+    try:
+        import asyncio
+        from shared.security_scanner import SecurityScanner
+
+        scanner = SecurityScanner(PLATFORM_ROOT)
+
+        # Run scans
+        results = asyncio.run(scanner.run_all_scans(include_containers=not no_containers))
+
+        # Generate reports
+        reports = asyncio.run(scanner.generate_and_save_reports(results))
+
+        # Print summary
+        total_issues = sum(r.summary.get('total', 0) for r in results)
+        critical_issues = sum(r.summary.get('critical', 0) for r in results)
+        high_issues = sum(r.summary.get('high', 0) for r in results)
+
+        click.echo("\n" + "=" * 60)
+        click.echo("📊 Security Scan Summary")
+        click.echo("=" * 60)
+        click.echo(f"Total Issues: {total_issues}")
+        click.echo(f"  Critical: {critical_issues}")
+        click.echo(f"  High: {high_issues}")
+        click.echo("=" * 60)
+        click.echo(f"\n📁 Reports saved to: {scanner.report_generator.reports_dir}")
+
+        if critical_issues > 0:
+            click.echo("\n⚠️  CRITICAL ISSUES FOUND - Review and fix immediately!")
+            sys.exit(1)
+        elif high_issues > 0:
+            click.echo("\n⚠️  HIGH SEVERITY ISSUES FOUND - Review and fix soon")
+        else:
+            click.echo("\n✅ No critical or high severity issues found")
+
+    except ImportError:
+        click.echo("❌ Security scanner not available. Install dependencies:", err=True)
+        click.echo("   pip install -r requirements-security.txt", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"❌ Security scan failed: {e}", err=True)
+        sys.exit(1)
+
+
+@security.command()
+def deps():
+    """Scan dependencies for vulnerabilities."""
+    click.echo("🔍 Scanning dependencies...")
+
+    sys.path.insert(0, str(PLATFORM_ROOT / "src"))
+
+    try:
+        import asyncio
+        from shared.security_scanner import DependencyScanner
+
+        scanner = DependencyScanner(PLATFORM_ROOT)
+
+        # Scan Python dependencies
+        py_result = asyncio.run(scanner.scan_python_dependencies())
+        click.echo(f"Python: {py_result.summary.get('total', 0)} issues found")
+
+        # Scan NPM dependencies
+        npm_result = asyncio.run(scanner.scan_npm_dependencies())
+        click.echo(f"NPM: {npm_result.summary.get('total', 0)} issues found")
+
+        total_critical = (py_result.summary.get('critical', 0) +
+                         npm_result.summary.get('critical', 0))
+
+        if total_critical > 0:
+            click.echo(f"\n⚠️  {total_critical} critical vulnerabilities found!")
+            sys.exit(1)
+        else:
+            click.echo("\n✅ No critical vulnerabilities found")
+
+    except ImportError:
+        click.echo("❌ Install security dependencies:", err=True)
+        click.echo("   pip install -r requirements-security.txt", err=True)
+        sys.exit(1)
+
+
+@security.command()
+def secrets():
+    """Scan code for hardcoded secrets."""
+    click.echo("🔍 Scanning for hardcoded secrets...")
+
+    sys.path.insert(0, str(PLATFORM_ROOT / "src"))
+
+    try:
+        import asyncio
+        from shared.security_scanner import SecretDetector
+
+        detector = SecretDetector(PLATFORM_ROOT)
+        result = asyncio.run(detector.scan_for_secrets())
+
+        total_secrets = result.summary.get('total', 0)
+
+        if total_secrets > 0:
+            click.echo(f"\n⚠️  {total_secrets} potential secrets found!")
+            click.echo("Review security-reports/ for details")
+            sys.exit(1)
+        else:
+            click.echo("\n✅ No hardcoded secrets detected")
+
+    except ImportError:
+        click.echo("❌ Install security dependencies:", err=True)
+        click.echo("   pip install -r requirements-security.txt", err=True)
+        sys.exit(1)
+
+
+@security.command()
+def bandit():
+    """Run static code analysis with Bandit."""
+    click.echo("🔍 Running Bandit static analysis...")
+
+    sys.path.insert(0, str(PLATFORM_ROOT / "src"))
+
+    try:
+        import asyncio
+        from shared.security_scanner import StaticCodeAnalyzer
+
+        analyzer = StaticCodeAnalyzer(PLATFORM_ROOT)
+        result = asyncio.run(analyzer.scan_with_bandit())
+
+        if result.scan_successful:
+            total_issues = result.summary.get('total', 0)
+            high_issues = result.summary.get('high', 0)
+
+            click.echo(f"Found {total_issues} issues ({high_issues} high severity)")
+
+            if high_issues > 0:
+                click.echo("\n⚠️  High severity issues found!")
+        else:
+            click.echo(f"❌ {result.error_message}", err=True)
+            sys.exit(1)
+
+    except ImportError:
+        click.echo("❌ Install security dependencies:", err=True)
+        click.echo("   pip install -r requirements-security.txt", err=True)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    cli()

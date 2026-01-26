@@ -86,8 +86,11 @@ async def lifespan(app: FastAPI):
     )
     logger.info("Redis connected")
 
-    # Initialize L01 Client with API key
-    l01_api_key = "dev_key_CHANGE_IN_PRODUCTION"  # Default development key
+    # Initialize L01 Client with API key from environment
+    import os
+    l01_api_key = os.getenv("L01_API_KEY", "dev_key_local_ONLY")
+    if l01_api_key == "dev_key_local_ONLY":
+        logger.warning("Using default L01_API_KEY. Set environment variable for production.")
     l01_client = L01Client(
         base_url=f"http://{settings.l01_host}:{settings.l01_port}",
         api_key=l01_api_key

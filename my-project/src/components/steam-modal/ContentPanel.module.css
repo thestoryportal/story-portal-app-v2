@@ -1,0 +1,322 @@
+/**
+ * ContentPanel Styles
+ *
+ * NEW DESIGN: Containerless content floating directly on steam
+ * - No parchment background or border
+ * - Text enhanced with multi-layer shadows for readability
+ * - Content fades in as steam settles (opacity only)
+ * - Maximum width synchronized with header (800px)
+ */
+
+.contentPanel {
+  position: relative;
+  z-index: 1007;  /* Above steam so text is readable */
+
+  max-width: 800px;
+  max-height: calc(85vh - 200px);
+  margin: 80px auto 0;
+  padding: 0;
+
+  overflow: visible;
+
+  /* NO background - content displays directly on steam */
+  background: transparent;
+
+  /* Content is ALWAYS at full opacity - NO fade animation */
+  /* Steam clears to reveal content, content does NOT fade in */
+  opacity: 1;
+}
+
+/* Content reveal animation removed - content is always visible at full opacity */
+/* Steam clearing animation handles the reveal effect */
+
+/* Scrollable content container */
+.scrollContainer {
+  position: relative;
+  max-height: calc(85vh - 200px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 32px 40px 40px;
+
+  /* Hide scrollbar */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollContainer::-webkit-scrollbar {
+  display: none;
+}
+
+/* ============================================
+   Section Headings
+   ============================================ */
+.sectionTitle {
+  font-family: 'Carnivalee Freakshow', serif;
+  font-size: 24px;
+
+  /* Dark brown text - NO effects */
+  color: #433722;
+
+  margin: 0 0 16px 0;
+  letter-spacing: 0.5px;
+
+  /* NO shadow, NO outline, NO effects */
+  text-shadow: none;
+
+  /* Text is always at full opacity - revealed by clearing steam */
+  opacity: 1;
+}
+
+/* Decorative underline - removed per user request */
+.sectionTitle::after {
+  display: none;
+}
+
+/* ============================================
+   Body Text
+   ============================================ */
+.bodyText {
+  font-family: 'Molly Sans', sans-serif;
+  font-size: 16px;
+  line-height: 1.8;
+
+  /* Dark brown text - NO effects */
+  color: #433722;
+
+  margin-bottom: 16px;
+
+  /* NO shadow, NO outline, NO effects */
+  text-shadow: none;
+
+  /* Text is always at full opacity - revealed by clearing steam */
+  opacity: 1;
+}
+
+/* Text emerge animation removed - text is always visible at full opacity */
+/* Steam clearing animation handles the reveal effect */
+
+/* ============================================
+   Dividers - Hidden per user request
+   ============================================ */
+.divider {
+  display: none;
+  /* Dividers removed - just spacing remains */
+  margin: 32px 0;
+}
+
+/* ============================================
+   Section Container
+   ============================================ */
+.section {
+  margin-bottom: 32px;
+}
+
+.section:last-child {
+  margin-bottom: 0;
+}
+
+/* ============================================
+   Body Content Container
+   ============================================ */
+.bodyContent {
+  /* Container for children - no special styles needed */
+}
+
+/* ============================================
+   Scroll-Through-Steam Effect - Soft steam gradient boundaries
+   ============================================ */
+
+/* Top steam overlay - content fades into steam when scrolling up */
+.steamOverlayTop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  z-index: 1009;
+  pointer-events: none;
+
+  background: linear-gradient(
+    180deg,
+    rgba(197, 179, 137, 0.95) 0%,
+    rgba(197, 179, 137, 0.7) 20%,
+    rgba(197, 179, 137, 0.5) 40%,
+    rgba(197, 179, 137, 0.3) 60%,
+    rgba(197, 179, 137, 0.15) 80%,
+    transparent 100%
+  );
+
+  filter: blur(15px);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.steamOverlayTop.visible {
+  opacity: 1;
+}
+
+/* Bottom steam overlay - content fades into steam when scrolling down */
+.steamOverlayBottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 100px;
+  z-index: 1009;
+  pointer-events: none;
+
+  background: linear-gradient(
+    0deg,
+    rgba(197, 179, 137, 0.95) 0%,
+    rgba(197, 179, 137, 0.7) 20%,
+    rgba(197, 179, 137, 0.5) 40%,
+    rgba(197, 179, 137, 0.3) 60%,
+    rgba(197, 179, 137, 0.15) 80%,
+    transparent 100%
+  );
+
+  filter: blur(15px);
+}
+
+/* Scroll indicator (arrow) - appears after content is visible */
+.scrollIndicator {
+  position: fixed;
+  bottom: calc(50% - min(42.5vh, 300px) + 20px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1008;
+  pointer-events: none;
+
+  width: 40px;
+  height: 40px;
+
+  opacity: 0;
+  animation: scrollIndicatorFade 3s ease-out forwards, scrollIndicatorBounce 2s ease-in-out infinite;
+  animation-delay: 5.3s, 5.6s;
+}
+
+.scrollIndicator.visible {
+  opacity: 1;
+}
+
+.scrollIndicator::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+
+  width: 0;
+  height: 0;
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-top: 16px solid rgba(139, 111, 71, 0.8);
+
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+@keyframes scrollIndicatorFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scrollIndicatorBounce {
+  0%, 100% {
+    transform: translateX(-50%) translateY(0);
+  }
+  50% {
+    transform: translateX(-50%) translateY(8px);
+  }
+}
+
+/* ============================================
+   Links within content
+   ============================================ */
+.contentPanel a {
+  color: #433722;
+  text-decoration: underline;
+  text-decoration-color: rgba(139, 111, 71, 0.5);
+  transition: text-decoration-color 0.2s ease;
+}
+
+.contentPanel a:hover {
+  text-decoration-color: #8B6F47;
+}
+
+.contentPanel a:focus-visible {
+  outline: 2px solid #8B6F47;
+  outline-offset: 2px;
+}
+
+/* ============================================
+   Lists within content
+   ============================================ */
+.contentPanel ul,
+.contentPanel ol {
+  color: #433722;
+  margin: 0 0 16px 24px;
+  padding: 0;
+
+  /* NO shadow, NO outline, NO effects */
+  text-shadow: none;
+}
+
+.contentPanel li {
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+/* ============================================
+   Reduced Motion Support
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  .contentPanel {
+    animation: none;
+    opacity: 1;
+  }
+  
+  .bodyText {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ============================================
+   Responsive Adjustments
+   ============================================ */
+@media (max-width: 768px) {
+  .contentPanel {
+    margin: 60px 16px 0;
+    padding: 24px;
+    max-height: calc(85vh - 140px);
+  }
+  
+  .sectionTitle {
+    font-size: 20px;
+  }
+  
+  .bodyText {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .contentPanel {
+    margin: 50px 12px 0;
+    padding: 20px;
+    max-height: calc(85vh - 120px);
+  }
+  
+  .sectionTitle {
+    font-size: 18px;
+  }
+  
+  .bodyText {
+    font-size: 14px;
+  }
+}

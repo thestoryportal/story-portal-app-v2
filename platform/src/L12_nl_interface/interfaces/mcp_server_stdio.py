@@ -320,6 +320,145 @@ class L12MCPServer:
                     "required": ["query"],
                 },
             },
+            # Workflow Builder tools (persistent workflow definitions)
+            {
+                "name": "create_workflow",
+                "description": (
+                    "Create a new persistent workflow definition with nodes, edges, and parameters. "
+                    "Supports DAG, sequential, event-driven, and state machine paradigms. "
+                    "Example: create_workflow(definition={name: 'my_pipeline', nodes: [...], entry_node_id: 'start'})"
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "definition": {
+                            "type": "object",
+                            "description": "Workflow definition with name, description, nodes, edges, entry_node_id, parameters",
+                        },
+                        "validate_only": {
+                            "type": "boolean",
+                            "description": "If true, only validate without saving (default: false)",
+                        },
+                    },
+                    "required": ["definition"],
+                },
+            },
+            {
+                "name": "start_workflow",
+                "description": (
+                    "Start execution of a workflow definition. Returns execution_id for tracking. "
+                    "Example: start_workflow(workflow_id='wf_abc123', parameters={'input': 'data'})"
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "workflow_id": {
+                            "type": "string",
+                            "description": "ID of the workflow definition to execute",
+                        },
+                        "parameters": {
+                            "type": "object",
+                            "description": "Input parameters for the workflow",
+                        },
+                        "async_mode": {
+                            "type": "boolean",
+                            "description": "If true, return immediately with execution_id (default: false)",
+                        },
+                    },
+                    "required": ["workflow_id"],
+                },
+            },
+            {
+                "name": "workflow_status",
+                "description": (
+                    "Get the status of a workflow execution including node progress. "
+                    "Example: workflow_status(execution_id='exec_123')"
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "execution_id": {
+                            "type": "string",
+                            "description": "ID of the workflow execution",
+                        },
+                        "include_node_details": {
+                            "type": "boolean",
+                            "description": "Include individual node execution details (default: true)",
+                        },
+                    },
+                    "required": ["execution_id"],
+                },
+            },
+            {
+                "name": "list_workflow_definitions",
+                "description": (
+                    "List persistent workflow definitions (not templates). "
+                    "Example: list_workflow_definitions(status='active', category='data_pipeline')"
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "status": {
+                            "type": "string",
+                            "description": "Filter by status: draft, active, deprecated, archived",
+                        },
+                        "category": {
+                            "type": "string",
+                            "description": "Filter by category",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Maximum results (default: 20)",
+                        },
+                    },
+                },
+            },
+            {
+                "name": "cancel_workflow",
+                "description": (
+                    "Cancel a running workflow execution with optional compensation. "
+                    "Example: cancel_workflow(execution_id='exec_123', compensate=true)"
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "execution_id": {
+                            "type": "string",
+                            "description": "ID of the execution to cancel",
+                        },
+                        "compensate": {
+                            "type": "boolean",
+                            "description": "Run compensation actions to rollback (default: true)",
+                        },
+                        "reason": {
+                            "type": "string",
+                            "description": "Optional reason for cancellation",
+                        },
+                    },
+                    "required": ["execution_id"],
+                },
+            },
+            {
+                "name": "suggest_workflow",
+                "description": (
+                    "AI-assisted workflow generation from natural language description. "
+                    "Example: suggest_workflow(description='Run tests then deploy if successful')"
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "description": {
+                            "type": "string",
+                            "description": "Natural language description of the desired workflow",
+                        },
+                        "include_compensation": {
+                            "type": "boolean",
+                            "description": "Generate compensation/rollback logic (default: true)",
+                        },
+                    },
+                    "required": ["description"],
+                },
+            },
         ]
 
     async def handle_tool_call(self, tool_name: str, arguments: Dict[str, Any]) -> str:
@@ -349,6 +488,19 @@ class L12MCPServer:
                 return await self._execute_workflow(arguments)
             elif tool_name == "search_workflows":
                 return await self._search_workflows(arguments)
+            # Workflow Builder tools
+            elif tool_name == "create_workflow":
+                return await self._create_workflow(arguments)
+            elif tool_name == "start_workflow":
+                return await self._start_workflow(arguments)
+            elif tool_name == "workflow_status":
+                return await self._workflow_status(arguments)
+            elif tool_name == "list_workflow_definitions":
+                return await self._list_workflow_definitions(arguments)
+            elif tool_name == "cancel_workflow":
+                return await self._cancel_workflow(arguments)
+            elif tool_name == "suggest_workflow":
+                return await self._suggest_workflow(arguments)
             else:
                 return f"❌ Unknown tool: {tool_name}"
 
@@ -648,6 +800,394 @@ class L12MCPServer:
                 f"   {template.description}\n"
                 f"   Steps: {len(template.steps)} | Tags: {', '.join(template.tags)}\n\n"
             )
+
+        return result
+
+    # ==================== Workflow Builder Methods ====================
+
+    def _get_workflow_store(self):
+        """Lazy load WorkflowStore to avoid import issues."""
+        if not hasattr(self, '_workflow_store'):
+            try:
+                from src.L01_data_layer.services.workflow_store import WorkflowStore
+                self._workflow_store = WorkflowStore()
+            except ImportError as e:
+                logger.warning(f"WorkflowStore not available: {e}")
+                self._workflow_store = None
+        return self._workflow_store
+
+    async def _create_workflow(self, args: Dict[str, Any]) -> str:
+        """Create a new workflow definition."""
+        definition = args.get("definition", {})
+        validate_only = args.get("validate_only", False)
+
+        if not definition:
+            return "❌ Error: 'definition' is required"
+
+        store = self._get_workflow_store()
+        if not store:
+            return "❌ Error: WorkflowStore not available. Check database connection."
+
+        try:
+            # Import models
+            from src.L01_data_layer.models.workflow import (
+                WorkflowDefinitionCreate,
+                WorkflowNodeDefinition,
+                NodeType,
+            )
+
+            # Build node definitions
+            nodes = []
+            for node_data in definition.get("nodes", []):
+                node_type = node_data.get("type", "service")
+                try:
+                    node_type_enum = NodeType(node_type.lower())
+                except ValueError:
+                    node_type_enum = NodeType.SERVICE
+
+                nodes.append(WorkflowNodeDefinition(
+                    node_id=node_data.get("node_id", node_data.get("id")),
+                    type=node_type_enum,
+                    name=node_data.get("name", node_data.get("node_id")),
+                    description=node_data.get("description"),
+                    service=node_data.get("service"),
+                    method=node_data.get("method"),
+                    parameters=node_data.get("parameters", {}),
+                    routes=node_data.get("routes", {}),
+                ))
+
+            # Create workflow definition
+            workflow_create = WorkflowDefinitionCreate(
+                name=definition.get("name", "unnamed_workflow"),
+                description=definition.get("description", ""),
+                nodes=nodes,
+                entry_node_id=definition.get("entry_node_id"),
+                parameters=definition.get("parameters", {}),
+                category=definition.get("category", "general"),
+                tags=definition.get("tags", []),
+            )
+
+            if validate_only:
+                return (
+                    f"✅ Workflow definition is valid\n\n"
+                    f"Name: {workflow_create.name}\n"
+                    f"Nodes: {len(nodes)}\n"
+                    f"Entry: {workflow_create.entry_node_id}\n"
+                )
+
+            # Save to database
+            await store.initialize()
+            workflow = await store.create_workflow(workflow_create)
+
+            return (
+                f"✅ Workflow created successfully\n\n"
+                f"**Workflow ID**: {workflow.workflow_id}\n"
+                f"**Name**: {workflow.name}\n"
+                f"**Status**: {workflow.status.value}\n"
+                f"**Nodes**: {len(nodes)}\n"
+                f"**Entry Node**: {workflow.entry_node_id}\n\n"
+                f"To execute: start_workflow(workflow_id='{workflow.workflow_id}')"
+            )
+
+        except Exception as e:
+            logger.error(f"Error creating workflow: {e}", exc_info=True)
+            return f"❌ Error creating workflow: {str(e)}"
+
+    async def _start_workflow(self, args: Dict[str, Any]) -> str:
+        """Start execution of a workflow definition."""
+        workflow_id = args.get("workflow_id")
+        parameters = args.get("parameters", {})
+        async_mode = args.get("async_mode", False)
+
+        if not workflow_id:
+            return "❌ Error: 'workflow_id' is required"
+
+        store = self._get_workflow_store()
+        if not store:
+            return "❌ Error: WorkflowStore not available. Check database connection."
+
+        try:
+            from src.L01_data_layer.models.workflow import WorkflowExecutionCreate
+
+            await store.initialize()
+
+            # Check workflow exists
+            workflow = await store.get_workflow(workflow_id)
+            if not workflow:
+                return f"❌ Workflow '{workflow_id}' not found"
+
+            # Create execution
+            exec_create = WorkflowExecutionCreate(
+                workflow_id=workflow_id,
+                input_parameters=parameters,
+                session_id=self.session_id,
+            )
+            execution = await store.create_execution(exec_create)
+
+            # Start execution
+            execution = await store.start_execution(execution.execution_id)
+
+            result = (
+                f"🚀 Workflow execution started\n\n"
+                f"**Execution ID**: {execution.execution_id}\n"
+                f"**Workflow**: {workflow.name} ({workflow_id})\n"
+                f"**Status**: {execution.status.value}\n"
+                f"**Started**: {execution.started_at}\n\n"
+                f"To check status: workflow_status(execution_id='{execution.execution_id}')"
+            )
+
+            if async_mode:
+                result += "\n\n_Running in async mode - check status for updates_"
+            else:
+                # For sync mode, we would wait for completion
+                # For now, just return the started status
+                result += "\n\n_Note: Full sync execution requires WorkflowEngine integration_"
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error starting workflow: {e}", exc_info=True)
+            return f"❌ Error starting workflow: {str(e)}"
+
+    async def _workflow_status(self, args: Dict[str, Any]) -> str:
+        """Get workflow execution status."""
+        execution_id = args.get("execution_id")
+        include_node_details = args.get("include_node_details", True)
+
+        if not execution_id:
+            return "❌ Error: 'execution_id' is required"
+
+        store = self._get_workflow_store()
+        if not store:
+            return "❌ Error: WorkflowStore not available. Check database connection."
+
+        try:
+            await store.initialize()
+
+            execution = await store.get_execution(execution_id)
+            if not execution:
+                return f"❌ Execution '{execution_id}' not found"
+
+            # Get workflow info
+            workflow = await store.get_workflow(execution.workflow_id)
+            workflow_name = workflow.name if workflow else execution.workflow_id
+
+            result = (
+                f"📊 **Workflow Execution Status**\n\n"
+                f"**Execution ID**: {execution.execution_id}\n"
+                f"**Workflow**: {workflow_name}\n"
+                f"**Status**: {execution.status.value.upper()}\n"
+            )
+
+            if execution.current_node_id:
+                result += f"**Current Node**: {execution.current_node_id}\n"
+
+            if execution.started_at:
+                result += f"**Started**: {execution.started_at}\n"
+
+            if execution.completed_at:
+                result += f"**Completed**: {execution.completed_at}\n"
+                if execution.duration_ms:
+                    result += f"**Duration**: {execution.duration_ms}ms\n"
+
+            if execution.error_message:
+                result += f"\n**Error**: {execution.error_message}\n"
+
+            if execution.compensation_required:
+                result += f"\n⚠️ **Compensation Required**: {execution.compensation_status or 'pending'}\n"
+
+            if include_node_details:
+                node_executions = await store.get_node_executions(execution_id)
+                if node_executions:
+                    result += f"\n**Node Executions** ({len(node_executions)}):\n"
+                    for node_exec in node_executions:
+                        status_icon = "✅" if node_exec.get("status") == "completed" else "❌" if node_exec.get("status") == "failed" else "⏳"
+                        result += f"  {status_icon} {node_exec.get('node_id')}: {node_exec.get('status', 'unknown')}\n"
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error getting workflow status: {e}", exc_info=True)
+            return f"❌ Error getting status: {str(e)}"
+
+    async def _list_workflow_definitions(self, args: Dict[str, Any]) -> str:
+        """List persistent workflow definitions."""
+        status_filter = args.get("status")
+        category = args.get("category")
+        limit = args.get("limit", 20)
+
+        store = self._get_workflow_store()
+        if not store:
+            return "❌ Error: WorkflowStore not available. Check database connection."
+
+        try:
+            from src.L01_data_layer.models.workflow import WorkflowStatus
+
+            await store.initialize()
+
+            # Convert status string to enum if provided
+            status_enum = None
+            if status_filter:
+                try:
+                    status_enum = WorkflowStatus(status_filter.lower())
+                except ValueError:
+                    return f"❌ Invalid status '{status_filter}'. Valid: draft, active, deprecated, archived"
+
+            workflows = await store.list_workflows(
+                status=status_enum,
+                category=category,
+                limit=limit,
+            )
+
+            if not workflows:
+                filter_msg = ""
+                if status_filter:
+                    filter_msg += f" with status '{status_filter}'"
+                if category:
+                    filter_msg += f" in category '{category}'"
+                return f"No workflow definitions found{filter_msg}"
+
+            result = f"📋 **Workflow Definitions** ({len(workflows)} total):\n\n"
+
+            for wf in workflows:
+                status_icon = "✅" if wf.status.value == "active" else "📝" if wf.status.value == "draft" else "📦"
+                result += (
+                    f"{status_icon} **{wf.name}** (`{wf.workflow_id}`)\n"
+                    f"   Status: {wf.status.value} | Category: {wf.category}\n"
+                    f"   {wf.description[:100]}{'...' if len(wf.description or '') > 100 else ''}\n\n"
+                )
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error listing workflows: {e}", exc_info=True)
+            return f"❌ Error listing workflows: {str(e)}"
+
+    async def _cancel_workflow(self, args: Dict[str, Any]) -> str:
+        """Cancel a running workflow execution."""
+        execution_id = args.get("execution_id")
+        compensate = args.get("compensate", True)
+        reason = args.get("reason", "User requested cancellation")
+
+        if not execution_id:
+            return "❌ Error: 'execution_id' is required"
+
+        store = self._get_workflow_store()
+        if not store:
+            return "❌ Error: WorkflowStore not available. Check database connection."
+
+        try:
+            from src.L01_data_layer.models.workflow import ExecutionStatus
+
+            await store.initialize()
+
+            execution = await store.get_execution(execution_id)
+            if not execution:
+                return f"❌ Execution '{execution_id}' not found"
+
+            if execution.status.value in ["completed", "cancelled"]:
+                return f"ℹ️ Execution already {execution.status.value}"
+
+            # Cancel the execution
+            execution = await store.update_execution_status(
+                execution_id,
+                ExecutionStatus.CANCELLED,
+                error_message=reason,
+            )
+
+            result = (
+                f"🛑 Workflow execution cancelled\n\n"
+                f"**Execution ID**: {execution_id}\n"
+                f"**Status**: {execution.status.value}\n"
+                f"**Reason**: {reason}\n"
+            )
+
+            if compensate:
+                execution = await store.mark_for_compensation(execution_id)
+                result += f"\n⚠️ **Compensation**: Rollback initiated"
+                result += f"\n   Status: {execution.compensation_status or 'pending'}"
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error cancelling workflow: {e}", exc_info=True)
+            return f"❌ Error cancelling workflow: {str(e)}"
+
+    async def _suggest_workflow(self, args: Dict[str, Any]) -> str:
+        """AI-assisted workflow generation."""
+        description = args.get("description")
+        include_compensation = args.get("include_compensation", True)
+
+        if not description:
+            return "❌ Error: 'description' is required"
+
+        # Generate workflow suggestion based on description
+        # This is a simplified implementation - full version would use LLM
+        result = f"💡 **Suggested Workflow for**: \"{description}\"\n\n"
+
+        # Parse common patterns from description
+        description_lower = description.lower()
+
+        nodes = []
+        if "test" in description_lower:
+            nodes.append({
+                "node_id": "run_tests",
+                "type": "service",
+                "name": "Run Tests",
+                "service": "TestRunner",
+                "method": "run_tests",
+            })
+        if "deploy" in description_lower:
+            nodes.append({
+                "node_id": "deploy",
+                "type": "service",
+                "name": "Deploy Application",
+                "service": "DeploymentService",
+                "method": "deploy",
+            })
+        if "build" in description_lower:
+            nodes.insert(0, {
+                "node_id": "build",
+                "type": "service",
+                "name": "Build Application",
+                "service": "BuildService",
+                "method": "build",
+            })
+        if "notify" in description_lower or "alert" in description_lower:
+            nodes.append({
+                "node_id": "notify",
+                "type": "service",
+                "name": "Send Notification",
+                "service": "NotificationService",
+                "method": "send",
+            })
+
+        if not nodes:
+            nodes = [
+                {"node_id": "step_1", "type": "service", "name": "Step 1"},
+                {"node_id": "step_2", "type": "service", "name": "Step 2"},
+            ]
+
+        result += "**Suggested Definition**:\n```json\n"
+        suggested = {
+            "name": description[:50].replace(" ", "_").lower(),
+            "description": description,
+            "entry_node_id": nodes[0]["node_id"] if nodes else "start",
+            "nodes": nodes,
+            "parameters": {},
+        }
+
+        if include_compensation:
+            for node in nodes:
+                if "deploy" in node.get("node_id", ""):
+                    node["compensation"] = {
+                        "service": "DeploymentService",
+                        "method": "rollback",
+                    }
+
+        result += json.dumps(suggested, indent=2)
+        result += "\n```\n\n"
+        result += f"To create: `create_workflow(definition={{...above...}})`"
 
         return result
 

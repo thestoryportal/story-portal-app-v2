@@ -179,7 +179,7 @@ class ServiceMetadata(BaseModel):
     """
 
     service_name: str = Field(..., description="Unique service name", min_length=1)
-    layer: str = Field(..., description="Platform layer (L01-L11)", pattern=r"^L(0[1-9]|1[01])$")
+    layer: str = Field(..., description="Platform layer (L00-L14)", pattern=r"^L(0[0-9]|1[0-4])$")
     module_path: str = Field(..., description="Python module path", min_length=1)
     class_name: str = Field(..., description="Class name", min_length=1)
     description: str = Field(..., description="Service description", min_length=10)
@@ -225,8 +225,8 @@ class ServiceMetadata(BaseModel):
     @field_validator("layer")
     @classmethod
     def validate_layer(cls, v: str) -> str:
-        """Ensure layer is valid (L01-L11)."""
-        valid_layers = [f"L{str(i).zfill(2)}" for i in range(1, 12)]
+        """Ensure layer is valid (L00-L14)."""
+        valid_layers = [f"L{str(i).zfill(2)}" for i in range(0, 15)]
         if v not in valid_layers:
             raise ValueError(f"Layer must be one of {valid_layers}")
         return v

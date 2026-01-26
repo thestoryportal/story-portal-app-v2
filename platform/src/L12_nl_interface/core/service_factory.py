@@ -22,6 +22,24 @@ from .service_registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 
+# Parameter name to service name mappings for dependency injection
+PARAMETER_SERVICE_MAPPINGS = {
+    "gateway_client": "ModelGateway",
+    "executor_client": "AgentExecutor",
+    "tool_executor_client": "ToolExecutor",
+    "decomposer": "GoalDecomposer",
+    "orchestrator": "TaskOrchestrator",
+    "resolver": "DependencyResolver",
+    "validator": "PlanValidator",
+    "context_injector": "ContextInjector",
+    "agent_assigner": "AgentAssigner",
+    "monitor": "ExecutionMonitor",
+    "l01_bridge": "L05Bridge",
+    "cache": "PlanCache",
+    "db_pool": "DatabasePool",
+    "redis_client": "RedisPool",
+}
+
 
 class DependencyError(Exception):
     """Error raised when dependency resolution fails."""
@@ -293,9 +311,14 @@ class ServiceFactory:
             if param_name == "self":
                 continue
 
-            # Check if this parameter matches a dependency name
+            # Check if this parameter matches a dependency name directly
             if param_name in available_services:
                 init_params[param_name] = available_services[param_name]
+            # Check parameter mapping (e.g., gateway_client -> ModelGateway)
+            elif param_name in PARAMETER_SERVICE_MAPPINGS:
+                mapped_service = PARAMETER_SERVICE_MAPPINGS[param_name]
+                if mapped_service in available_services:
+                    init_params[param_name] = available_services[mapped_service]
             # Check if parameter has dependency name in metadata.dependencies
             elif any(
                 dep.lower() == param_name.lower() for dep in metadata.dependencies

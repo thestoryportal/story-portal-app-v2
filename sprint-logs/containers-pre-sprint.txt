@@ -1,0 +1,22 @@
+NAMES                       STATUS
+platform-ui                 Up 52 minutes (healthy)
+l12-service-hub             Up 55 minutes (healthy)
+l09-api-gateway             Up 55 minutes (healthy)
+l10-human-interface         Up 58 minutes (healthy)
+agentic-node-exporter       Up 2 hours
+agentic-grafana             Up 2 hours
+agentic-prometheus          Up 2 hours
+agentic-redis-exporter      Up 2 hours
+agentic-cadvisor            Up 2 hours (healthy)
+agentic-postgres-exporter   Up 2 hours
+agentic-db-tools            Up 2 hours
+l01-data-layer              Up 2 hours (healthy)
+agentic-redis               Up 3 hours (healthy)
+agentic-postgres            Up 3 hours (healthy)
+l07-learning                Up 7 hours (healthy)
+l05-planning                Up 7 hours (healthy)
+l06-evaluation              Up 7 hours (healthy)
+l03-tool-execution          Up 7 hours (healthy)
+l02-runtime                 Up 7 hours (healthy)
+l11-integration             Up 7 hours (healthy)
+l04-model-gateway           Up 7 hours (healthy)

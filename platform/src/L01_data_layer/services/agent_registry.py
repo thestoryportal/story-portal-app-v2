@@ -75,7 +75,7 @@ class AgentRegistry:
         if not row:
             return None
 
-        return Agent(**dict(row))
+        return self._row_to_agent(row)
 
     async def list_agents(
         self, status: Optional[AgentStatus] = None, limit: int = 100, offset: int = 0
@@ -108,7 +108,13 @@ class AgentRegistry:
         for field, value in agent_data.model_dump(exclude_unset=True).items():
             if value is not None:
                 update_fields.append(f"{field} = ${param_count}")
-                params.append(value if not isinstance(value, AgentStatus) else value.value)
+                # JSON serialize dict/list values for JSONB columns
+                if isinstance(value, (dict, list)):
+                    params.append(json.dumps(value))
+                elif isinstance(value, AgentStatus):
+                    params.append(value.value)
+                else:
+                    params.append(value)
                 param_count += 1
 
         if not update_fields:

@@ -14,6 +14,57 @@ from .session import Session, SessionCreate, SessionUpdate, SessionStatus, Runti
 from .tool import Tool, ToolCreate, ToolUpdate, ToolExecution, ToolExecutionCreate, ToolExecutionUpdate, ToolType, ToolExecutionStatus
 from .training_example import TrainingExample, TrainingExampleCreate, TrainingExampleUpdate, ExampleSource, TaskType
 from .dataset import Dataset, DatasetCreate, DatasetUpdate, DatasetExampleLink, DatasetSplit
+from .workflow import (
+    # Enums
+    WorkflowStatus,
+    ExecutionStatus,
+    NodeExecutionStatus,
+    NodeType,
+    TriggerType,
+    ApprovalStatus,
+    ApprovalRequestType,
+    CompensationStatus,
+    WorkflowParadigm,
+    WorkflowVisibility,
+    # Config models
+    RetryConfig,
+    CompensationConfig,
+    TimeoutConfig,
+    # Node models
+    WorkflowRoute,
+    WorkflowNodeDefinition,
+    WorkflowEdgeDefinition,
+    WorkflowParameter,
+    # Workflow Definition
+    WorkflowDefinitionCreate,
+    WorkflowDefinitionUpdate,
+    WorkflowDefinition,
+    # Workflow Execution
+    WorkflowExecutionCreate,
+    WorkflowExecutionUpdate,
+    WorkflowExecution,
+    # Node Execution
+    NodeExecutionCreate,
+    NodeExecutionUpdate,
+    WorkflowNodeExecution,
+    # Triggers
+    EventTriggerConfig,
+    ScheduleTriggerConfig,
+    WebhookTriggerConfig,
+    WorkflowTriggerCreate,
+    WorkflowTriggerUpdate,
+    WorkflowTrigger,
+    # Approvals
+    ApprovalRequestCreate,
+    ApprovalResponse,
+    WorkflowApprovalRequest,
+    # Checkpoints
+    WorkflowCheckpoint,
+    # Responses
+    WorkflowExecutionResponse,
+    WorkflowListResponse,
+    ExecutionListResponse,
+)
 
 __all__ = [
     "Agent",
@@ -71,4 +122,53 @@ __all__ = [
     "DatasetUpdate",
     "DatasetExampleLink",
     "DatasetSplit",
+    # Workflow enums
+    "WorkflowStatus",
+    "ExecutionStatus",
+    "NodeExecutionStatus",
+    "NodeType",
+    "TriggerType",
+    "ApprovalStatus",
+    "ApprovalRequestType",
+    "CompensationStatus",
+    "WorkflowParadigm",
+    "WorkflowVisibility",
+    # Workflow config models
+    "RetryConfig",
+    "CompensationConfig",
+    "TimeoutConfig",
+    # Workflow node models
+    "WorkflowRoute",
+    "WorkflowNodeDefinition",
+    "WorkflowEdgeDefinition",
+    "WorkflowParameter",
+    # Workflow definition models
+    "WorkflowDefinitionCreate",
+    "WorkflowDefinitionUpdate",
+    "WorkflowDefinition",
+    # Workflow execution models
+    "WorkflowExecutionCreate",
+    "WorkflowExecutionUpdate",
+    "WorkflowExecution",
+    # Node execution models
+    "NodeExecutionCreate",
+    "NodeExecutionUpdate",
+    "WorkflowNodeExecution",
+    # Trigger models
+    "EventTriggerConfig",
+    "ScheduleTriggerConfig",
+    "WebhookTriggerConfig",
+    "WorkflowTriggerCreate",
+    "WorkflowTriggerUpdate",
+    "WorkflowTrigger",
+    # Approval models
+    "ApprovalRequestCreate",
+    "ApprovalResponse",
+    "WorkflowApprovalRequest",
+    # Checkpoint models
+    "WorkflowCheckpoint",
+    # Response models
+    "WorkflowExecutionResponse",
+    "WorkflowListResponse",
+    "ExecutionListResponse",
 ]

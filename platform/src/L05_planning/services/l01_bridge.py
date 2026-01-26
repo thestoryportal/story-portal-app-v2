@@ -32,11 +32,11 @@ class L05Bridge:
     - Publish planning events via L01 event stream
     """
 
-    def __init__(self, l01_base_url: str = "http://localhost:8002"):
+    def __init__(self, l01_base_url: str = "http://localhost:8001"):
         """Initialize L05 bridge.
 
         Args:
-            l01_base_url: Base URL for L01 Data Layer API
+            l01_base_url: Base URL for L01 Data Layer API (default: port 8001)
         """
         self.l01_client = L01Client(base_url=l01_base_url)
         self.enabled = True
@@ -312,6 +312,41 @@ class L05Bridge:
         except Exception as e:
             logger.error(f"Failed to get plan from L01: {e}")
             return None
+
+    async def list_plans(
+        self,
+        goal_id: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 100
+    ) -> list:
+        """List plans with optional filtering.
+
+        Args:
+            goal_id: Filter by goal ID
+            status: Filter by status
+            limit: Maximum number of plans to return
+
+        Returns:
+            List of plan dictionaries
+        """
+        if not self.enabled:
+            return []
+
+        try:
+            params = {"limit": limit}
+            if goal_id:
+                params["goal_id"] = goal_id
+            if status:
+                params["status"] = status
+
+            client = await self.l01_client._get_client()
+            response = await client.get("/plans/", params=params)
+            response.raise_for_status()
+            return response.json()
+
+        except Exception as e:
+            logger.error(f"Failed to list plans from L01: {e}")
+            return []
 
     async def cleanup(self) -> None:
         """Cleanup bridge resources."""

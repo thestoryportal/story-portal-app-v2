@@ -15,10 +15,12 @@ logger = logging.getLogger(__name__)
 class L01Client:
     """Client for L01 Data Layer API."""
 
-    def __init__(self, base_url: str = "http://localhost:8002", timeout: float = 30.0, api_key: Optional[str] = None):
+    def __init__(self, base_url: str = "http://localhost:8001", timeout: float = 30.0, api_key: Optional[str] = None):
+        import os
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
-        self.api_key = api_key
+        # Use provided api_key or fall back to environment variable
+        self.api_key = api_key or os.environ.get("L01_API_KEY", "dev_key_local_ONLY")
         self._client = None
 
     async def _get_client(self) -> httpx.AsyncClient:

@@ -36,6 +36,12 @@ export default function Monitoring() {
     refetchInterval: 5000,
   })
 
+  const { data: services, isLoading: servicesLoading } = useQuery({
+    queryKey: ['services-health'],
+    queryFn: () => apiClient.getServicesHealth(),
+    refetchInterval: 10000,
+  })
+
   useEffect(() => {
     const unsubscribe = wsManager.subscribeToAll((event) => {
       if (
@@ -272,16 +278,13 @@ export default function Monitoring() {
         <div className="card">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Service Health</h2>
           <div className="space-y-3">
-            {[
-              { name: 'L01 Data Layer', status: 'healthy', latency: 45 },
-              { name: 'L02 Runtime', status: 'healthy', latency: 120 },
-              { name: 'L03 Tool Execution', status: 'healthy', latency: 89 },
-              { name: 'L04 Model Gateway', status: 'healthy', latency: 234 },
-              { name: 'L05 Planning', status: 'healthy', latency: 156 },
-              { name: 'L09 API Gateway', status: 'healthy', latency: 23 },
-              { name: 'L10 Human Interface', status: 'healthy', latency: 67 },
-              { name: 'L12 Service Hub', status: 'healthy', latency: 34 },
-            ].map((service) => (
+            {servicesLoading ? (
+              <div className="text-center py-8 text-gray-500">
+                <Activity className="w-6 h-6 animate-spin mx-auto mb-2" />
+                <p>Loading services...</p>
+              </div>
+            ) : services && services.length > 0 ? (
+              services.map((service: any) => (
               <div
                 key={service.name}
                 className="flex items-center justify-between p-3 border border-gray-200 rounded-md"
@@ -307,7 +310,13 @@ export default function Monitoring() {
                   </span>
                 </div>
               </div>
-            ))}
+            ))
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <Server className="w-6 h-6 mx-auto mb-2" />
+                <p>No service data available</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -167,10 +167,32 @@ export class EventStoreAdapter {
    * Create context change event
    *
    * Specialized method for context orchestrator integration.
+   * Supports both core context events and role-aware events.
    */
   async createContextEvent(
     taskId: string,
-    eventType: 'context_updated' | 'checkpoint_created' | 'conflict_detected' | 'conflict_resolved' | 'context_rolled_back' | 'task_switched' | 'hot_context_synced' | 'conflicts_detected',
+    eventType:
+      | 'context_updated'
+      | 'checkpoint_created'
+      | 'conflict_detected'
+      | 'conflict_resolved'
+      | 'context_rolled_back'
+      | 'task_switched'
+      | 'hot_context_synced'
+      | 'conflicts_detected'
+      // Role-aware event types
+      | 'role_context_loaded'
+      | 'role_switched'
+      | 'handoff_create'
+      | 'handoff_acknowledge'
+      | 'handoff_reject'
+      | 'handoff_rejected'
+      | 'quality_checkpoint'
+      // L14 Skill management event types
+      | 'skill_generated'
+      | 'skill_validated'
+      | 'skills_retrieved'
+      | 'skills_optimized',
     payload: Record<string, unknown>,
     sessionId?: string
   ): Promise<Event> {

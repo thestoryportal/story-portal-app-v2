@@ -12,6 +12,7 @@ from .document_store import DocumentStore
 from .session_service import SessionService
 from .training_example_service import TrainingExampleService
 from .dataset_service import DatasetService
+from .workflow_store import WorkflowStore
 
 __all__ = [
     "EventStore",
@@ -26,4 +27,5 @@ __all__ = [
     "SessionService",
     "TrainingExampleService",
     "DatasetService",
+    "WorkflowStore",
 ]

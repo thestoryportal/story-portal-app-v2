@@ -1,0 +1,264 @@
+/**
+ * ContentPanel Styles
+ * 
+ * ============================================
+ * CRITICAL CONTRAST REQUIREMENT - DO NOT CHANGE
+ * ============================================
+ * 
+ * Background: #f4e4c8 (parchment)
+ * Text: #2a1a0a (dark brown)
+ * Contrast ratio: 14:1 (exceeds WCAG AAA requirement of 7:1)
+ * 
+ * The previous implementation FAILED because it used:
+ * - Transparent/dark background with light text
+ * - This resulted in unreadable content
+ * 
+ * THIS MUST NOT BE CHANGED without verifying contrast at:
+ * https://webaim.org/resources/contrastchecker/
+ */
+
+.contentPanel {
+  position: relative;
+  z-index: 1004;
+  
+  max-width: 800px;
+  max-height: calc(85vh - 200px);
+  margin: 80px auto 0;
+  padding: 32px 40px 40px;
+  
+  overflow-y: auto;
+  overflow-x: hidden;
+  
+  /* ============================================
+     CRITICAL: Parchment background for readability
+     DO NOT CHANGE THIS COLOR
+     ============================================ */
+  background: #f4e4c8;
+  border-radius: 8px;
+  
+  /* Subtle depth and aged paper effect */
+  box-shadow:
+    inset 0 0 20px rgba(139, 111, 71, 0.1),
+    0 4px 20px rgba(0, 0, 0, 0.3);
+  
+  /* Entry animation */
+  animation: contentPanelEntry 0.5s ease-out forwards;
+  animation-delay: 0.3s;
+  opacity: 0;
+}
+
+@keyframes contentPanelEntry {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================
+   Section Headings
+   ============================================ */
+.sectionTitle {
+  font-family: 'Carnivalee Freakshow', serif;
+  font-size: 24px;
+  
+  /* ============================================
+     CRITICAL: Dark brown text for high contrast
+     DO NOT CHANGE THIS COLOR
+     ============================================ */
+  color: #2a1a0a;
+  
+  margin: 0 0 16px 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Decorative underline */
+.sectionTitle::after {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    #c89038 20%,
+    #8B6F47 50%,
+    #c89038 80%,
+    transparent 100%
+  );
+  margin-top: 8px;
+}
+
+/* ============================================
+   Body Text
+   ============================================ */
+.bodyText {
+  font-family: 'Molly Sans', sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  
+  /* ============================================
+     CRITICAL: Dark brown text for high contrast
+     DO NOT CHANGE THIS COLOR
+     ============================================ */
+  color: #2a1a0a;
+  
+  margin-bottom: 16px;
+  
+  /* Entry animation - text emerges */
+  opacity: 0;
+  transform: translateY(12px);
+  animation: textEmerge 0.5s ease-out forwards;
+}
+
+@keyframes textEmerge {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================
+   Dividers
+   ============================================ */
+.divider {
+  height: 1px;
+  margin: 32px 0;
+  border: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(139, 111, 71, 0.3) 15%,
+    rgba(139, 111, 71, 0.5) 50%,
+    rgba(139, 111, 71, 0.3) 85%,
+    transparent 100%
+  );
+}
+
+/* ============================================
+   Section Container
+   ============================================ */
+.section {
+  margin-bottom: 32px;
+}
+
+.section:last-child {
+  margin-bottom: 0;
+}
+
+/* ============================================
+   Body Content Container
+   ============================================ */
+.bodyContent {
+  /* Container for children - no special styles needed */
+}
+
+/* ============================================
+   Scrollbar Styling (Webkit)
+   ============================================ */
+.contentPanel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.contentPanel::-webkit-scrollbar-track {
+  background: rgba(139, 111, 71, 0.1);
+  border-radius: 4px;
+}
+
+.contentPanel::-webkit-scrollbar-thumb {
+  background: rgba(139, 111, 71, 0.4);
+  border-radius: 4px;
+}
+
+.contentPanel::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 111, 71, 0.6);
+}
+
+/* ============================================
+   Links within content
+   ============================================ */
+.contentPanel a {
+  color: #5a3a1a;
+  text-decoration: underline;
+  text-decoration-color: rgba(139, 111, 71, 0.5);
+  transition: text-decoration-color 0.2s ease;
+}
+
+.contentPanel a:hover {
+  text-decoration-color: #8B6F47;
+}
+
+.contentPanel a:focus-visible {
+  outline: 2px solid #8B6F47;
+  outline-offset: 2px;
+}
+
+/* ============================================
+   Lists within content
+   ============================================ */
+.contentPanel ul,
+.contentPanel ol {
+  color: #2a1a0a;
+  margin: 0 0 16px 24px;
+  padding: 0;
+}
+
+.contentPanel li {
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+/* ============================================
+   Reduced Motion Support
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  .contentPanel {
+    animation: none;
+    opacity: 1;
+  }
+  
+  .bodyText {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ============================================
+   Responsive Adjustments
+   ============================================ */
+@media (max-width: 768px) {
+  .contentPanel {
+    margin: 60px 16px 0;
+    padding: 24px;
+    max-height: calc(85vh - 140px);
+  }
+  
+  .sectionTitle {
+    font-size: 20px;
+  }
+  
+  .bodyText {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .contentPanel {
+    margin: 50px 12px 0;
+    padding: 20px;
+    max-height: calc(85vh - 120px);
+  }
+  
+  .sectionTitle {
+    font-size: 18px;
+  }
+  
+  .bodyText {
+    font-size: 14px;
+  }
+}

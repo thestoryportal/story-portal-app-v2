@@ -5,6 +5,7 @@ This module provides pre-defined multi-service workflows for common platform ope
 - Deployment workflows (build, test, deploy)
 - Data pipeline workflows (ETL, validation, processing)
 - Monitoring workflows (health checks, metrics collection)
+- Role management workflows (dispatch, skill generation, human handoff)
 
 Example:
     >>> from L12_nl_interface.services.workflow_templates import WorkflowTemplates
@@ -34,6 +35,7 @@ class WorkflowCategory(str, Enum):
     DEPLOYMENT = "deployment"
     DATA_PIPELINE = "data_pipeline"
     MONITORING = "monitoring"
+    ROLE_MANAGEMENT = "role_management"
 
 
 @dataclass
@@ -154,6 +156,9 @@ class WorkflowTemplates:
 
         # Monitoring workflows
         self._register_monitoring_workflows()
+
+        # Role management workflows
+        self._register_role_management_workflows()
 
     def _register_testing_workflows(self):
         """Register testing workflow templates."""
@@ -432,6 +437,152 @@ class WorkflowTemplates:
             )
         )
 
+    def _register_role_management_workflows(self):
+        """Register role management workflow templates."""
+        # Role dispatch workflow
+        self.register_template(
+            WorkflowTemplate(
+                name="role_management.role_dispatch",
+                category=WorkflowCategory.ROLE_MANAGEMENT,
+                description="Classify task type and dispatch to optimal role with context assembly",
+                parameters={
+                    "task_description": "",
+                    "required_skills": [],
+                    "urgency": "medium",
+                },
+                tags=["role", "dispatch", "classification", "context"],
+                steps=[
+                    WorkflowStep(
+                        step_id="classify_task",
+                        service_name="ClassificationEngine",
+                        method_name="classify_task",
+                        parameters={
+                            "task_description": "{task_description}",
+                            "urgency": "{urgency}",
+                        },
+                    ),
+                    WorkflowStep(
+                        step_id="dispatch_to_role",
+                        service_name="RoleRegistry",
+                        method_name="dispatch_for_task",
+                        parameters={
+                            "task_description": "{task_description}",
+                            "required_skills": "{required_skills}",
+                            "classification": "{classify_task.result}",
+                        },
+                        depends_on=["classify_task"],
+                    ),
+                    WorkflowStep(
+                        step_id="build_context",
+                        service_name="RoleContextBuilder",
+                        method_name="build_context",
+                        parameters={
+                            "role": "{dispatch_to_role.result}",
+                            "task_description": "{task_description}",
+                        },
+                        depends_on=["dispatch_to_role"],
+                    ),
+                ],
+            )
+        )
+
+        # Skill generation workflow
+        self.register_template(
+            WorkflowTemplate(
+                name="role_management.skill_generation",
+                category=WorkflowCategory.ROLE_MANAGEMENT,
+                description="Generate skill definition from role description using LLM",
+                parameters={
+                    "role_title": "",
+                    "role_description": "",
+                    "responsibilities": [],
+                    "priority": "medium",
+                },
+                tags=["skill", "generation", "llm", "role"],
+                steps=[
+                    WorkflowStep(
+                        step_id="generate_skill",
+                        service_name="SkillGenerator",
+                        method_name="generate_skill",
+                        parameters={
+                            "role_title": "{role_title}",
+                            "role_description": "{role_description}",
+                            "responsibilities": "{responsibilities}",
+                        },
+                        timeout_seconds=60,
+                    ),
+                    WorkflowStep(
+                        step_id="validate_skill",
+                        service_name="SkillValidator",
+                        method_name="validate_skill",
+                        parameters={
+                            "skill": "{generate_skill.result}",
+                        },
+                        depends_on=["generate_skill"],
+                    ),
+                    WorkflowStep(
+                        step_id="store_skill",
+                        service_name="SkillStore",
+                        method_name="create",
+                        parameters={
+                            "skill": "{validate_skill.result}",
+                            "priority": "{priority}",
+                        },
+                        depends_on=["validate_skill"],
+                    ),
+                ],
+            )
+        )
+
+        # Human handoff workflow
+        self.register_template(
+            WorkflowTemplate(
+                name="role_management.human_handoff",
+                category=WorkflowCategory.ROLE_MANAGEMENT,
+                description="Prepare task for human handoff with context and artifacts",
+                parameters={
+                    "task_description": "",
+                    "reason": "",
+                    "artifacts": [],
+                },
+                tags=["human", "handoff", "escalation", "context"],
+                steps=[
+                    WorkflowStep(
+                        step_id="verify_classification",
+                        service_name="ClassificationEngine",
+                        method_name="classify_task",
+                        parameters={
+                            "task_description": "{task_description}",
+                            "reason": "{reason}",
+                        },
+                    ),
+                    WorkflowStep(
+                        step_id="find_human_role",
+                        service_name="RoleRegistry",
+                        method_name="dispatch_for_task",
+                        parameters={
+                            "task_description": "{task_description}",
+                            "require_human": True,
+                            "classification": "{verify_classification.result}",
+                        },
+                        depends_on=["verify_classification"],
+                    ),
+                    WorkflowStep(
+                        step_id="build_handoff_context",
+                        service_name="RoleContextBuilder",
+                        method_name="build_context",
+                        parameters={
+                            "role": "{find_human_role.result}",
+                            "task_description": "{task_description}",
+                            "artifacts": "{artifacts}",
+                            "handoff_reason": "{reason}",
+                        },
+                        depends_on=["find_human_role"],
+                    ),
+                ],
+            )
+        )
+
     def register_template(self, template: WorkflowTemplate):
         """Register a new workflow template.
 
@@ -646,8 +797,10 @@ class WorkflowTemplates:
         last_error = None
         for attempt in range(step.retry_count + 1):
             try:
-                # Get service instance
-                service = self.factory.get_service(step.service_name, session_id)
+                # Get service instance (using create_service which handles caching)
+                service = await self.factory.create_service(
+                    step.service_name, session_id or "workflow"
+                )
 
                 # Execute method
                 if hasattr(service, step.method_name):

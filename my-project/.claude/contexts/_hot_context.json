@@ -1,0 +1,22 @@
+{
+  "projectId": "agentic-platform",
+  "activeTaskId": "test-e2e-task",
+  "lastUpdated": "2026-01-23T22:28:08.101Z",
+  "taskContext": null,
+  "globalContext": {
+    "hardRules": [
+      "Canvas 2D is DEPRECATED - use ElectricityOrtho only",
+      "Animation timing via React Spring"
+    ],
+    "techStack": [
+      "React 19",
+      "Three.js",
+      "PostgreSQL",
+      "Redis"
+    ],
+    "keyPaths": {
+      "contexts": ".claude/contexts/",
+      "electricity": "src/components/electricity/ortho/"
+    }
+  }
+}

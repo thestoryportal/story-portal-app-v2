@@ -3,7 +3,7 @@
 import json
 from fastapi import APIRouter, HTTPException
 from typing import Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from ..database import db
 
@@ -29,6 +29,9 @@ async def create_goal(goal_data: dict):
     """
 
     async with db.pool.acquire() as conn:
+        # Generate goal_id if not provided
+        goal_id = goal_data.get("goal_id", str(uuid4()))
+
         # Extract constraints
         constraints = goal_data.get("constraints", {})
 
@@ -36,19 +39,25 @@ async def create_goal(goal_data: dict):
         metadata = goal_data.get("metadata", {})
         metadata_json = json.dumps(metadata) if metadata else "{}"
 
+        # Map "description" to "goal_text" for compatibility with L01Client
+        goal_text = goal_data.get("goal_text") or goal_data.get("description", "")
+
+        # Generate agent_did if not provided (can derive from agent_id or use placeholder)
+        agent_did = goal_data.get("agent_did", f"agent-{goal_data.get('agent_id', 'unknown')}")
+
         row = await conn.fetchrow(
             query,
-            goal_data["goal_id"],
+            goal_id,
             goal_data.get("agent_id"),
-            goal_data["agent_did"],
-            goal_data["goal_text"],
+            agent_did,
+            goal_text,
             goal_data.get("goal_type", "compound"),
             goal_data.get("status", "pending"),
             constraints.get("max_token_budget"),
             constraints.get("max_execution_time_sec"),
             constraints.get("max_parallelism", 10),
             constraints.get("deadline_unix_ms"),
-            constraints.get("priority", 5),
+            goal_data.get("priority", constraints.get("priority", 5)),
             constraints.get("require_approval", False),
             constraints.get("allowed_agent_types"),
             constraints.get("forbidden_tools"),

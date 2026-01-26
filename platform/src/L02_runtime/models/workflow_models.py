@@ -13,10 +13,18 @@ from uuid import uuid4
 
 class NodeType(Enum):
     """Type of workflow node"""
+    # Core types
     AGENT = "agent"               # Agent execution node
     CONDITIONAL = "conditional"   # Conditional routing
     PARALLEL = "parallel"         # Parallel execution
     END = "end"                   # Terminal node
+    # Enhanced workflow types
+    SUBWORKFLOW = "subworkflow"       # Nested workflow execution
+    EVENT_TRIGGER = "event_trigger"   # Event-based trigger point
+    HUMAN_APPROVAL = "human_approval" # Human-in-the-loop approval
+    SERVICE = "service"               # Service invocation node
+    WAIT = "wait"                     # Wait/delay node
+    TRANSFORM = "transform"           # Data transformation node
 
 
 class WorkflowState(Enum):
@@ -36,6 +44,10 @@ class ExecutionStatus(Enum):
     FAILED = "failed"
     SUSPENDED = "suspended"
     CANCELLED = "cancelled"
+    # Enhanced workflow statuses
+    PAUSED = "paused"                       # Manually paused
+    WAITING_APPROVAL = "waiting_approval"   # Awaiting human approval
+    COMPENSATING = "compensating"           # Running saga compensation
 
 
 @dataclass

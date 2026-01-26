@@ -1,0 +1,300 @@
+{
+  "taskId": "steam-modal-refinement",
+  "name": "Steam Modal UX/UI Refinement",
+  "version": "1.0.0",
+  "created": "2026-01-20T23:30:00Z",
+  "lastUpdated": "2026-01-20T23:30:00Z",
+
+  "state": {
+    "phase": "planning",
+    "iteration": 0,
+    "status": "active"
+  },
+
+  "immediateContext": {
+    "workingOn": "Integrating platform services for steam-modal development",
+    "lastAction": "Documented theoretical service stack integration",
+    "nextStep": "Begin refinement with UX designer and UI developer agents",
+    "blockers": []
+  },
+
+  "keyFiles": [
+    "src/components/steam-modal/SteamModal.tsx",
+    "src/components/steam-modal/SteamField.tsx",
+    "src/components/steam-modal/ContentPanel.tsx",
+    "src/components/steam-modal/SteamModalDemo.tsx",
+    "STEAM-MODAL-IMPLEMENTATION.md"
+  ],
+
+  "platformServices": {
+    "description": "Available services for UX/UI development and refinement",
+
+    "l10_human_interface": {
+      "port": 8010,
+      "purpose": "UI backend and real-time updates",
+      "capabilities": [
+        "WebSocket events for live state updates",
+        "Dashboard data aggregation",
+        "Control operations (pause/resume/stop)",
+        "Alert management"
+      ],
+      "steamModalUse": "Real-time performance monitoring during animation development, instant feedback on render cycles"
+    },
+
+    "l12_service_hub": {
+      "port": 8012,
+      "purpose": "Natural language service discovery",
+      "capabilities": [
+        "Semantic search with Ollama embeddings",
+        "Service invocation API",
+        "Workflow orchestration",
+        "Command history per session"
+      ],
+      "steamModalUse": "Natural language design briefs → structured specifications, fuzzy search for similar components"
+    },
+
+    "l06_evaluation": {
+      "port": 8006,
+      "purpose": "Metrics and quality assessment",
+      "capabilities": [
+        "5-dimensional quality scoring (accuracy, latency, cost, reliability, compliance)",
+        "Time-series metrics aggregation",
+        "Anomaly detection",
+        "Event validation"
+      ],
+      "steamModalUse": "Track animation performance, accessibility compliance (WCAG), resource efficiency, error rates"
+    },
+
+    "l04_model_gateway": {
+      "port": 8004,
+      "purpose": "AI model access for content generation",
+      "capabilities": [
+        "OpenAI/Anthropic adapters",
+        "Semantic caching",
+        "Token tracking"
+      ],
+      "steamModalUse": "Generate CSS animations, accessible ARIA labels, test scenarios, color palette suggestions"
+    },
+
+    "l01_data_layer": {
+      "port": 8001,
+      "purpose": "Data persistence and user interaction tracking",
+      "capabilities": [
+        "User interaction events",
+        "Analytics queries",
+        "Immutable audit trail"
+      ],
+      "steamModalUse": "Track modal usage patterns, user behavior analytics, variant effectiveness"
+    },
+
+    "claude_in_chrome_mcp": {
+      "purpose": "Browser automation for visual testing",
+      "capabilities": [
+        "Screenshot capture",
+        "Visual comparison",
+        "DOM inspection",
+        "GIF recording with action overlays",
+        "Accessibility tree inspection",
+        "Console log reading",
+        "Network request monitoring"
+      ],
+      "steamModalUse": "Automated visual regression, capture reference designs, baseline state documentation, accessibility audits"
+    }
+  },
+
+  "developmentWorkflow": {
+    "phase1_specification": {
+      "description": "Requirements clarity and specification",
+      "steps": [
+        "Use L12 for natural language design briefs → structured specs",
+        "Use Browser Automation to capture reference designs and extract color palettes",
+        "Create visual baseline with screenshot capture",
+        "Inspect accessibility tree of competitor modals"
+      ],
+      "outputs": ["Structured specification", "Visual baseline", "Color palette", "Accessibility requirements"]
+    },
+
+    "phase2_development": {
+      "description": "Implementation and iteration",
+      "steps": [
+        "Use L04 Model Gateway for AI-assisted content (animations, ARIA labels, test scenarios)",
+        "Connect to L10 WebSocket for real-time performance feedback",
+        "Track render counts, frame drops, memory usage via L06",
+        "Monitor focus management issues live"
+      ],
+      "outputs": ["Working implementation", "Performance metrics", "Real-time development feedback"]
+    },
+
+    "phase3_validation": {
+      "description": "Visual and functional validation",
+      "steps": [
+        "Browser Automation: Navigate to each modal variant",
+        "Capture screenshots of each state (opening/open/closing)",
+        "Compare against baseline using diff:pipeline tools",
+        "Record visual similarity scores to L06",
+        "Get real-time alerts via L10 WebSocket on failures"
+      ],
+      "outputs": ["Visual regression results", "SSIM/pixelmatch scores", "Pass/fail status"]
+    },
+
+    "phase4_tracking": {
+      "description": "User interaction tracking",
+      "steps": [
+        "Capture user behavior to L01 (modal opens, closes, variant usage)",
+        "Track: which variants used most, premature closes, performance by device",
+        "Query L01 for analytics insights"
+      ],
+      "outputs": ["Usage analytics", "User behavior patterns", "Device performance data"]
+    },
+
+    "phase5_monitoring": {
+      "description": "Continuous monitoring in production",
+      "steps": [
+        "Performance metrics → L06 (latency, frame drops)",
+        "Quality scoring → L06 (accessibility, reliability)",
+        "Anomaly detection → L06 (memory spikes)",
+        "Real-time alerts → L10 WebSocket",
+        "Dashboard visualization → Platform UI (port 3000)"
+      ],
+      "outputs": ["Grafana dashboards", "Real-time alerts", "Quality scores", "Trend analysis"]
+    }
+  },
+
+  "exampleIntegration": {
+    "newVariant": {
+      "description": "Workflow for developing a new modal variant (e.g., 'danger' variant)",
+      "steps": [
+        "1. SPEC: Query L12 with 'Create danger variant with red tones' → get color palette, density, timing",
+        "2. CODE: Use L04 to generate initial CSS for red-tinted steam and warning borders",
+        "3. IMPLEMENT: Apply generated code to new variant file",
+        "4. TEST: Browser automation navigates to test page, opens danger modal",
+        "5. VISUAL: Screenshot and compare with baseline using diff:pipeline",
+        "6. METRICS: Record render time to L06",
+        "7. A11Y: Check contrast ratio, record to L06 with threshold 7.0 (WCAG AA)",
+        "8. TRACK: Deploy to staging, track user interactions via L01 for 1 week",
+        "9. QUALITY: L06 Quality Scorer evaluates accuracy, latency, compliance",
+        "10. GATE: If overall quality >= 80, approve for production"
+      ]
+    },
+
+    "performanceOptimization": {
+      "description": "Workflow for optimizing steam animation performance",
+      "steps": [
+        "1. DETECT: L06 detects latency_score drops to 40 (critical)",
+        "2. ALERT: Real-time alert via L10 WebSocket",
+        "3. TEST: Browser automation tests reduced particle count",
+        "4. VALIDATE: Visual diff confirms appearance acceptable",
+        "5. VERIFY: L06 metrics show latency_score improves to 85",
+        "6. DEPLOY: Roll out optimized version"
+      ]
+    },
+
+    "accessibilityAudit": {
+      "description": "Workflow for WCAG AAA compliance audit",
+      "steps": [
+        "1. NAVIGATE: Browser automation opens each variant (standard, form, legal, gallery)",
+        "2. EXTRACT: Get accessibility tree from each",
+        "3. CALCULATE: Contrast ratios for all text elements",
+        "4. TEST: Keyboard navigation (tab order, escape key, focus trap)",
+        "5. RECORD: All compliance metrics to L06",
+        "6. REPORT: Generate compliance report",
+        "7. VISUALIZE: Display in L10 Dashboard"
+      ]
+    }
+  },
+
+  "steamModalContext": {
+    "location": "src/components/steam-modal/",
+    "mainComponent": "SteamModal.tsx",
+    "status": "Implemented, needs refinement",
+
+    "currentFeatures": [
+      "4 variants: standard, form, legal, gallery",
+      "Atmospheric steam effects (warm brown/tan)",
+      "High contrast content panel (14:1 ratio, WCAG AAA)",
+      "Animated wooden panel header with tumble-in effect",
+      "Brass circular close button",
+      "Staggered paragraph animations",
+      "Focus management and ARIA attributes",
+      "Escape key support"
+    ],
+
+    "variants": {
+      "standard": { "steamDensity": "medium", "use": "General content" },
+      "form": { "steamDensity": "light", "use": "Better form visibility" },
+      "legal": { "steamDensity": "light", "use": "Legal/policy content" },
+      "gallery": { "steamDensity": "medium", "use": "Media viewing" }
+    },
+
+    "colorPalette": {
+      "steam": {
+        "mainCloud": "rgba(140, 120, 100, 0.12)",
+        "wisps": "rgba(130, 110, 90, 0.08)",
+        "rising": "rgba(140, 120, 100, 0.07)"
+      },
+      "contentPanel": {
+        "background": "#f4e4c8",
+        "text": "#2a1a0a",
+        "border": "#8B6F47"
+      },
+      "header": {
+        "woodGradient": ["#4a3520", "#2a1a0a"],
+        "title": "#f5deb3",
+        "border": "#8B6F47"
+      },
+      "closeButton": {
+        "brassGradient": ["#6a5a4a", "#2a1a0a"],
+        "border": "#8B6F47"
+      }
+    },
+
+    "performanceTargets": {
+      "openTime": "< 900ms",
+      "renderTime": "< 100ms",
+      "frameRate": "60fps",
+      "memoryDelta": "< 50MB",
+      "contrastRatio": ">= 14:1"
+    }
+  },
+
+  "agentGuidance": {
+    "uxDesigner": [
+      "Reference platformServices.claude_in_chrome_mcp for visual baseline capture",
+      "Use platformServices.l12_service_hub for semantic design brief conversion",
+      "Leverage platformServices.l06_evaluation for accessibility compliance tracking",
+      "Review steamModalContext.variants for current design system",
+      "Use developmentWorkflow.phase1_specification for structured approach"
+    ],
+
+    "uiDeveloper": [
+      "Reference platformServices.l04_model_gateway for AI-assisted code generation",
+      "Use platformServices.l10_human_interface for real-time performance monitoring",
+      "Track metrics via platformServices.l06_evaluation during development",
+      "Follow developmentWorkflow.phase2_development for implementation steps",
+      "Reference steamModalContext.performanceTargets for acceptance criteria"
+    ],
+
+    "qaEngineer": [
+      "Use platformServices.claude_in_chrome_mcp for automated visual regression",
+      "Reference developmentWorkflow.phase3_validation for test workflow",
+      "Track results to platformServices.l06_evaluation",
+      "Use exampleIntegration.accessibilityAudit for compliance testing"
+    ]
+  },
+
+  "resumePrompt": "Continue refining the steam-modal component using the integrated platform services. Reference the developmentWorkflow phases for structured approach. Current focus is on leveraging L10 WebSocket for real-time feedback, L06 for quality metrics, and Browser Automation for visual validation.",
+
+  "keywords": [
+    "steam-modal",
+    "steam modal",
+    "ux refinement",
+    "ui development",
+    "modal component",
+    "platform services",
+    "l10",
+    "l06",
+    "l12",
+    "browser automation",
+    "visual regression"
+  ]
+}

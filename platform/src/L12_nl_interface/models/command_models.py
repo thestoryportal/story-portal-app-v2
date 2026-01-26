@@ -36,8 +36,10 @@ class ErrorCode(str, Enum):
     SERVICE_NOT_FOUND = "service_not_found"
     METHOD_NOT_FOUND = "method_not_found"
     INVALID_PARAMETERS = "invalid_parameters"
+    INVALID_REQUEST = "invalid_request"
     DEPENDENCY_ERROR = "dependency_error"
     INITIALIZATION_ERROR = "initialization_error"
+    SERVICE_INIT_ERROR = "service_init_error"
     EXECUTION_ERROR = "execution_error"
     TIMEOUT_ERROR = "timeout_error"
     PERMISSION_DENIED = "permission_denied"
@@ -342,7 +344,7 @@ class SearchQuery(BaseModel):
     layer_filter: Optional[str] = Field(
         default=None,
         description="Filter by layer (e.g., L05)",
-        pattern=r"^L(0[1-9]|1[01])$"
+        pattern=r"^L(0[0-9]|1[01])$"
     )
     category_filter: Optional[str] = Field(
         default=None,

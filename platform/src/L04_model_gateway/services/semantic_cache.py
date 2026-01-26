@@ -33,7 +33,7 @@ class SemanticCache:
         self,
         redis_url: str = "redis://localhost:6379",
         ttl_seconds: int = 3600,
-        similarity_threshold: float = 0.85,
+        similarity_threshold: float = 0.95,
         embedding_model: str = "nomic-embed-text",
         ollama_base_url: str = "http://localhost:11434",
         enable_embeddings: bool = True
@@ -45,6 +45,8 @@ class SemanticCache:
             redis_url: Redis connection URL
             ttl_seconds: Cache TTL in seconds
             similarity_threshold: Minimum similarity for cache hit (0.0-1.0)
+                                  Note: 0.95+ recommended for planning/decomposition
+                                  to avoid false matches on structurally similar prompts
             embedding_model: Model to use for embeddings
             ollama_base_url: Ollama API URL for embeddings
             enable_embeddings: Whether to use embeddings (falls back to exact match)

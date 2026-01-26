@@ -1,0 +1,24 @@
+CONTAINER ID   IMAGE                                          COMMAND                  CREATED             STATUS                       PORTS                                         NAMES
+15b079702ad6   platform-ui:latest                             "/docker-entrypoint.…"   About an hour ago   Up About an hour (healthy)   0.0.0.0:3000->80/tcp, [::]:3000->80/tcp       platform-ui
+82f7e16d79b8   l12-service-hub:latest                         "uvicorn L12_nl_inte…"   About an hour ago   Up About an hour (healthy)   0.0.0.0:8012->8012/tcp, [::]:8012->8012/tcp   l12-service-hub
+53990a04b20c   l09-api-gateway:latest                         "uvicorn L09_api_gat…"   About an hour ago   Up About an hour (healthy)   0.0.0.0:8009->8009/tcp, [::]:8009->8009/tcp   l09-api-gateway
+a8adead4e1c9   l10-human-interface:latest                     "uvicorn L10_human_i…"   About an hour ago   Up About an hour (healthy)   0.0.0.0:8010->8010/tcp, [::]:8010->8010/tcp   l10-human-interface
+d4b18ed58fa5   prom/node-exporter:latest                      "/bin/node_exporter …"   2 hours ago         Up 2 hours                   0.0.0.0:9100->9100/tcp, [::]:9100->9100/tcp   agentic-node-exporter
+847264189f06   grafana/grafana:latest                         "/run.sh"                2 hours ago         Up 2 hours                   0.0.0.0:3001->3000/tcp, [::]:3001->3000/tcp   agentic-grafana
+45cf87d299e8   prom/prometheus:latest                         "/bin/prometheus --c…"   2 hours ago         Up 2 hours                   0.0.0.0:9090->9090/tcp, [::]:9090->9090/tcp   agentic-prometheus
+0eb575630fbb   oliver006/redis_exporter:latest                "/redis_exporter"        2 hours ago         Up 2 hours                   0.0.0.0:9121->9121/tcp, [::]:9121->9121/tcp   agentic-redis-exporter
+904929e5ade8   gcr.io/cadvisor/cadvisor:latest                "/usr/bin/cadvisor -…"   2 hours ago         Up 2 hours (healthy)         0.0.0.0:8080->8080/tcp, [::]:8080->8080/tcp   agentic-cadvisor
+9f65fa537d3a   prometheuscommunity/postgres-exporter:latest   "/bin/postgres_expor…"   2 hours ago         Up 2 hours                   0.0.0.0:9187->9187/tcp, [::]:9187->9187/tcp   agentic-postgres-exporter
+59ffb9fa30e5   postgres:16                                    "docker-entrypoint.s…"   3 hours ago         Up 3 hours                   5432/tcp                                      agentic-db-tools
+97b2c9c53c12   l01-data-layer:latest                          "uvicorn L01_data_la…"   3 hours ago         Up 3 hours (healthy)         0.0.0.0:8001->8001/tcp, [::]:8001->8001/tcp   l01-data-layer
+7cbb3648d247   redis:7-alpine                                 "docker-entrypoint.s…"   3 hours ago         Up 3 hours (healthy)         0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp   agentic-redis
+94433ae9f050   pgvector/pgvector:pg16                         "docker-entrypoint.s…"   3 hours ago         Up 3 hours (healthy)         0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp   agentic-postgres
+93fb9872a4d3   l07-learning:latest                            "uvicorn L07_learnin…"   7 hours ago         Up 7 hours (healthy)         0.0.0.0:8007->8007/tcp, [::]:8007->8007/tcp   l07-learning
+35a5d028a5cb   l05-planning:latest                            "uvicorn L05_plannin…"   7 hours ago         Up 7 hours (healthy)         0.0.0.0:8005->8005/tcp, [::]:8005->8005/tcp   l05-planning
+a7c9c42633b4   l06-evaluation:latest                          "uvicorn L06_evaluat…"   7 hours ago         Up 7 hours (healthy)         0.0.0.0:8006->8006/tcp, [::]:8006->8006/tcp   l06-evaluation
+fd8bb21e066b   l03-tool-execution:latest                      "uvicorn L03_tool_ex…"   7 hours ago         Up 7 hours (healthy)         0.0.0.0:8003->8003/tcp, [::]:8003->8003/tcp   l03-tool-execution
+d5963e45a9db   l02-runtime:latest                             "uvicorn L02_runtime…"   7 hours ago         Up 7 hours (healthy)         0.0.0.0:8002->8002/tcp, [::]:8002->8002/tcp   l02-runtime
+ea740c53c5e3   l11-integration:latest                         "uvicorn L11_integra…"   7 hours ago         Up 7 hours (healthy)         0.0.0.0:8011->8011/tcp, [::]:8011->8011/tcp   l11-integration
+569df0924e7b   l04-model-gateway:latest                       "uvicorn L04_model_g…"   7 hours ago         Up 7 hours (healthy)         0.0.0.0:8004->8004/tcp, [::]:8004->8004/tcp   l04-model-gateway
+8cd2719f8f3c   postgres:15-alpine                             "docker-entrypoint.s…"   11 hours ago        Exited (1) 9 hours ago                                                     practical_chebyshev
+5c07fb324c88   ollama/ollama:latest                           "/bin/ollama serve"      11 hours ago        Exited (0) 8 hours ago                                                     awesome_hypatia

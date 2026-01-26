@@ -1,0 +1,43 @@
+IMAGE                                          ID             DISK USAGE   CONTENT SIZE   EXTRA
+gcr.io/cadvisor/cadvisor:latest                3de2bd520312        107MB         30.8MB   U    
+grafana/grafana:10.0.0                         4d5308c296c4        446MB         93.3MB        
+grafana/grafana:latest                         2175aaa91c96        994MB          210MB   U    
+l01-data-layer:latest                          9c8e383d4e24        307MB         72.7MB   U    
+l02-runtime:latest                             22f6f42d26d2        284MB         67.8MB   U    
+l02-runtime:test                               7129fd965229        284MB         67.8MB   U    
+l03-tool-execution:latest                      3c752bebf0c3        310MB         73.3MB   U    
+l03-tool-execution:test                        c95d2091253a        306MB         72.5MB        
+l04-model-gateway:latest                       b970864932c3        306MB         72.5MB   U    
+l04-model-gateway:test                         99f9534b27d2        306MB         72.5MB   U    
+l05-planning:latest                            a2b880fbace6        306MB         72.5MB   U    
+l06-evaluation:latest                          2a6947d0fe79        306MB         72.5MB   U    
+l07-learning:latest                            37fa8af48b07        403MB         93.5MB   U    
+l07-learning:test                              8e8d39f70116        306MB         72.5MB        
+l09-api-gateway:latest                         3e4e2a75240b        378MB         88.6MB   U    
+l09-api-gateway:test                           63ae11cff388        378MB         88.6MB        
+l10-human-interface:latest                     e153dabb5e38        430MB         99.3MB   U    
+l11-integration:latest                         9e1658531319        276MB         66.1MB   U    
+l11-integration:test                           3aed75c5ebaf        276MB         66.1MB   U    
+l12-service-hub:latest                         889e83579bd7        259MB         62.3MB   U    
+oliver006/redis_exporter:latest                bac9872da2b4       14.6MB          4.1MB   U    
+ollama/ollama:latest                           ab381bda4be8       8.97GB         3.34GB        
+pgvector/pgvector:pg16                         0a07c4114ba6        723MB          185MB   U    
+platform-ui:latest                             511ca35efdd0       94.5MB         26.4MB   U    
+postgres:15-alpine                             b3968e348b48        392MB          110MB        
+postgres:16                                    f992505e18f1        641MB          166MB   U    
+postgres:16-alpine                             23e88eb049fd        395MB          111MB        
+prom/node-exporter:latest                      3ac34ce007ac       41.6MB         13.1MB   U    
+prom/prometheus:latest                         1f0f50f06aca        503MB          134MB   U    
+prom/prometheus:v2.45.0                        9309deb7c981        334MB         93.7MB        
+prometheuscommunity/postgres-exporter:latest   fb96c4413985       37.2MB         11.7MB   U    
+redis:7-alpine                                 ee64a64eaab6       61.2MB         17.7MB   U    
+story-portal-app-l01-data-layer:latest         4d2d6fef5b22        307MB         72.6MB        
+story-portal-app-l02-runtime:latest            fc02b10975c5        283MB         67.7MB        
+story-portal-app-l03-tool-execution:latest     b2e37309c89b        306MB         72.4MB        
+story-portal-app-l04-model-gateway:latest      2e2b46a732e0        306MB         72.5MB        
+story-portal-app-l05-planning:latest           2451de9d93d3        306MB         72.5MB        
+story-portal-app-l06-evaluation:latest         b1780e645103        306MB         72.5MB        
+story-portal-app-l07-learning:latest           4c93efe73a30        306MB         72.5MB        
+story-portal-app-l09-api-gateway:latest        0992407d3595        378MB         88.6MB        
+story-portal-app-l10-human-interface:latest    b56aadc3cf9d        430MB         99.2MB        
+story-portal-app-l11-integration:latest        b5dfe622bfcc        276MB         66.1MB        

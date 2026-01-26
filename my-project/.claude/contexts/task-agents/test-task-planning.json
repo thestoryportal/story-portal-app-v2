@@ -1,0 +1,19 @@
+{
+  "taskId": "test-task-planning",
+  "version": "1.0",
+  "lastUpdated": "2026-01-23T22:28:08.101Z",
+  "state": {
+    "iteration": 0,
+    "status": "pending",
+    "lockedElements": []
+  },
+  "immediateContext": {
+    "blockers": [],
+    "nextStep": "Query planning context",
+    "workingOn": null,
+    "lastAction": null
+  },
+  "keyFiles": [],
+  "technicalDecisions": [],
+  "resumePrompt": "Start planning context tests"
+}

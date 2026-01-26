@@ -5,7 +5,6 @@
  */
 
 import type { AnimationPhase, Particle } from '../types';
-import { DisintegrationParticles } from './DisintegrationParticles';
 
 interface AnimatedPanelProps {
   selectedPrompt: string | null;
@@ -74,8 +73,6 @@ export function AnimatedPanel({
       >
         <span className="carved-text">{selectedPrompt}</span>
       </div>
-
-      <DisintegrationParticles particles={particles} visible={isDisintegrate} />
     </div>
   );
 }

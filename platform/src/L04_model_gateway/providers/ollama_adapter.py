@@ -39,7 +39,7 @@ class OllamaAdapter(BaseProviderAdapter):
     def __init__(
         self,
         base_url: str = "http://localhost:11434",
-        timeout: int = 60,
+        timeout: int = 180,  # Increased from 60 for slower local hardware
         **kwargs
     ):
         super().__init__(
