@@ -106,16 +106,24 @@ class CatalogValidator:
 
     def load_catalog(self) -> Dict:
         if not self.catalog_path.exists():
-            return {"services": []}
+            return {}
         with open(self.catalog_path) as f:
             return json.load(f)
+
+    def _get_catalog_names(self, catalog: Dict) -> Set[str]:
+        """Extract service names from catalog, handling both schema formats."""
+        # Format 1: {"services": [{"name": "X"}, ...]}
+        if "services" in catalog and isinstance(catalog["services"], list):
+            return {s.get("name") or s.get("service_name") for s in catalog["services"]}
+        # Format 2: {"ServiceName": {"service_name": "X", ...}, ...}
+        return set(catalog.keys())
 
     def validate(self) -> CatalogValidationResult:
         discovered = self.discover_services()
         catalog = self.load_catalog()
 
         discovered_names = {s.name for s in discovered}
-        catalog_names = {s["name"] for s in catalog.get("services", [])}
+        catalog_names = self._get_catalog_names(catalog)
 
         missing = discovered_names - catalog_names
         orphaned = catalog_names - discovered_names
@@ -147,7 +155,7 @@ class CatalogValidator:
     def fix_catalog(self, dry_run: bool = True) -> List[Dict]:
         discovered = self.discover_services()
         catalog = self.load_catalog()
-        catalog_names = {s["name"] for s in catalog.get("services", [])}
+        catalog_names = self._get_catalog_names(catalog)
 
         new_entries = []
         for service in discovered:
@@ -155,7 +163,19 @@ class CatalogValidator:
                 new_entries.append(self.generate_entry(service))
 
         if not dry_run and new_entries:
-            catalog.setdefault("services", []).extend(new_entries)
+            # Use Format 2: {"ServiceName": {...}, ...} to match existing catalog
+            for entry in new_entries:
+                catalog[entry["name"]] = {
+                    "service_name": entry["name"],
+                    "layer": entry["layer"],
+                    "module_path": f"src.{entry['layer']}_*.services.*",
+                    "class_name": entry["name"],
+                    "description": entry["description"],
+                    "keywords": [],
+                    "dependencies": [],
+                    "requires_async_init": False,
+                    "methods": []
+                }
             with open(self.catalog_path, 'w') as f:
                 json.dump(catalog, f, indent=2)
 
