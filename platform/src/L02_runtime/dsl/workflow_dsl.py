@@ -73,18 +73,33 @@ _platform_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
 if _platform_dir not in sys.path:
     sys.path.insert(0, _platform_dir)
 
-from L01_data_layer.models import (
-    NodeType,
-    WorkflowParadigm,
-    WorkflowVisibility,
-    WorkflowNodeDefinition,
-    WorkflowEdgeDefinition,
-    WorkflowParameter,
-    WorkflowRoute,
-    WorkflowDefinitionCreate,
-    RetryConfig,
-    CompensationConfig,
-)
+# Cross-layer imports (support different execution contexts)
+try:
+    from L01_data_layer.models import (
+        NodeType,
+        WorkflowParadigm,
+        WorkflowVisibility,
+        WorkflowNodeDefinition,
+        WorkflowEdgeDefinition,
+        WorkflowParameter,
+        WorkflowRoute,
+        WorkflowDefinitionCreate,
+        RetryConfig,
+        CompensationConfig,
+    )
+except ImportError:
+    from src.L01_data_layer.models import (
+        NodeType,
+        WorkflowParadigm,
+        WorkflowVisibility,
+        WorkflowNodeDefinition,
+        WorkflowEdgeDefinition,
+        WorkflowParameter,
+        WorkflowRoute,
+        WorkflowDefinitionCreate,
+        RetryConfig,
+        CompensationConfig,
+    )
 
 logger = logging.getLogger(__name__)
 

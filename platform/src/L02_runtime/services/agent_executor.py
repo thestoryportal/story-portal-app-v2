@@ -22,7 +22,7 @@ from ..models import (
 
 # Type hints for L04 integration (avoid circular imports)
 if TYPE_CHECKING:
-    from L04_model_gateway.services import ModelGateway
+    from src.L04_model_gateway.services import ModelGateway
 
 
 logger = logging.getLogger(__name__)
@@ -346,7 +346,7 @@ class AgentExecutor:
             Execution result with real LLM response
         """
         # Import L04 models (deferred to avoid circular imports)
-        from L04_model_gateway.models import (
+        from src.L04_model_gateway.models import (
             InferenceRequest,
             LogicalPrompt,
             Message,
@@ -492,7 +492,7 @@ class AgentExecutor:
             Streaming response chunks
         """
         # Import L04 models (deferred to avoid circular imports)
-        from L04_model_gateway.models import (
+        from src.L04_model_gateway.models import (
             InferenceRequest,
             LogicalPrompt,
             Message,
