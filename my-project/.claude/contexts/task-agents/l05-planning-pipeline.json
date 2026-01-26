@@ -1,0 +1,70 @@
+{
+  "taskId": "l05-planning-pipeline",
+  "taskName": "L05 Planning Pipeline",
+  "version": "1.0",
+  "lastUpdated": "2026-01-26T22:11:00.000Z",
+  "state": {
+    "iteration": 1,
+    "status": "in_progress",
+    "currentPhase": "integration-complete",
+    "lockedElements": []
+  },
+  "immediateContext": {
+    "workingOn": "L05 Planning Pipeline MCP Integration",
+    "lastAction": "Fixed L05<->L02 API alignment and auto-context creation",
+    "nextStep": "L02<->L04 ModelGateway integration for real execution",
+    "blockers": ["L02 returns stub results - needs L04 integration"]
+  },
+  "keyFiles": [
+    "platform/src/L05_planning/services/planning_service.py",
+    "platform/src/L05_planning/services/task_orchestrator.py",
+    "platform/src/L02_runtime/services/agent_executor.py",
+    "platform/src/L12_nl_interface/data/service_catalog.json"
+  ],
+  "technicalDecisions": [
+    "execute_plan_direct accepts dict or ExecutionPlan (Union type)",
+    "L02 AgentExecutor auto-creates context if not exists",
+    "L05 TaskOrchestrator uses input_data format for L02 API",
+    "Service catalog uses 'plan' parameter name (matches Python impl)"
+  ],
+  "completedMilestones": [
+    "execute_plan_direct method added to service catalog",
+    "Dict-to-ExecutionPlan conversion in PlanningService",
+    "L05 TaskOrchestrator API aligned with L02 AgentExecutor",
+    "L02 auto-context creation for ad-hoc execution",
+    "Full MCP pipeline test successful (1 task, 0 failures)"
+  ],
+  "knownGaps": [
+    {
+      "gap": "L02 returns stub results",
+      "description": "AgentExecutor._execute_sync() returns placeholder 'Agent execution result (stub)'",
+      "impact": "Tasks complete but don't perform real work (no file creation, no LLM calls)",
+      "resolution": "Integrate L02 with L04 ModelGateway for real LLM inference"
+    }
+  ],
+  "fixesAppliedThisSession": [
+    {
+      "file": "platform/src/L12_nl_interface/data/service_catalog.json",
+      "change": "Added execute_plan_direct method to PlanningService entry"
+    },
+    {
+      "file": "platform/src/L05_planning/services/planning_service.py",
+      "change": "Added Union[ExecutionPlan, Dict] support and from_dict conversion"
+    },
+    {
+      "file": "platform/src/L05_planning/services/task_orchestrator.py",
+      "change": "Fixed _execute_llm_call and _execute_atomic to use L02's input_data API"
+    },
+    {
+      "file": "platform/src/L02_runtime/services/agent_executor.py",
+      "change": "Added auto-context creation in execute() method"
+    }
+  ],
+  "resumePrompt": "L05 Planning Pipeline is functional via MCP. PlanningService.execute_plan_direct works end-to-end. Tasks execute successfully but return stub results because L02 AgentExecutor hasn't been integrated with L04 ModelGateway. Next step: implement real LLM execution in L02.",
+  "testCommands": {
+    "mcpTest": "mcp__platform-services__invoke_service command=PlanningService.execute_plan_direct parameters={plan: {...}}",
+    "pythonTest": "python3 -c 'from src.L05_planning.services.task_orchestrator import TaskOrchestrator; ...'"
+  },
+  "relatedTasks": ["platform-services", "context-management"],
+  "keywords": ["L05", "planning", "pipeline", "MCP", "execute_plan_direct", "task orchestrator"]
+}
