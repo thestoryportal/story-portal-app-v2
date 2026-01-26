@@ -5,6 +5,9 @@ L05 Plan Mode Bridge Script
 Invoked by the plan-mode-l05-hook.cjs to process approved plans
 and return Gate 2 options.
 
+CRITICAL: This bridge now returns the FULL serialized ExecutionPlan and Goal
+objects to enable execute_plan_direct() to work without cache lookup.
+
 Usage:
     python3 l05-bridge.py <plan_file_path> <platform_dir>
 """
@@ -41,7 +44,12 @@ def main():
         # Process plan
         response = hook.on_plan_approved(plan_markdown)
 
-        # Build result
+        # CRITICAL: Serialize full ExecutionPlan and Goal for execute_plan_direct
+        # This ensures the full plan survives the Gate 2 boundary
+        execution_plan_dict = response.execution_plan.to_dict()
+        goal_dict = response.goal.to_dict()
+
+        # Build result with FULL plan objects
         result = {
             'success': True,
             'goal': response.parsed_plan.goal,
@@ -61,14 +69,23 @@ def main():
             'prompt': hook.format_gate2_prompt(response),
             'plan_id': response.execution_plan.plan_id,
             'goal_id': response.goal.goal_id,
+
+            # CRITICAL: Full serialized objects for execute_plan_direct
+            'execution_plan': execution_plan_dict,
+            'goal_object': goal_dict,
+
+            # Also store the plan markdown path for fallback
+            'plan_markdown_path': plan_path,
         }
 
         print(json.dumps(result))
 
     except Exception as e:
+        import traceback
         print(json.dumps({
             'success': False,
-            'error': str(e)
+            'error': str(e),
+            'traceback': traceback.format_exc()
         }))
         sys.exit(1)
 

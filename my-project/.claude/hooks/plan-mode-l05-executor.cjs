@@ -8,10 +8,24 @@
  * - "L05" / "L05 Automated" / "automated"
  * - "Traditional" / "traditional"
  * - "Hybrid" / "hybrid"
+ *
+ * Includes MCP health checking before L05 execution.
  */
 
 const fs = require('fs');
 const path = require('path');
+
+// Import MCP health check utilities
+let mcpHealth;
+try {
+  mcpHealth = require('./mcp-health-check.cjs');
+} catch (e) {
+  // Fallback if module not available
+  mcpHealth = {
+    performHealthCheck: async () => ({ healthy: false, details: { error: 'Health check module not loaded' } }),
+    formatHealthStatus: (r) => `<mcp-health status="unknown">MCP status unknown</mcp-health>`,
+  };
+}
 
 // Choice detection patterns
 const CHOICE_PATTERNS = {
@@ -115,30 +129,68 @@ function clearPendingGate2(projectDir, choice) {
 
 /**
  * Format execution instruction based on choice
+ * @param {string} choice - User's choice
+ * @param {object} gate2State - Gate 2 state
+ * @param {object} mcpHealthResult - MCP health check result
  */
-function formatExecutionInstruction(choice, gate2State) {
+function formatExecutionInstruction(choice, gate2State, mcpHealthResult = null) {
   const lines = ['<plan-mode-l05-execute>'];
 
   switch (choice) {
     case 'l05_automated':
+      // Check MCP health for L05 execution
+      if (mcpHealthResult && !mcpHealthResult.healthy) {
+        lines.push('');
+        lines.push('**User selected: L05 Automated Execution**');
+        lines.push('');
+        lines.push('⚠️ **MCP Connection Issue Detected**');
+        lines.push('');
+        lines.push(`Error: ${mcpHealthResult.details.error || 'Platform services MCP is not connected'}`);
+        lines.push('');
+        lines.push('**Options:**');
+        lines.push('1. Restart Claude Code session to reconnect MCP');
+        lines.push('2. Proceed with traditional execution instead');
+        lines.push('');
+        lines.push('The L05 planning pipeline requires the platform-services MCP to be connected.');
+        lines.push('');
+        lines.push('To check MCP status manually: `claude mcp list`');
+        break;
+      }
+
+      // Check if we have the full execution_plan (required for execute_plan_direct)
+      if (!gate2State.execution_plan) {
+        lines.push('');
+        lines.push('**User selected: L05 Automated Execution**');
+        lines.push('');
+        lines.push('⚠️ **Execution Plan Missing**');
+        lines.push('');
+        lines.push('The full execution plan is not available in state.');
+        lines.push('This may be from an older version of the L05 hooks.');
+        lines.push('');
+        lines.push('Please re-run `/plan` to generate a new plan with full state.');
+        break;
+      }
+
       lines.push('');
       lines.push('**User selected: L05 Automated Execution**');
       lines.push('');
-      lines.push('Execute this plan using the L05 Planning Stack:');
-      lines.push('```python');
-      lines.push('from src.L05_planning.adapters import CLIPlanAdapter, ExecutionChoice');
-      lines.push('from src.L05_planning.services import PlanningService');
+      lines.push('Execute this plan using the L05 Planning Stack via MCP:');
       lines.push('');
-      lines.push('# Initialize services');
-      lines.push('planning_service = PlanningService()');
-      lines.push('adapter = CLIPlanAdapter(planning_service=planning_service)');
+      lines.push('CRITICAL: Use `execute_plan_direct` with the FULL execution plan object.');
       lines.push('');
-      lines.push('# Execute with L05');
-      lines.push(`result = await adapter.execute(plan_markdown, dry_run=False)`);
+      lines.push('Use `mcp__platform-services__invoke_service` with:');
+      lines.push('```json');
+      lines.push('{');
+      lines.push('  "command": "PlanningService.execute_plan_direct",');
+      lines.push('  "parameters": {');
+      lines.push('    "execution_plan": <the execution_plan object from gate2 state>');
+      lines.push('  }');
+      lines.push('}');
       lines.push('```');
       lines.push('');
       lines.push(`Plan ID: ${gate2State.plan_id}`);
       lines.push(`Goal ID: ${gate2State.goal_id}`);
+      lines.push(`Task Count: ${gate2State.execution_plan?.tasks?.length || 'unknown'}`);
       lines.push('');
       lines.push('The plan will execute with:');
       lines.push('- Parallel task execution');
@@ -251,11 +303,21 @@ async function main() {
     process.exit(0);
   }
 
+  // For L05 execution, check MCP health first
+  let mcpHealthResult = null;
+  if (choice === 'l05_automated') {
+    try {
+      mcpHealthResult = await mcpHealth.performHealthCheck();
+    } catch (e) {
+      mcpHealthResult = { healthy: false, details: { error: e.message } };
+    }
+  }
+
   // Clear the pending state
   clearPendingGate2(projectDir, choice);
 
-  // Output execution instruction
-  console.log(formatExecutionInstruction(choice, gate2State));
+  // Output execution instruction (with MCP health info for L05)
+  console.log(formatExecutionInstruction(choice, gate2State, mcpHealthResult));
 
   process.exit(0);
 }

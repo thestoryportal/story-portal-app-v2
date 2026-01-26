@@ -20,7 +20,6 @@ const { spawn } = require('child_process');
 const CONFIG = {
   enabled: true,
   platformDir: '../platform',  // Relative to project dir
-  minStepsForL05: 3,           // Minimum steps to offer L05
   timeout: 30000,              // 30 second timeout for Python bridge (includes Python startup)
   debug: true,                 // Enable debug logging to file
 };
@@ -234,6 +233,9 @@ async function runL05Adapter(planPath, projectDir) {
 
 /**
  * Format the Gate 2 injection message
+ *
+ * CRITICAL: This includes explicit AskUserQuestion instructions to ensure
+ * Claude presents the options to the user rather than auto-implementing.
  */
 function formatInjection(adapterResult) {
   if (!adapterResult.success) {
@@ -243,50 +245,65 @@ Falling back to traditional execution.
 </plan-mode-l05-error>`;
   }
 
-  // Don't offer L05 for very simple plans
-  if (adapterResult.total_steps < CONFIG.minStepsForL05) {
-    return `<plan-mode-l05-skip>
-Plan has only ${adapterResult.total_steps} steps - using traditional execution.
-</plan-mode-l05-skip>`;
-  }
-
   const lines = [
     '<plan-mode-l05-gate2>',
     '',
-    '## Execution Method',
+    '<critical-instruction>',
+    'STOP. You MUST NOT implement this plan automatically.',
+    'You MUST present the user with execution options using the AskUserQuestion tool.',
+    '</critical-instruction>',
     '',
-    `Plan "${adapterResult.goal}" is ready for execution.`,
+    '<plan-summary>',
+    `Plan: ${adapterResult.goal || 'Untitled Plan'}`,
+    `Steps: ${adapterResult.total_steps}`,
+    `Parallel Phases: ${adapterResult.parallel_phases}`,
+    `Estimated Speedup: ${adapterResult.estimated_speedup ? adapterResult.estimated_speedup.toFixed(1) + 'x' : 'Unknown'}`,
+    `Capabilities: ${adapterResult.capabilities ? adapterResult.capabilities.join(', ') : 'Standard'}`,
+    '</plan-summary>',
     '',
-    '**Choose how to execute:**',
+    '<required-action>',
+    'Call the AskUserQuestion tool with these exact parameters:',
+    '{',
+    '  "questions": [{',
+    '    "question": "How should this plan be executed?",',
+    '    "header": "Execution",',
+    '    "options": [',
+    '      {"label": "Traditional", "description": "I will implement each step manually"},',
+    '      {"label": "L05 Automated (Recommended)", "description": "The platform will execute with parallel processing"},',
+    '      {"label": "Hybrid", "description": "Simple steps automated, complex steps manual"}',
+    '    ],',
+    '    "multiSelect": false',
+    '  }]',
+    '}',
+    '</required-action>',
     '',
+    '<execution-handlers>',
+    'If user selects "Traditional":',
+    '- Implement the plan step by step as you normally would',
+    '',
+    'If user selects "L05 Automated":',
+    '- Call mcp__platform-services__invoke_service with:',
+    '  - command: "PlanningService.execute_plan_direct"',
+    '  - parameters: { "execution_plan": <full execution_plan from gate2 state> }',
+    '- The execution_plan is stored in .claude/contexts/.gate2-pending.json',
+    '',
+    'If user selects "Hybrid":',
+    '- Ask user which steps should be automated',
+    '- Execute selected steps via L05, implement others manually',
+    '</execution-handlers>',
+    '',
+    `<plan-id>${adapterResult.plan_id}</plan-id>`,
+    `<goal-id>${adapterResult.goal_id}</goal-id>`,
+    '',
+    '</plan-mode-l05-gate2>',
   ];
-
-  for (const opt of adapterResult.options) {
-    const marker = opt.id === adapterResult.recommended ? '●' : '○';
-    const rec = opt.id === adapterResult.recommended ? ' **(Recommended)**' : '';
-    lines.push(`${marker} **${opt.label}**${rec}`);
-    lines.push(`   ${opt.description}`);
-    lines.push('');
-  }
-
-  lines.push('### Analysis');
-  lines.push('');
-  lines.push(`- **Total steps:** ${adapterResult.total_steps}`);
-  lines.push(`- **Parallel phases:** ${adapterResult.parallel_phases}`);
-  lines.push(`- **Estimated speedup:** ${adapterResult.estimated_speedup.toFixed(1)}x`);
-  lines.push(`- **Capabilities:** ${adapterResult.capabilities.join(', ')}`);
-  lines.push('');
-  lines.push('---');
-  lines.push(`Plan ID: \`${adapterResult.plan_id}\``);
-  lines.push(`Goal ID: \`${adapterResult.goal_id}\``);
-  lines.push('');
-  lines.push('</plan-mode-l05-gate2>');
 
   return lines.join('\n');
 }
 
 /**
  * Save state for later execution
+ * CRITICAL: Stores the FULL ExecutionPlan and Goal objects for execute_plan_direct
  */
 function saveGate2State(adapterResult, projectDir) {
   const statePath = path.join(projectDir, '.claude', 'contexts', '.gate2-pending.json');
@@ -300,6 +317,14 @@ function saveGate2State(adapterResult, projectDir) {
       recommended: adapterResult.recommended,
       options: adapterResult.options,
       awaiting_choice: true,
+
+      // CRITICAL: Store full ExecutionPlan object for execute_plan_direct
+      // This bypasses the E5002 error from execute_plan(plan_id) cache lookup
+      execution_plan: adapterResult.execution_plan,
+      goal_object: adapterResult.goal_object,
+
+      // Fallback: store plan markdown path
+      plan_markdown_path: adapterResult.plan_markdown_path,
     };
 
     fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
