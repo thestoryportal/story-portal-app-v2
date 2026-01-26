@@ -2,6 +2,7 @@
 L05 Planning Layer - Test Configuration.
 
 Pytest fixtures for testing L05 components.
+Uses direct imports to avoid triggering cross-layer import chains.
 """
 
 import pytest
@@ -9,18 +10,25 @@ import asyncio
 from typing import AsyncGenerator
 from uuid import uuid4
 
+# Import models directly
 from ..models import Goal, GoalType, GoalConstraints, Task, ExecutionPlan
-from ..services import (
-    GoalDecomposer,
-    DependencyResolver,
-    PlanValidator,
-    ResourceEstimator,
-    TaskOrchestrator,
-    ContextInjector,
-    AgentAssigner,
-    ExecutionMonitor,
-    PlanCache,
-)
+
+# Import services directly from their modules to avoid cross-layer import chains
+from ..services.goal_decomposer import GoalDecomposer
+from ..services.dependency_resolver import DependencyResolver
+from ..services.plan_validator import PlanValidator
+from ..services.resource_estimator import ResourceEstimator
+from ..services.task_orchestrator import TaskOrchestrator
+from ..services.context_injector import ContextInjector
+from ..services.agent_assigner import AgentAssigner
+from ..services.execution_monitor import ExecutionMonitor
+from ..services.plan_cache import PlanCache
+from ..services.unit_executor import UnitExecutor
+from ..services.pipeline_orchestrator import PipelineOrchestrator
+from ..services.model_router import ModelRouter
+from ..services.execution_replay import ExecutionReplay
+from ..services.resume_manager import ResumeManager
+from ..services.error_handler import ErrorHandler
 
 
 @pytest.fixture(scope="session")
@@ -161,3 +169,55 @@ async def cleanup_timeout():
     yield
     # Allow 2 seconds for cleanup
     await asyncio.sleep(0.1)
+
+
+@pytest.fixture
+def unit_executor(tmp_path) -> UnitExecutor:
+    """Create a unit executor for testing."""
+    return UnitExecutor(
+        working_dir=tmp_path,
+        sandbox=True,
+        dry_run=True,
+        default_timeout=30,
+    )
+
+
+@pytest.fixture
+def execution_replay(tmp_path) -> ExecutionReplay:
+    """Create an execution replay for testing."""
+    return ExecutionReplay(
+        storage_path=tmp_path / ".l05_replay",
+        max_frames_per_execution=100,
+        persist_frames=True,
+    )
+
+
+@pytest.fixture
+def resume_manager(tmp_path) -> ResumeManager:
+    """Create a resume manager for testing."""
+    return ResumeManager(
+        storage_path=tmp_path / ".l05_resume",
+        stale_threshold_hours=24,
+        max_stored_executions=100,
+    )
+
+
+@pytest.fixture
+def error_handler() -> ErrorHandler:
+    """Create an error handler for testing."""
+    return ErrorHandler(
+        recovery_protocol=None,
+        compensation_engine=None,
+        auto_recover=False,
+        max_retries=3,
+    )
+
+
+@pytest.fixture
+def model_router() -> ModelRouter:
+    """Create a model router for testing."""
+    return ModelRouter(
+        l04_bridge=None,
+        quality_threshold=0.7,
+        prefer_local=True,
+    )

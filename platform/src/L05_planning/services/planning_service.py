@@ -36,10 +36,21 @@ from .execution_monitor import ExecutionMonitor
 from .plan_cache import PlanCache
 from .l01_bridge import L05Bridge
 
-# Cross-layer imports
-from src.L04_model_gateway.services.model_gateway import ModelGateway
-from src.L02_runtime.services.agent_executor import AgentExecutor
-from src.L03_tool_execution.services.tool_executor import ToolExecutor
+# Cross-layer imports (optional - may not be available in all environments)
+try:
+    from L04_model_gateway.services.model_gateway import ModelGateway
+except ImportError:
+    ModelGateway = None  # type: ignore
+
+try:
+    from L02_runtime.services.agent_executor import AgentExecutor
+except ImportError:
+    AgentExecutor = None  # type: ignore
+
+try:
+    from L03_tool_execution.services.tool_executor import ToolExecutor
+except ImportError:
+    ToolExecutor = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 

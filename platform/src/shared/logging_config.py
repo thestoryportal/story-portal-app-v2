@@ -12,7 +12,7 @@ import uuid
 from contextvars import ContextVar
 from datetime import datetime
 from typing import Any, Dict, Optional
-from pythonjsonlogger import jsonlogger
+from pythonjsonlogger.json import JsonFormatter as BaseJsonFormatter
 
 
 # Context variable for storing correlation ID across async contexts
@@ -44,7 +44,7 @@ class CorrelationIDFilter(logging.Filter):
         return True
 
 
-class CustomJsonFormatter(jsonlogger.JsonFormatter):
+class CustomJsonFormatter(BaseJsonFormatter):
     """
     Custom JSON formatter that ensures consistent field ordering
     and additional metadata.
