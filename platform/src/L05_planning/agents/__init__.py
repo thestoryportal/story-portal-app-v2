@@ -10,6 +10,12 @@ from .unit_validator import (
     CriterionResult,
     ValidationStatus,
 )
+from .regression_guardian import (
+    RegressionGuardian,
+    RegressionResult,
+    RegressionScope,
+    RegressionTest,
+)
 
 __all__ = [
     "SpecDecomposer",
@@ -19,4 +25,8 @@ __all__ = [
     "ValidationResult",
     "CriterionResult",
     "ValidationStatus",
+    "RegressionGuardian",
+    "RegressionResult",
+    "RegressionScope",
+    "RegressionTest",
 ]
