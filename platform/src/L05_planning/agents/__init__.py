@@ -16,6 +16,13 @@ from .regression_guardian import (
     RegressionScope,
     RegressionTest,
 )
+from .integration_sentinel import (
+    IntegrationSentinel,
+    IntegrationCheckResult,
+    IntegrationIssue,
+    IntegrationCheckType,
+    HealthStatus,
+)
 
 __all__ = [
     "SpecDecomposer",
@@ -29,4 +36,9 @@ __all__ = [
     "RegressionResult",
     "RegressionScope",
     "RegressionTest",
+    "IntegrationSentinel",
+    "IntegrationCheckResult",
+    "IntegrationIssue",
+    "IntegrationCheckType",
+    "HealthStatus",
 ]
