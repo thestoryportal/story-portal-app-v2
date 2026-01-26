@@ -39,22 +39,32 @@ class FormatDetector:
         FormatType.PHASE_BASED: [
             (r'^##\s+Phase\s+\d+:', 0.5),
             (r'^###\s+Step\s+\d+\.\d+:', 0.3),
+            # Also detect ### X.Y Title format (without "Step" keyword)
+            (r'^###\s+\d+\.\d+\s+\w', 0.3),
         ],
         FormatType.PART_BASED: [
             (r'^#\s+PART\s+[A-Z]+:', 0.5),
             (r'^###\s+Step\s+\d+:', 0.3),
+            # Also detect ## Section within parts
+            (r'^##\s+[A-Z][^#\n]+$', 0.15),
         ],
         FormatType.SUBPLAN: [
             (r'^##\s+Implementation\s+Phases', 0.4),
             (r'^###\s+Phase\s+\d+:', 0.3),
             (r'\*\*Focus:\*\*', 0.2),
+            # SUB-PLAN headers
+            (r'^#\s+SUB-PLAN\s+\d+:', 0.4),
         ],
         FormatType.TABLE_BASED: [
             (r'\|\s*Step\s*\|', 0.5),
             (r'\|[-:]+\|', 0.3),
+            # Also detect Feature/Description tables
+            (r'\|\s*Feature\s*\|', 0.3),
         ],
         FormatType.HIERARCHICAL: [
             (r'^###\s+Step\s+\d+(\.\d+)+:', 0.6),
+            # Also detect ### X.Y.Z format without "Step"
+            (r'^###\s+\d+\.\d+\.\d+\s+', 0.4),
         ],
     }
 
@@ -72,6 +82,15 @@ class FormatDetector:
                         scores[fmt] += weight
                         indicators[fmt].append(f"Matched: {pattern[:30]}...")
                         break
+
+        # PRIORITY RULE: If # PART exists, it's the top-level structure
+        # PART_BASED should take precedence over SUBPLAN since PART is the
+        # primary organization and SUBPLAN structures may exist within parts
+        has_parts = any(re.match(r'^#\s+PART\s+[A-Z]+:', line) for line in lines)
+        if has_parts and scores[FormatType.PART_BASED] > 0:
+            # Boost PART_BASED score significantly when parts are present
+            scores[FormatType.PART_BASED] *= 1.5
+            indicators[FormatType.PART_BASED].append("Priority: # PART headers found")
 
         max_score = max(scores.values()) if scores.values() else 0
         if max_score > 0:
