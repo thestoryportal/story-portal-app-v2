@@ -20,8 +20,11 @@ import logging
 import hashlib
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from uuid import uuid4
+
+# Import the new MultiFormatParser for improved format support
+from ..parsers.multi_format_parser import MultiFormatParser, ParseError as MultiFormatParseError
 
 from ..models import (
     Goal,
@@ -187,7 +190,10 @@ class CLIPlanAdapter:
 
         logger.info("CLIPlanAdapter initialized")
 
-    def parse_plan_markdown(self, markdown: str) -> ParsedPlan:
+        # Initialize the multi-format parser for improved format support
+        self._multi_format_parser = MultiFormatParser()
+
+    def parse_plan_markdown(self, markdown: str) -> Union[ParsedPlan, Dict[str, Any]]:
         """
         Parse CLI plan mode markdown into structured format.
 
@@ -231,11 +237,47 @@ class CLIPlanAdapter:
             markdown: CLI plan mode markdown output
 
         Returns:
-            ParsedPlan with goal, context, and steps
+            Dict with plan_id, title, format, steps, and phases (new format)
+            OR ParsedPlan with goal, context, and steps (legacy fallback)
 
         Raises:
             ValueError: If markdown cannot be parsed
         """
+        # First, try the new MultiFormatParser for better format support
+        try:
+            plan = self._multi_format_parser.parse(markdown)
+
+            # Return dict format for improved compatibility
+            result = {
+                'plan_id': plan.plan_id,
+                'title': plan.title,
+                'format': plan.format_type.value,
+                'steps': [
+                    {
+                        'id': s.id,
+                        'title': s.title,
+                        'description': s.description,
+                        'files': s.files,
+                        'dependencies': s.dependencies,
+                        'acceptance_criteria': s.acceptance_criteria,
+                    }
+                    for s in plan.steps
+                ],
+                'phases': plan.phases,
+            }
+
+            self.plans_parsed += 1
+            logger.info(
+                f"Parsed plan (MultiFormat): '{plan.title}' with {len(plan.steps)} steps "
+                f"(format: {plan.format_type.value})"
+            )
+            return result
+
+        except MultiFormatParseError as e:
+            logger.debug(f"MultiFormatParser failed, falling back to legacy parser: {e}")
+            # Fall through to legacy parser
+
+        # Legacy parser (fallback for formats not yet supported by MultiFormatParser)
         try:
             lines = markdown.strip().split('\n')
 
