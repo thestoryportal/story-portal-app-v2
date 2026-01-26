@@ -1008,6 +1008,20 @@
         ],
         "returns": "PlanExecutionResult",
         "async_method": true
+      },
+      {
+        "name": "execute_plan_direct",
+        "description": "Execute a plan directly from ExecutionPlan object (bypasses cache lookup)",
+        "parameters": [
+          {
+            "name": "plan",
+            "type": "dict",
+            "required": true,
+            "description": "Full execution plan object as dictionary"
+          }
+        ],
+        "returns": "dict",
+        "async_method": true
       }
     ]
   },

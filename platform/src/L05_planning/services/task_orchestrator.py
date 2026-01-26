@@ -405,23 +405,26 @@ class TaskOrchestrator:
         logger.info(f"Executing LLM call via L02: {(task.llm_prompt or '')[:50]}...")
 
         # Dispatch to L02 for execution
+        # L02 API: execute(agent_id, input_data, stream=False) -> Dict
         result = await self.executor_client.execute(
             agent_id=task.assigned_agent or "default",
-            task_id=task.task_id,
-            task_config={
-                "name": task.name,
-                "description": task.description,
+            input_data={
+                "content": task.llm_prompt or task.description,
+                "task_id": task.task_id,
+                "task_name": task.name,
                 "task_type": "llm_call",
-                "llm_prompt": task.llm_prompt,
                 "inputs": inputs,
                 "timeout": task.timeout_seconds,
             },
         )
 
-        if not result.success:
-            raise Exception(f"LLM call execution failed: {result.error}")
-
-        return result.outputs or {"result": "LLM call completed"}
+        # L02 returns dict with response, not TaskResult object
+        return {
+            "result": "LLM call completed",
+            "response": result.get("response", ""),
+            "agent_id": result.get("agent_id"),
+            "tokens_used": result.get("tokens_used", 0),
+        }
 
     async def _execute_atomic(
         self,
@@ -446,22 +449,25 @@ class TaskOrchestrator:
         logger.info(f"Executing atomic task via L02: {task.name}")
 
         # Dispatch to L02 for execution
+        # L02 API: execute(agent_id, input_data, stream=False) -> Dict
         result = await self.executor_client.execute(
             agent_id=task.assigned_agent or "default",
-            task_id=task.task_id,
-            task_config={
-                "name": task.name,
-                "description": task.description,
+            input_data={
+                "content": task.description,
+                "task_id": task.task_id,
+                "task_name": task.name,
                 "task_type": "atomic",
                 "inputs": inputs,
                 "timeout": task.timeout_seconds,
             },
         )
 
-        if not result.success:
-            raise Exception(f"Atomic task execution failed: {result.error}")
-
-        return result.outputs or {"result": f"Atomic task {task.name} completed"}
+        # L02 returns dict with response, not TaskResult object
+        return {
+            "result": f"Atomic task {task.name} completed",
+            "response": result.get("response", ""),
+            "status": "success",
+        }
 
     def get_stats(self) -> Dict[str, Any]:
         """Get orchestrator statistics."""

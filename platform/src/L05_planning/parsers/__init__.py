@@ -10,6 +10,7 @@ from .numbered_list_parser import NumberedListParser
 from .phase_based_parser import PhaseBasedParser
 from .part_based_parser import PartBasedParser
 from .table_based_parser import TableBasedParser
+from .files_list_parser import FilesListParser
 
 __all__ = [
     "BaseParser",
@@ -24,4 +25,5 @@ __all__ = [
     "PhaseBasedParser",
     "PartBasedParser",
     "TableBasedParser",
+    "FilesListParser",
 ]

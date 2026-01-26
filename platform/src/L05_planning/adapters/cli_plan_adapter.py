@@ -19,7 +19,7 @@ import re
 import logging
 import hashlib
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any, Union
 from uuid import uuid4
 
@@ -247,24 +247,26 @@ class CLIPlanAdapter:
         try:
             plan = self._multi_format_parser.parse(markdown)
 
-            # Return dict format for improved compatibility
-            result = {
-                'plan_id': plan.plan_id,
-                'title': plan.title,
-                'format': plan.format_type.value,
-                'steps': [
-                    {
-                        'id': s.id,
-                        'title': s.title,
-                        'description': s.description,
-                        'files': s.files,
-                        'dependencies': s.dependencies,
-                        'acceptance_criteria': s.acceptance_criteria,
-                    }
-                    for s in plan.steps
-                ],
-                'phases': plan.phases,
-            }
+            # Convert to legacy ParsedPlan format for compatibility with to_goal/to_execution_plan
+            legacy_steps = [
+                ParsedStep(
+                    id=s.id,
+                    title=s.title,
+                    description=s.description,
+                    file_targets=s.files,
+                    dependencies=s.dependencies,
+                )
+                for s in plan.steps
+            ]
+
+            result = ParsedPlan(
+                goal=plan.title,
+                context=plan.overview or "",
+                steps=legacy_steps,
+                session_id=str(uuid4())[:12],
+                approved_at=datetime.now(timezone.utc),
+                raw_markdown=markdown,
+            )
 
             self.plans_parsed += 1
             logger.info(

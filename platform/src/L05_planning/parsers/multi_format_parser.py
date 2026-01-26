@@ -11,6 +11,7 @@ from .numbered_list_parser import NumberedListParser
 from .phase_based_parser import PhaseBasedParser
 from .part_based_parser import PartBasedParser
 from .table_based_parser import TableBasedParser
+from .files_list_parser import FilesListParser
 
 
 class ParseError(Exception):
@@ -30,6 +31,7 @@ class MultiFormatParser:
             FormatType.TABLE_BASED: TableBasedParser(),
             FormatType.SUBPLAN: PhaseBasedParser(),
             FormatType.HIERARCHICAL: PhaseBasedParser(),
+            FormatType.FILES_LIST: FilesListParser(),
         }
 
     def parse(self, markdown: str) -> ParsedPlan:

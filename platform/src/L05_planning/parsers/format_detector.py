@@ -16,6 +16,7 @@ class FormatType(Enum):
     SUBPLAN = "subplan"
     TABLE_BASED = "table_based"
     HIERARCHICAL = "hierarchical"
+    FILES_LIST = "files_list"  # ### N. `path` format
     UNKNOWN = "unknown"
 
 
@@ -65,6 +66,14 @@ class FormatDetector:
             (r'^###\s+Step\s+\d+(\.\d+)+:', 0.6),
             # Also detect ### X.Y.Z format without "Step"
             (r'^###\s+\d+\.\d+\.\d+\s+', 0.4),
+        ],
+        FormatType.FILES_LIST: [
+            # ### N. `path/to/file.py` or ### N. path/to/file.py
+            (r'^###\s+\d+\.\s+[`\']?[\w./\-]+', 0.5),
+            # ## Files to Create/Modify section header
+            (r'^##\s+Files\s+to\s+(Create|Modify|Change)', 0.3),
+            # Multiple ### N. patterns (confidence boost)
+            (r'^###\s+\d+\.\s+', 0.2),
         ],
     }
 
