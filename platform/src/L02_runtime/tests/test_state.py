@@ -107,8 +107,8 @@ async def test_session_snapshot(session_bridge):
 
     # Save snapshot (may be stubbed)
     await session_bridge.save_snapshot(
-        session_id="session-1",
-        context={
+        task_id="session-1",
+        context_data={
             "currentPhase": "execution",
             "progress": 0.5,
         },

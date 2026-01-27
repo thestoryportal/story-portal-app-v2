@@ -15,21 +15,23 @@ from ..models import (
 )
 
 
-def test_registry_initialization():
+@pytest.mark.asyncio
+async def test_registry_initialization():
     """Test registry initialization"""
     registry = ModelRegistry()
 
     assert not registry.is_initialized()
-    assert len(registry.list_models()) == 0
+    assert len(await registry.list_models()) == 0
 
 
-def test_load_default_models():
+@pytest.mark.asyncio
+async def test_load_default_models():
     """Test loading default Ollama models"""
     registry = ModelRegistry()
     registry.load_default_models()
 
     assert registry.is_initialized()
-    assert len(registry.list_models()) > 0
+    assert len(await registry.list_models()) > 0
 
     # Check for default Ollama models
     llama31 = registry.get_model("llama3.1:8b")
@@ -75,12 +77,13 @@ def test_get_model_or_raise():
         registry.get_model_or_raise("nonexistent-model")
 
 
-def test_list_models_by_provider():
+@pytest.mark.asyncio
+async def test_list_models_by_provider():
     """Test filtering models by provider"""
     registry = ModelRegistry()
     registry.load_default_models()
 
-    ollama_models = registry.list_models(provider="ollama")
+    ollama_models = await registry.list_models(provider="ollama")
     assert len(ollama_models) > 0
     assert all(m.provider == "ollama" for m in ollama_models)
 
