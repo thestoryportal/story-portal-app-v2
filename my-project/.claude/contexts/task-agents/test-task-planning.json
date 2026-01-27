@@ -1,19 +1,59 @@
 {
-  "taskId": "test-task-planning",
-  "version": "1.0",
-  "lastUpdated": "2026-01-26T22:12:53.911Z",
+  "taskId": "l05-planning-pipeline",
+  "name": "L05 Planning Pipeline",
+  "version": "2.0",
+  "lastUpdated": "2026-01-26T23:30:00.000Z",
   "state": {
-    "iteration": 0,
-    "status": "pending",
+    "phase": "stable",
+    "iteration": 4,
+    "status": "complete",
     "lockedElements": []
   },
   "immediateContext": {
     "blockers": [],
-    "nextStep": "Query planning context",
+    "nextStep": "Pipeline ready for testing - run decomposition on new goals",
     "workingOn": null,
-    "lastAction": null
+    "lastAction": "Completed P1 datetime, P0 auth, P2 LLM validation fixes"
   },
-  "keyFiles": [],
-  "technicalDecisions": [],
-  "resumePrompt": "Start planning context tests"
+  "keyFiles": [
+    "platform/src/L05_planning/services/goal_decomposer.py",
+    "platform/src/L05_planning/services/planning_service.py",
+    "platform/src/L05_planning/models/goal.py",
+    "platform/src/L05_planning/models/plan.py",
+    "platform/src/L05_planning/models/task.py",
+    "platform/src/L05_planning/tests/conftest.py",
+    "platform/src/shared/clients.py"
+  ],
+  "technicalDecisions": [
+    "datetime.utcnow() replaced with datetime.now(timezone.utc) across L02/L04/L05",
+    "L01Client uses X-API-Key header with L01_API_KEY env var (fallback: dev_key_local_ONLY)",
+    "LLM decomposition has retry logic (max 2) with stricter prompts on failure",
+    "JSON extraction uses 4 strategies: json blocks, code blocks, brace matching, raw"
+  ],
+  "resumePrompt": "L05 Planning Pipeline is stable. Reference: .claude/contexts/L05-PLANNING-PIPELINE-REFERENCE.md. Test command: python3 -m pytest platform/src/L05_planning/tests --tb=short -q (248 tests expected)",
+  "referenceDoc": ".claude/contexts/L05-PLANNING-PIPELINE-REFERENCE.md",
+  "testCommand": "python3 -m pytest platform/src/L05_planning/tests --tb=short -q",
+  "expectedTests": 248,
+  "recentFixes": {
+    "P1_datetime": {
+      "status": "COMPLETE",
+      "pattern": "datetime.utcnow() -> datetime.now(timezone.utc)",
+      "scope": "L02/L04/L05 models, services, providers"
+    },
+    "P0_auth": {
+      "status": "COMPLETE",
+      "pattern": "Added X-API-Key header to L01Client",
+      "scope": "shared/clients.py, L05 conftest.py"
+    },
+    "P2_llm_validation": {
+      "status": "COMPLETE",
+      "pattern": "Retry logic + multi-strategy JSON extraction",
+      "scope": "L05_planning/services/goal_decomposer.py"
+    }
+  },
+  "commonIssues": {
+    "401_unauthorized": "Check L01_API_KEY env var or ensure dev_key_local_ONLY fallback",
+    "json_parse_error": "LLM may return markdown - retry logic handles this",
+    "deprecation_warning": "Should be fixed - if seen, check datetime imports"
+  }
 }
