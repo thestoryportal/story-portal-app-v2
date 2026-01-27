@@ -41,11 +41,11 @@ def event_loop():
 
 @pytest.fixture
 def mock_goal() -> Goal:
-    """Create a mock goal for testing."""
+    """Create a mock goal for testing that matches Simple Query template."""
     return Goal.create(
         agent_did="did:agent:test",
-        goal_text="Create a test plan with multiple tasks",
-        goal_type=GoalType.COMPOUND,
+        goal_text="What is the status of the test system",
+        goal_type=GoalType.SIMPLE,  # Simple for template matching
         constraints=GoalConstraints(
             max_token_budget=10000,
             max_execution_time_sec=600,

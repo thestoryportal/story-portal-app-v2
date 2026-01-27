@@ -50,17 +50,20 @@ class ExecutionMonitor:
 
     def __init__(
         self,
-        event_store_client=None,  # L01 Event Store client
+        event_store_client=None,  # L01 Event Store client (legacy)
+        l01_client=None,  # L01 Data Layer client for event recording
         enable_events: bool = True,
     ):
         """
         Initialize Execution Monitor.
 
         Args:
-            event_store_client: Client for L01 Event Store
+            event_store_client: Client for L01 Event Store (legacy)
+            l01_client: L01 Data Layer client (shared.clients.L01Client)
             enable_events: Enable event emission
         """
         self.event_store_client = event_store_client
+        self.l01_client = l01_client
         self.enable_events = enable_events
 
         # Event callbacks
@@ -304,8 +307,8 @@ class ExecutionMonitor:
             **kwargs,
         }
 
-        # Emit to event store
-        if self.event_store_client:
+        # Emit to event store (L01 or legacy event_store_client)
+        if self.l01_client or self.event_store_client:
             try:
                 await self._publish_to_event_store(event_data)
             except Exception as e:
@@ -329,8 +332,36 @@ class ExecutionMonitor:
         Args:
             event_data: Event payload
         """
-        # TODO: Integrate with L01 Event Store
-        logger.debug(f"Publishing event: {event_data['event_type']} (mock)")
+        # Use L01 client if available
+        if self.l01_client:
+            try:
+                # Extract event type for L01 format
+                event_type = event_data.get("event_type", "unknown")
+
+                # Build payload with plan/task IDs
+                payload = {}
+                if "plan" in event_data and hasattr(event_data["plan"], "plan_id"):
+                    payload["plan_id"] = event_data["plan"].plan_id
+                if "task" in event_data and hasattr(event_data["task"], "task_id"):
+                    payload["task_id"] = event_data["task"].task_id
+                if "error" in event_data:
+                    payload["error"] = str(event_data["error"])
+                if "outputs" in event_data:
+                    payload["outputs"] = event_data["outputs"]
+                if "retry_count" in event_data:
+                    payload["retry_count"] = event_data["retry_count"]
+
+                await self.l01_client.record_event(
+                    event_type=event_type,
+                    payload=payload,
+                )
+                logger.debug(f"Published event to L01: {event_type}")
+                return
+            except Exception as e:
+                logger.warning(f"Failed to publish event to L01: {e}")
+
+        # Fallback: just log
+        logger.debug(f"Publishing event: {event_data['event_type']} (local only)")
 
     def register_callback(
         self,

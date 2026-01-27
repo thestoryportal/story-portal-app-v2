@@ -40,6 +40,7 @@ class AgentAssigner:
     def __init__(
         self,
         agent_registry_client=None,  # L02 Agent Registry client
+        l01_client=None,  # L01 Data Layer client for agent fetching
         load_balance_strategy: str = "least_loaded",  # "least_loaded", "round_robin"
         affinity_enabled: bool = True,
     ):
@@ -48,10 +49,12 @@ class AgentAssigner:
 
         Args:
             agent_registry_client: Client for L02 Agent Registry
+            l01_client: L01 Data Layer client (shared.clients.L01Client)
             load_balance_strategy: Load balancing strategy
             affinity_enabled: Enable task affinity
         """
         self.agent_registry_client = agent_registry_client
+        self.l01_client = l01_client
         self.load_balance_strategy = load_balance_strategy
         self.affinity_enabled = affinity_enabled
 
@@ -290,19 +293,64 @@ class AgentAssigner:
                 return 1.0  # Perfect affinity
         return 0.0  # No affinity
 
-    async def _get_available_agents(self) -> List[Agent]:
+    # Mapping from L01 capability strings to L05 CapabilityType
+    _L01_CAPABILITY_MAP = {
+        "data_processing": CapabilityType.DATA_PROCESSING,
+        "task_execution": CapabilityType.TOOL_EXECUTION,
+        "analysis": CapabilityType.REASONING,
+        "reporting": CapabilityType.LLM_INFERENCE,
+        "file_operations": CapabilityType.FILE_OPERATIONS,
+        "code_execution": CapabilityType.CODE_EXECUTION,
+        "llm_inference": CapabilityType.LLM_INFERENCE,
+        "reasoning": CapabilityType.REASONING,
+        "tool_execution": CapabilityType.TOOL_EXECUTION,
+        "network_access": CapabilityType.NETWORK_ACCESS,
+    }
+
+    def _convert_l01_agent(self, l01_agent: Dict[str, Any]) -> Agent:
         """
-        Get list of available agents.
+        Convert L01 agent response to L05 Agent model.
+
+        Args:
+            l01_agent: Agent data from L01 (dict with id, did, status, configuration)
 
         Returns:
-            List of Agent objects
+            L05 Agent model instance
         """
-        # TODO: Integrate with L02 Agent Registry
-        # For now, return mock agents
-        logger.debug("Fetching available agents (mock)")
+        # Extract capabilities from configuration
+        config = l01_agent.get("configuration", {})
+        l01_capabilities = config.get("capabilities", [])
 
-        # Create mock agents
-        mock_agents = [
+        # Map L01 capability strings to L05 CapabilityType
+        capabilities = []
+        for cap_str in l01_capabilities:
+            cap_type = self._L01_CAPABILITY_MAP.get(cap_str.lower())
+            if cap_type:
+                capabilities.append(AgentCapability(cap_type))
+
+        # Default capabilities if none mapped
+        if not capabilities:
+            capabilities = [AgentCapability(CapabilityType.TOOL_EXECUTION)]
+
+        # Determine availability from status
+        is_available = l01_agent.get("status", "").lower() == "active"
+
+        return Agent(
+            agent_did=l01_agent.get("did", f"agent:{l01_agent.get('id', 'unknown')}"),
+            capabilities=capabilities,
+            current_load=0,  # L01 doesn't track load yet
+            max_concurrent_tasks=5,  # Default
+            is_available=is_available,
+        )
+
+    def _get_mock_agents(self) -> List[Agent]:
+        """
+        Get mock agents for fallback when L01 is unavailable.
+
+        Returns:
+            List of mock Agent objects
+        """
+        return [
             Agent(
                 agent_did="did:agent:general-1",
                 capabilities=[
@@ -328,7 +376,32 @@ class AgentAssigner:
             ),
         ]
 
-        return mock_agents
+    async def _get_available_agents(self) -> List[Agent]:
+        """
+        Get list of available agents from L01 or fallback to mock.
+
+        Returns:
+            List of Agent objects
+        """
+        # Try L01 client first
+        if self.l01_client:
+            try:
+                logger.debug("Fetching available agents from L01")
+                l01_agents = await self.l01_client.list_agents(status="active")
+                if l01_agents:
+                    agents = [self._convert_l01_agent(a) for a in l01_agents]
+                    # Filter to only available agents
+                    available = [a for a in agents if a.is_available]
+                    if available:
+                        logger.info(f"Fetched {len(available)} agents from L01")
+                        return available
+                logger.debug("L01 returned no agents, falling back to mock")
+            except Exception as e:
+                logger.warning(f"L01 unavailable, using mock agents: {e}")
+
+        # Fallback to mock agents
+        logger.debug("Using mock agents")
+        return self._get_mock_agents()
 
     def release_assignment(self, assignment: AgentAssignment) -> None:
         """

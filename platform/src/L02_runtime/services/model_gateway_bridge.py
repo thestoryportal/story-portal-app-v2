@@ -35,7 +35,10 @@ class ModelGatewayBridge:
         """Lazy load gateway if not provided"""
         if self._gateway is None and not self._gateway_initialized:
             try:
-                from src.L04_model_gateway.services import ModelGateway
+                try:
+                    from L04_model_gateway.services import ModelGateway
+                except ImportError:
+                    from src.L04_model_gateway.services import ModelGateway
                 self._gateway = ModelGateway()
                 self._gateway_initialized = True
                 logger.info("Model Gateway lazy loaded successfully")
@@ -75,11 +78,18 @@ class ModelGatewayBridge:
             gateway = await self._ensure_gateway()
 
             # Import L04 models
-            from src.L04_model_gateway.models import (
-                Message,
-                MessageRole,
-                InferenceRequest
-            )
+            try:
+                from L04_model_gateway.models import (
+                    Message,
+                    MessageRole,
+                    InferenceRequest
+                )
+            except ImportError:
+                from src.L04_model_gateway.models import (
+                    Message,
+                    MessageRole,
+                    InferenceRequest
+                )
 
             # Convert messages to L04 format
             l04_messages = []

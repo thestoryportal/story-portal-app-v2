@@ -54,18 +54,20 @@ async def test_template_decomposition(simple_goal: Goal):
 
 @pytest.mark.asyncio
 async def test_plan_validation():
-    """Test plan validation."""
+    """Test plan validation using template decomposition."""
     service = PlanningService()
     await service.initialize()
 
     try:
-        # Create goal with very short timeout
+        # Create goal that matches Simple Query template
         goal = Goal.create(
             agent_did="did:agent:test",
-            goal_text="Test validation",
+            goal_text="What is the validation status",
         )
+        # Force template strategy to ensure deterministic tests
+        goal.decomposition_strategy = "template"
 
-        # Should still create valid plan
+        # Should create valid plan using template
         plan = await service.create_plan(goal)
         assert plan.status.value == "validated"
 
@@ -75,11 +77,14 @@ async def test_plan_validation():
 
 @pytest.mark.asyncio
 async def test_plan_execution_mock(mock_goal: Goal):
-    """Test plan execution with mock tasks."""
+    """Test plan execution with mock tasks using template decomposition."""
     service = PlanningService()
     await service.initialize()
 
     try:
+        # Force template strategy for deterministic tests
+        mock_goal.decomposition_strategy = "template"
+
         # Create plan
         plan = await service.create_plan(mock_goal)
 

@@ -284,14 +284,23 @@ class GoalDecomposer:
             )
 
         try:
-            # Import L04 models
-            from src.L04_model_gateway.models import (
-                InferenceRequest,
-                LogicalPrompt,
-                Message,
-                MessageRole,
-                ModelRequirements,
-            )
+            # Import L04 models - try both import patterns
+            try:
+                from L04_model_gateway.models import (
+                    InferenceRequest,
+                    LogicalPrompt,
+                    Message,
+                    MessageRole,
+                    ModelRequirements,
+                )
+            except ImportError:
+                from src.L04_model_gateway.models import (
+                    InferenceRequest,
+                    LogicalPrompt,
+                    Message,
+                    MessageRole,
+                    ModelRequirements,
+                )
 
             # Build prompt
             system_prompt = """You are a task planning assistant. Your job is to decompose high-level goals into specific, executable tasks.

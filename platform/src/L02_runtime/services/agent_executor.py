@@ -346,12 +346,20 @@ class AgentExecutor:
             Execution result with real LLM response
         """
         # Import L04 models (deferred to avoid circular imports)
-        from src.L04_model_gateway.models import (
-            InferenceRequest,
-            LogicalPrompt,
-            Message,
-            MessageRole,
-        )
+        try:
+            from L04_model_gateway.models import (
+                InferenceRequest,
+                LogicalPrompt,
+                Message,
+                MessageRole,
+            )
+        except ImportError:
+            from src.L04_model_gateway.models import (
+                InferenceRequest,
+                LogicalPrompt,
+                Message,
+                MessageRole,
+            )
 
         logger.info(f"Executing agent {agent_id} via L04 ModelGateway")
 
@@ -492,12 +500,20 @@ class AgentExecutor:
             Streaming response chunks
         """
         # Import L04 models (deferred to avoid circular imports)
-        from src.L04_model_gateway.models import (
-            InferenceRequest,
-            LogicalPrompt,
-            Message,
-            MessageRole,
-        )
+        try:
+            from L04_model_gateway.models import (
+                InferenceRequest,
+                LogicalPrompt,
+                Message,
+                MessageRole,
+            )
+        except ImportError:
+            from src.L04_model_gateway.models import (
+                InferenceRequest,
+                LogicalPrompt,
+                Message,
+                MessageRole,
+            )
 
         logger.info(f"Streaming agent {agent_id} execution via L04 ModelGateway")
 
