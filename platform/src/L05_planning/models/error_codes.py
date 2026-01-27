@@ -57,6 +57,9 @@ class ErrorCode(str, Enum):
     E5303 = "E5303"  # INVALID_DEPENDENCY_TYPE
     E5304 = "E5304"  # DEPENDENCY_GRAPH_INVALID
     E5305 = "E5305"  # TOPOLOGICAL_SORT_FAILED
+    E5306 = "E5306"  # L02_EXECUTOR_UNAVAILABLE
+    E5307 = "E5307"  # L03_TOOLS_UNAVAILABLE
+    E5308 = "E5308"  # L04_GATEWAY_UNAVAILABLE
 
     # E5400-E5499: Context management
     E5400 = "E5400"  # CONTEXT_INJECTION_FAILED
@@ -143,6 +146,9 @@ ERROR_MESSAGES = {
     ErrorCode.E5303: "Invalid dependency type specified",
     ErrorCode.E5304: "Dependency graph structure is invalid",
     ErrorCode.E5305: "Topological sort of task graph failed",
+    ErrorCode.E5306: "L02 Agent Executor service is unavailable",
+    ErrorCode.E5307: "L03 Tool Execution service is unavailable",
+    ErrorCode.E5308: "L04 Model Gateway service is unavailable",
 
     # Context management
     ErrorCode.E5400: "Context injection failed",

@@ -65,6 +65,7 @@ class TaskOrchestrator:
         tool_executor_client=None,  # L03 ToolExecutor client
         max_parallel_tasks: int = 10,
         task_timeout_sec: int = 300,
+        strict_mode: bool = False,
     ):
         """
         Initialize Task Orchestrator.
@@ -75,12 +76,14 @@ class TaskOrchestrator:
             tool_executor_client: L03 ToolExecutor client for tool execution
             max_parallel_tasks: Maximum concurrent tasks
             task_timeout_sec: Default task timeout
+            strict_mode: If True, raise PlanningError when clients are missing (no mock fallback)
         """
         self.dependency_resolver = dependency_resolver or DependencyResolver()
         self.executor_client = executor_client
         self.tool_executor_client = tool_executor_client
         self.max_parallel_tasks = max_parallel_tasks
         self.task_timeout_sec = task_timeout_sec
+        self.strict_mode = strict_mode
 
         # Execution state tracking
         self._executing_tasks: Dict[str, asyncio.Task] = {}
@@ -362,8 +365,20 @@ class TaskOrchestrator:
 
         Returns:
             Tool outputs
+
+        Raises:
+            PlanningError: If strict_mode=True and tool_executor_client is None
         """
         if not self.tool_executor_client:
+            if self.strict_mode:
+                raise PlanningError.from_code(
+                    ErrorCode.E5307,
+                    details={
+                        "task_id": task.task_id,
+                        "tool_name": task.tool_name,
+                        "message": "L03 tool executor not configured (strict_mode=True)",
+                    },
+                )
             logger.warning(f"No L03 tool executor configured, using mock for {task.tool_name}")
             return {"result": f"Tool {task.tool_name} executed (mock)", "status": "success"}
 
@@ -397,8 +412,20 @@ class TaskOrchestrator:
 
         Returns:
             LLM outputs
+
+        Raises:
+            PlanningError: If strict_mode=True and executor_client is None
         """
         if not self.executor_client:
+            if self.strict_mode:
+                raise PlanningError.from_code(
+                    ErrorCode.E5306,
+                    details={
+                        "task_id": task.task_id,
+                        "task_name": task.name,
+                        "message": "L02 executor not configured (strict_mode=True)",
+                    },
+                )
             logger.warning(f"No L02 executor configured, using mock for LLM call")
             return {"result": "LLM call completed (mock)", "response": "Mock response"}
 
@@ -440,8 +467,20 @@ class TaskOrchestrator:
 
         Returns:
             Task outputs
+
+        Raises:
+            PlanningError: If strict_mode=True and executor_client is None
         """
         if not self.executor_client:
+            if self.strict_mode:
+                raise PlanningError.from_code(
+                    ErrorCode.E5306,
+                    details={
+                        "task_id": task.task_id,
+                        "task_name": task.name,
+                        "message": "L02 executor not configured (strict_mode=True)",
+                    },
+                )
             logger.warning(f"No L02 executor configured, using mock for atomic task")
             await asyncio.sleep(0.1)  # Simulate work
             return {"result": f"Atomic task {task.name} completed (mock)", "status": "success"}

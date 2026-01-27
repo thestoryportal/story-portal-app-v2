@@ -102,6 +102,13 @@ class ExecutionPlan:
                 return task
         return None
 
+    def get_task_by_name(self, name: str) -> Optional[Task]:
+        """Get task by name."""
+        for task in self.tasks:
+            if task.name == name:
+                return task
+        return None
+
     def get_ready_tasks(self) -> List[Task]:
         """Get all tasks that are ready to execute."""
         return [task for task in self.tasks if task.status == "ready"]

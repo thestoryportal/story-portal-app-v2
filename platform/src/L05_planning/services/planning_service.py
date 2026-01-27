@@ -90,6 +90,10 @@ class PlanningService:
         executor_client: Optional[AgentExecutor] = None,
         tool_executor_client: Optional[ToolExecutor] = None,
         l01_bridge: Optional[L05Bridge] = None,
+        # Aliases for clearer parameter naming
+        l02_client: Optional[AgentExecutor] = None,
+        l03_client: Optional[ToolExecutor] = None,
+        l04_bridge: Optional[ModelGateway] = None,
     ):
         """
         Initialize Planning Service.
@@ -102,11 +106,18 @@ class PlanningService:
             context_injector: ContextInjector instance
             agent_assigner: AgentAssigner instance
             monitor: ExecutionMonitor instance
-            gateway_client: L04 Model Gateway client
-            executor_client: L02 AgentExecutor client
-            tool_executor_client: L03 ToolExecutor client
+            gateway_client: L04 Model Gateway client (alias: l04_bridge)
+            executor_client: L02 AgentExecutor client (alias: l02_client)
+            tool_executor_client: L03 ToolExecutor client (alias: l03_client)
             l01_bridge: L05Bridge for L01 Data Layer integration
+            l02_client: Alias for executor_client
+            l03_client: Alias for tool_executor_client
+            l04_bridge: Alias for gateway_client
         """
+        # Handle parameter aliases
+        executor_client = executor_client or l02_client
+        tool_executor_client = tool_executor_client or l03_client
+        gateway_client = gateway_client or l04_bridge
         # Initialize cross-layer clients (with mock fallback)
         if MOCK_MODE:
             logger.info("PlanningService running in MOCK mode")
@@ -155,6 +166,10 @@ class PlanningService:
         self.plans_created = 0
         self.plans_executed = 0
         self.execution_failures = 0
+
+        # In-memory plan registry (fallback when L01 unavailable)
+        # Maps plan_id -> ExecutionPlan
+        self._plan_registry: Dict[str, ExecutionPlan] = {}
 
         logger.info("PlanningService initialized with all components and cross-layer integrations")
 
@@ -242,7 +257,10 @@ class PlanningService:
             # Mark plan as validated
             plan.mark_validated()
 
-            # Record plan in L01
+            # Store in local registry (fallback for L01 failures)
+            self._plan_registry[plan.plan_id] = plan
+
+            # Record plan in L01 (may fail but we have local copy)
             await self.l01_bridge.record_plan(plan)
 
             self.plans_created += 1
@@ -269,12 +287,13 @@ class PlanningService:
         Execute plan by ID.
 
         Pipeline:
-        1. Load plan
-        2. Inject contexts for tasks
-        3. Assign agents to tasks
-        4. Orchestrate execution
-        5. Monitor progress
-        6. Return result
+        1. Load plan from L01 persistence
+        2. Deserialize to ExecutionPlan
+        3. Inject contexts for tasks
+        4. Assign agents to tasks
+        5. Orchestrate execution
+        6. Monitor progress
+        7. Return result
 
         Args:
             plan_id: Plan ID to execute
@@ -283,16 +302,45 @@ class PlanningService:
             Execution result dictionary
 
         Raises:
-            PlanningError: On execution failure
+            PlanningError: On execution failure (E5002 if plan not found)
         """
-        # TODO: Load plan from persistence
-        # For now, assume plan is passed directly via execute_plan_direct
+        logger.info(f"Loading plan {plan_id} for execution")
 
-        raise PlanningError.from_code(
-            ErrorCode.E5002,
-            details={"plan_id": plan_id},
-            recovery_suggestion="Use execute_plan_direct() with plan object",
-        )
+        plan: Optional[ExecutionPlan] = None
+
+        # Step 1: Check local registry first (fastest, always available)
+        if plan_id in self._plan_registry:
+            plan = self._plan_registry[plan_id]
+            logger.info(f"Loaded plan {plan_id} from local registry ({len(plan.tasks)} tasks)")
+        else:
+            # Step 2: Try L01 persistence
+            plan_data = await self.l01_bridge.get_plan(plan_id)
+
+            if plan_data:
+                # Deserialize to ExecutionPlan object
+                try:
+                    plan = ExecutionPlan.from_dict(plan_data)
+                    logger.info(f"Loaded plan {plan_id} from L01 ({len(plan.tasks)} tasks)")
+                    # Store in local registry for future access
+                    self._plan_registry[plan_id] = plan
+                except Exception as e:
+                    logger.error(f"Failed to deserialize plan {plan_id}: {e}")
+                    raise PlanningError.from_code(
+                        ErrorCode.E5002,
+                        details={"plan_id": plan_id, "error": f"Deserialization failed: {e}"},
+                        recovery_suggestion="Plan data may be corrupted - try creating a new plan",
+                    )
+
+        # Step 3: Raise if not found anywhere
+        if not plan:
+            raise PlanningError.from_code(
+                ErrorCode.E5002,
+                details={"plan_id": plan_id, "reason": "Plan not found in registry or L01"},
+                recovery_suggestion="Ensure plan was created with create_plan() first",
+            )
+
+        # Step 4: Execute via execute_plan_direct
+        return await self.execute_plan_direct(plan)
 
     async def execute_plan_direct(
         self,
@@ -445,7 +493,7 @@ class PlanningService:
 
     async def get_plan_status(self, plan_id: str) -> Dict[str, Any]:
         """
-        Get status of plan from L01 persistence.
+        Get status of plan from local registry or L01 persistence.
 
         Args:
             plan_id: Plan ID
@@ -454,6 +502,22 @@ class PlanningService:
             Plan status dictionary
         """
         try:
+            # Check local registry first
+            if plan_id in self._plan_registry:
+                plan = self._plan_registry[plan_id]
+                return {
+                    "plan_id": plan_id,
+                    "status": plan.status.value,
+                    "goal_id": plan.goal_id,
+                    "task_count": len(plan.tasks),
+                    "completed_tasks": plan.completed_task_count,
+                    "failed_tasks": plan.failed_task_count,
+                    "created_at": plan.created_at.isoformat() if plan.created_at else None,
+                    "execution_started_at": plan.execution_started_at.isoformat() if plan.execution_started_at else None,
+                    "execution_completed_at": plan.execution_completed_at.isoformat() if plan.execution_completed_at else None,
+                    "execution_time_ms": plan.metadata.execution_time_ms,
+                }
+
             # Try to load from L01 bridge
             plan_data = await self.l01_bridge.get_plan(plan_id)
 
@@ -559,3 +623,59 @@ class PlanningService:
                 "l04_gateway": self.gateway is not None,
             }
         }
+
+    async def validate_dependencies(self) -> Dict[str, Any]:
+        """
+        Validate that all required dependencies are available.
+
+        Checks connectivity/availability of:
+        - L01 Data Layer
+        - L02 Agent Executor
+        - L03 Tool Execution
+        - L04 Model Gateway
+
+        Returns:
+            Dictionary with status for each dependency:
+            {
+                "l01_data": {"available": bool, "message": str},
+                "l02_executor": {"available": bool, "message": str},
+                "l03_tools": {"available": bool, "message": str},
+                "l04_gateway": {"available": bool, "message": str},
+            }
+        """
+        result = {}
+
+        # Check L01 Data Layer
+        l01_available = self.l01_bridge is not None
+        l01_message = "L01 bridge configured" if l01_available else "L01 bridge not configured"
+        if l01_available:
+            try:
+                # Test L01 connectivity (if health_check exists)
+                if hasattr(self.l01_bridge, 'health_check'):
+                    health = await self.l01_bridge.health_check()
+                    l01_available = health.get("status") == "healthy"
+                    l01_message = health.get("message", "L01 health check passed")
+                else:
+                    l01_message = "L01 bridge configured (no health check available)"
+            except Exception as e:
+                l01_available = False
+                l01_message = f"L01 health check failed: {e}"
+        result["l01_data"] = {"available": l01_available, "message": l01_message}
+
+        # Check L02 Agent Executor
+        l02_available = self.executor is not None
+        l02_message = "L02 executor configured" if l02_available else "L02 executor not configured"
+        result["l02_executor"] = {"available": l02_available, "message": l02_message}
+
+        # Check L03 Tool Execution
+        l03_available = self.tool_executor is not None
+        l03_message = "L03 tool executor configured" if l03_available else "L03 tool executor not configured"
+        result["l03_tools"] = {"available": l03_available, "message": l03_message}
+
+        # Check L04 Model Gateway
+        l04_available = self.gateway is not None
+        l04_message = "L04 gateway configured" if l04_available else "L04 gateway not configured"
+        result["l04_gateway"] = {"available": l04_available, "message": l04_message}
+
+        logger.info(f"Dependency validation: L01={l01_available}, L02={l02_available}, L03={l03_available}, L04={l04_available}")
+        return result

@@ -1022,6 +1022,13 @@
         ],
         "returns": "dict",
         "async_method": true
+      },
+      {
+        "name": "validate_dependencies",
+        "description": "Validate availability of all layer dependencies (L01 data, L02 executor, L03 tools, L04 gateway)",
+        "parameters": [],
+        "returns": "dict",
+        "async_method": true
       }
     ]
   },

@@ -176,23 +176,27 @@ class UnitExecutor:
 
     def _determine_execution_type(self, unit: AtomicUnit) -> ExecutionType:
         """Determine the execution type from unit content."""
+        # Check description FIRST for explicit type hints
+        desc_lower = unit.description.lower()
+        title_lower = unit.title.lower() if unit.title else ""
+        combined = desc_lower + " " + title_lower
+
+        if "test" in combined:
+            return ExecutionType.TEST
+        if "delete" in combined or "remove" in combined:
+            return ExecutionType.FILE_DELETE
+        if "modify" in combined or "update" in combined or "change" in combined:
+            return ExecutionType.FILE_MODIFY
+        if "create" in combined or "add" in combined or "new" in combined:
+            return ExecutionType.FILE_CREATE
+        if "run" in combined or "execute" in combined:
+            return ExecutionType.COMMAND
+
+        # Fallback: if files exist, default to FILE_CREATE
         if unit.files:
             if any("test" in f.lower() for f in unit.files):
                 return ExecutionType.TEST
             return ExecutionType.FILE_CREATE
-
-        # Check description for hints
-        desc_lower = unit.description.lower()
-        if "test" in desc_lower:
-            return ExecutionType.TEST
-        if "create" in desc_lower or "add" in desc_lower:
-            return ExecutionType.FILE_CREATE
-        if "modify" in desc_lower or "update" in desc_lower:
-            return ExecutionType.FILE_MODIFY
-        if "delete" in desc_lower or "remove" in desc_lower:
-            return ExecutionType.FILE_DELETE
-        if "run" in desc_lower or "execute" in desc_lower:
-            return ExecutionType.COMMAND
 
         return ExecutionType.COMPOSITE
 
@@ -250,9 +254,15 @@ class UnitExecutor:
                 elif execution_type == ExecutionType.FILE_MODIFY:
                     if full_path.exists():
                         await self._backup_file(full_path)
-                        # Modification content should come from context
-                        files_changed.append(str(full_path))
-                        output_parts.append(f"Would modify: {file_path}")
+                        # Get content from context and write to file
+                        content = context.get("content", "")
+                        if content:
+                            full_path.write_text(content)
+                            files_changed.append(str(full_path))
+                            output_parts.append(f"Modified: {file_path}")
+                            logger.debug(f"Modified file: {full_path}")
+                        else:
+                            output_parts.append(f"No content provided for: {file_path}")
 
                 elif execution_type == ExecutionType.FILE_DELETE:
                     if full_path.exists():

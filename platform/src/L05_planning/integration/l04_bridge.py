@@ -13,6 +13,8 @@ from enum import Enum
 from typing import Any, AsyncIterator, Dict, List, Optional
 from uuid import uuid4
 
+from ..models import PlanningError, ErrorCode
+
 logger = logging.getLogger(__name__)
 
 # Optional httpx import for real HTTP calls
@@ -102,6 +104,7 @@ class L04Bridge:
         default_provider: ModelProvider = ModelProvider.ANTHROPIC,
         default_strategy: RoutingStrategy = RoutingStrategy.BALANCED,
         timeout: float = 60.0,
+        strict_mode: bool = False,
     ):
         """
         Initialize L04 bridge.
@@ -114,6 +117,7 @@ class L04Bridge:
             default_provider: Default model provider
             default_strategy: Default routing strategy
             timeout: HTTP request timeout in seconds
+            strict_mode: If True, raise PlanningError when L04 is unavailable (no mock fallback)
         """
         self.model_gateway = model_gateway
         self.base_url = base_url or os.getenv("L04_BASE_URL", "http://localhost:8004")
@@ -122,6 +126,7 @@ class L04Bridge:
         self.default_provider = default_provider
         self.default_strategy = default_strategy
         self.timeout = timeout
+        self.strict_mode = strict_mode
 
         self._initialized = False
         self._connected = False
@@ -276,15 +281,43 @@ class L04Bridge:
                     self._remote_generation_count += 1
                     self._total_tokens_used += result.tokens_used
                 else:
+                    if self.strict_mode:
+                        raise PlanningError.from_code(
+                            ErrorCode.E5308,
+                            details={
+                                "base_url": self.base_url,
+                                "message": "L04 generation returned no result (strict_mode=True)",
+                            },
+                        )
                     result = self._generate_mock_plan(task_description)
                     self._local_generation_count += 1
+            except PlanningError:
+                raise
             except Exception as e:
+                if self.strict_mode:
+                    raise PlanningError.from_code(
+                        ErrorCode.E5308,
+                        details={
+                            "base_url": self.base_url,
+                            "error": str(e),
+                            "message": "L04 remote generation failed (strict_mode=True)",
+                        },
+                    )
                 logger.warning(f"Remote generation failed, falling back to mock: {e}")
                 result = self._generate_mock_plan(task_description)
                 self._local_generation_count += 1
         elif self.model_gateway:
             result = self._generate_via_gateway(prompt, use_model, use_provider)
         else:
+            if self.strict_mode:
+                raise PlanningError.from_code(
+                    ErrorCode.E5308,
+                    details={
+                        "base_url": self.base_url,
+                        "connected": self._connected,
+                        "message": "L04 service not connected (strict_mode=True)",
+                    },
+                )
             result = self._generate_mock_plan(task_description)
             self._local_generation_count += 1
 
