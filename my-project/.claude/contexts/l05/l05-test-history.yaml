@@ -1,0 +1,34 @@
+# L05 Planning Pipeline - Test History
+# ~200 tokens
+
+metadata:
+  baseline: 248
+  test_command: "python3 -m pytest platform/src/L05_planning/tests --tb=short -q"
+  primary_files:
+    - L05_planning/services/goal_decomposer.py
+    - L05_planning/services/planning_service.py
+    - L05_planning/models/goal.py
+    - L05_planning/models/task.py
+    - L05_planning/models/plan.py
+    - L05_planning/integration/l01_bridge.py
+
+runs:
+  - date: "2026-01-27"
+    passed: 248
+    failed: 0
+    commit: "6530174"
+    notes: "Clean after P0/P1/P2 fixes"
+
+  - date: "2026-01-26"
+    passed: 245
+    failed: 3
+    commit: "pre-6530174"
+    notes: "Before P2 LLM validation fix"
+
+key_commits:
+  - hash: "6530174"
+    desc: "fix(L05): complete planning pipeline fixes - datetime, auth, LLM validation"
+  - hash: "3e416fb"
+    desc: "feat(L05): wire AgentAssigner and ExecutionMonitor to L01"
+  - hash: "8dac8d2"
+    desc: "fix(L02): correct cross-layer import paths for MCP execution"

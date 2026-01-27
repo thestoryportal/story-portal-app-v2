@@ -1,0 +1,54 @@
+# L05 Planning Pipeline - Known Fixes
+# Injectable context for error pattern matching
+# ~300 tokens
+
+fixes:
+  P0_auth:
+    error_pattern: "401 Unauthorized|X-API-Key|authentication"
+    solution: "Add X-API-Key header, use L01_API_KEY env var (fallback: dev_key_local_ONLY)"
+    files:
+      - shared/clients.py
+      - L05_planning/integration/l01_bridge.py
+    env_var: L01_API_KEY
+
+  P1_datetime:
+    error_pattern: "datetime.utcnow|DeprecationWarning|datetime"
+    solution: "Replace datetime.utcnow() with datetime.now(timezone.utc)"
+    files:
+      - L05_planning/models/*.py
+      - L05_planning/services/*.py
+      - L02_agent_core/bridges/*.py
+      - L04_model_gateway/providers/*.py
+      - L04_model_gateway/services/*.py
+    code_before: "datetime.utcnow()"
+    code_after: "datetime.now(timezone.utc)"
+
+  P2_llm_validation:
+    error_pattern: "JSON parse error|E5106|E5101|Expecting value"
+    solution: "Multi-strategy JSON extraction + retry logic with lower temperature"
+    files:
+      - L05_planning/services/goal_decomposer.py
+    strategies:
+      - "```json code blocks"
+      - "generic ``` code blocks"
+      - "brace matching {}"
+      - "raw content"
+    retry_temp: 0.1
+
+  execute_plan_direct:
+    error_pattern: "E5002|plan_id lookup failed|E5600"
+    solution: "Use execute_plan_direct(plan) instead of execute_plan(id)"
+    files:
+      - L05_planning/services/planning_service.py
+
+error_codes:
+  E5004: "INVALID_GOAL - Goal validation failed"
+  E5100: "DECOMPOSITION_ERROR - General decomposition failure"
+  E5101: "LLM_DECOMPOSITION_FAILED - see P2_llm_validation"
+  E5102: "NO_TEMPLATE_MATCH - No template matched the goal"
+  E5103: "INVALID_STRATEGY - Unknown decomposition strategy"
+  E5106: "LLM_PARSE_ERROR - see P2_llm_validation"
+  E5600: "EXECUTION_ERROR - see execute_plan_direct"
+
+test_command: "python3 -m pytest platform/src/L05_planning/tests --tb=short -q"
+expected_pass: 248

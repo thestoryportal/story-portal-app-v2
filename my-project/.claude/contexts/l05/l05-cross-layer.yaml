@@ -1,0 +1,41 @@
+# L05 Cross-Layer Boundaries
+# Inject relevant section only when debugging cross-layer issues
+# ~150 tokens
+
+boundaries:
+  L05_L04:
+    interface: ModelGatewayBridge
+    purpose: "LLM inference requests for goal decomposition"
+    issues:
+      - "JSON parse errors from LLM responses"
+      - "datetime deprecation warnings in request/response models"
+    fix_refs:
+      - P2_llm_validation
+      - P1_datetime
+    files:
+      - L05_planning/services/goal_decomposer.py
+      - L04_model_gateway/services/model_gateway.py
+
+  L05_L02:
+    interface: AgentExecutor
+    purpose: "Plan execution via agent orchestration"
+    issues:
+      - "execute_plan E5002 - plan_id lookup failed"
+      - "Use execute_plan_direct(plan) instead"
+    fix_refs:
+      - execute_plan_direct
+    files:
+      - L05_planning/services/planning_service.py
+      - L02_agent_core/services/agent_executor.py
+
+  L05_L01:
+    interface: L01Client / L01Bridge
+    purpose: "Data persistence and retrieval"
+    issues:
+      - "401 Unauthorized - missing API key"
+    fix_refs:
+      - P0_auth
+    files:
+      - shared/clients.py
+      - L05_planning/integration/l01_bridge.py
+    env_var: L01_API_KEY

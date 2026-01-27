@@ -84,9 +84,52 @@ process.stdin.on('end', async () => {
       }
     }
 
+    // L05 error pattern detection - inject fixes even without full task match
+    const L05_ERROR_PATTERNS = [
+      '401', 'unauthorized', 'e5106', 'e5101', 'e5600',
+      'json parse', 'datetime.utcnow', 'deprecation', 'deprecationwarning'
+    ];
+
+    let errorPatternMatch = false;
+    let matchedErrorPattern = null;
+    for (const pattern of L05_ERROR_PATTERNS) {
+      if (userPrompt.includes(pattern.toLowerCase())) {
+        errorPatternMatch = true;
+        matchedErrorPattern = pattern;
+        break;
+      }
+    }
+
+    // Cross-layer detection for non-L05 tasks
+    const CROSS_LAYER_TRIGGERS = [
+      'l05 bridge', 'planning service', 'model gateway bridge',
+      'l01 client', 'goal decomposer', 'execution plan'
+    ];
+
+    let crossLayerMatch = false;
+    let matchedCrossLayer = null;
+    for (const trigger of CROSS_LAYER_TRIGGERS) {
+      if (userPrompt.includes(trigger.toLowerCase())) {
+        crossLayerMatch = true;
+        matchedCrossLayer = trigger;
+        break;
+      }
+    }
+
     // Only inject if we found a match with sufficient confidence
+    // OR if we detected L05 error patterns / cross-layer triggers
     if (!matchedTask || maxScore < 5) {
-      process.exit(0);
+      // Check if we should inject L05 fixes context anyway
+      if (errorPatternMatch || crossLayerMatch) {
+        // Force L05 task for error/cross-layer injection
+        matchedTask = allTasks['test-task-planning'];
+        matchedTaskId = 'test-task-planning';
+        if (!matchedTask) {
+          process.exit(0);
+        }
+      } else {
+        process.exit(0);
+      }
     }
 
     // Load task's context file for minimal injection
@@ -126,6 +169,56 @@ process.stdin.on('end', async () => {
     if (taskContext?.resumePrompt) {
       contextLines.push('');
       contextLines.push(`Resume: ${taskContext.resumePrompt}`);
+    }
+
+    // L05 Supplemental Context - inject relevant fixes on error pattern match
+    if (matchedTaskId === 'test-task-planning' && (errorPatternMatch || crossLayerMatch)) {
+      contextLines.push('');
+      contextLines.push('<l05-quick-fixes>');
+
+      // Load l05-known-fixes.yaml if error pattern matched
+      if (errorPatternMatch) {
+        const fixesPath = path.join(projectDir, '.claude/contexts/l05/l05-known-fixes.yaml');
+        try {
+          if (fs.existsSync(fixesPath)) {
+            const fixesContent = fs.readFileSync(fixesPath, 'utf8');
+            // Extract relevant fix based on pattern
+            if (matchedErrorPattern.includes('401') || matchedErrorPattern.includes('unauthorized')) {
+              contextLines.push('Fix P0_auth: Add X-API-Key header, use L01_API_KEY env var');
+              contextLines.push('Files: shared/clients.py, L05_planning/integration/l01_bridge.py');
+            } else if (matchedErrorPattern.includes('e5106') || matchedErrorPattern.includes('json parse')) {
+              contextLines.push('Fix P2_llm_validation: Multi-strategy JSON extraction + retry logic');
+              contextLines.push('File: L05_planning/services/goal_decomposer.py');
+            } else if (matchedErrorPattern.includes('datetime') || matchedErrorPattern.includes('deprecation')) {
+              contextLines.push('Fix P1_datetime: Replace datetime.utcnow() with datetime.now(timezone.utc)');
+              contextLines.push('Files: L05 models/services, L04 providers, L02 bridges');
+            } else if (matchedErrorPattern.includes('e5101') || matchedErrorPattern.includes('e5600')) {
+              contextLines.push('Fix: Use execute_plan_direct(plan) instead of execute_plan(id)');
+              contextLines.push('File: L05_planning/services/planning_service.py');
+            }
+          }
+        } catch (e) { /* ignore */ }
+      }
+
+      // Load l05-cross-layer.yaml if cross-layer trigger matched
+      if (crossLayerMatch) {
+        const crossLayerPath = path.join(projectDir, '.claude/contexts/l05/l05-cross-layer.yaml');
+        try {
+          if (fs.existsSync(crossLayerPath)) {
+            // Extract relevant boundary based on trigger
+            if (matchedCrossLayer.includes('model gateway') || matchedCrossLayer.includes('l04')) {
+              contextLines.push('Boundary L05_L04: ModelGatewayBridge - JSON parse errors, datetime warnings');
+            } else if (matchedCrossLayer.includes('l01') || matchedCrossLayer.includes('bridge')) {
+              contextLines.push('Boundary L05_L01: L01Client/L01Bridge - 401 Unauthorized, missing API key');
+            } else if (matchedCrossLayer.includes('execution') || matchedCrossLayer.includes('planning')) {
+              contextLines.push('Boundary L05_L02: AgentExecutor - use execute_plan_direct(plan)');
+            }
+          }
+        } catch (e) { /* ignore */ }
+      }
+
+      contextLines.push('Full fixes: .claude/contexts/l05/l05-known-fixes.yaml');
+      contextLines.push('</l05-quick-fixes>');
     }
 
     // Hint for full context

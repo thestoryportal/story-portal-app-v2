@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "activeTask": "context-management",
-  "lastUpdated": "2026-01-27T03:40:33.436Z",
+  "activeTask": "platform-services",
+  "lastUpdated": "2026-01-27T06:57:17.175Z",
   "tasks": {
     "electricity-ortho": {
       "name": "Electricity Orthographic Renderer",
@@ -28,7 +28,8 @@
         "services",
         "mcp",
         "integration"
-      ]
+      ],
+      "lastSession": "2026-01-27T06:57:17.178Z"
     },
     "test-task-integration": {
       "name": "L01 Integration Task",
@@ -55,8 +56,38 @@
       "referenceDoc": "L05-PLANNING-PIPELINE-REFERENCE.md",
       "tokenEstimate": 800,
       "priority": 60,
-      "keywords": ["L05", "planning", "pipeline", "goal", "decomposer", "LLM", "task"],
-      "lastSession": "2026-01-27T04:00:00.000Z",
+      "keywords": [
+        "L05",
+        "planning",
+        "pipeline",
+        "goal",
+        "decomposer",
+        "task orchestrator",
+        "execute_plan_direct",
+        "LLM",
+        "E5106",
+        "E5101",
+        "E5600",
+        "datetime.utcnow",
+        "401 unauthorized",
+        "JSON parse",
+        "cross-layer"
+      ],
+      "supplementalDocs": [
+        "l05/l05-known-fixes.yaml",
+        "l05/l05-cross-layer.yaml"
+      ],
+      "errorPatterns": [
+        "401",
+        "unauthorized",
+        "e5106",
+        "e5101",
+        "e5600",
+        "json parse",
+        "datetime.utcnow",
+        "deprecation"
+      ],
+      "lastSession": "2026-01-27T06:48:05.460Z",
       "testCommand": "python3 -m pytest platform/src/L05_planning/tests --tb=short -q"
     },
     "steam-modal-refinement": {
