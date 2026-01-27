@@ -10,7 +10,7 @@ import asyncio
 import json
 from typing import Optional, Dict, Any, Callable, List
 from dataclasses import dataclass, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 import redis.asyncio as aioredis
 
 logger = logging.getLogger(__name__)
@@ -153,7 +153,7 @@ class EventBus:
             type=event_type,
             source=source,
             data=data,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             correlation_id=correlation_id,
             trace_id=trace_id,
         )

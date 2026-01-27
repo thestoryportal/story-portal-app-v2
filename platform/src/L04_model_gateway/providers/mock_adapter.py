@@ -6,7 +6,7 @@ Mock adapter for testing purposes.
 
 import asyncio
 from typing import AsyncIterator
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .base import ProviderAdapter
 from ..models import (
@@ -158,7 +158,7 @@ class MockAdapter(ProviderAdapter):
             provider_id=self.provider_id,
             status=status,
             circuit_state=circuit_state,
-            last_check=datetime.utcnow(),
+            last_check=datetime.now(timezone.utc),
             consecutive_failures=1 if self.should_fail else 0,
             average_latency_ms=self.latency_ms,
             error_rate=1.0 if self.should_fail else 0.0,

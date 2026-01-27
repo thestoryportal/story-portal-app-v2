@@ -11,9 +11,10 @@ import json
 import hashlib
 import hmac
 import logging
-from typing import Optional, List, Dict, Any
+import re
+from typing import Optional, List, Dict, Any, Tuple
 from uuid import uuid4
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..models import (
     Goal,
@@ -103,7 +104,7 @@ class GoalDecomposer:
         Raises:
             PlanningError: On decomposition failure
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
         self.decompositions_total += 1
 
         try:
@@ -144,7 +145,7 @@ class GoalDecomposer:
             plan.signature = self._sign_plan(plan)
 
             # Step 6: Calculate metrics
-            latency_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
+            latency_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
             plan.metadata.decomposition_latency_ms = latency_ms
 
             # Step 7: Cache plan
@@ -261,18 +262,21 @@ class GoalDecomposer:
 
         return plan
 
-    async def _decompose_llm(self, goal: Goal) -> ExecutionPlan:
+    async def _decompose_llm(self, goal: Goal, max_retries: int = 2) -> ExecutionPlan:
         """
         LLM-based decomposition using L04 Model Gateway.
 
+        Includes retry logic with progressively stricter JSON prompts.
+
         Args:
             goal: Goal to decompose
+            max_retries: Maximum retry attempts on parse failure
 
         Returns:
             ExecutionPlan
 
         Raises:
-            PlanningError: If LLM decomposition fails
+            PlanningError: If LLM decomposition fails after retries
         """
         self.llm_decompositions += 1
 
@@ -283,27 +287,99 @@ class GoalDecomposer:
                 recovery_suggestion="Initialize GoalDecomposer with gateway_client",
             )
 
+        # Import L04 models - try both import patterns
         try:
-            # Import L04 models - try both import patterns
+            from L04_model_gateway.models import (
+                InferenceRequest,
+                LogicalPrompt,
+                Message,
+                MessageRole,
+                ModelRequirements,
+            )
+        except ImportError:
+            from src.L04_model_gateway.models import (
+                InferenceRequest,
+                LogicalPrompt,
+                Message,
+                MessageRole,
+                ModelRequirements,
+            )
+
+        last_error = None
+        last_content = None
+
+        for attempt in range(max_retries + 1):
             try:
-                from L04_model_gateway.models import (
-                    InferenceRequest,
-                    LogicalPrompt,
-                    Message,
-                    MessageRole,
-                    ModelRequirements,
-                )
-            except ImportError:
-                from src.L04_model_gateway.models import (
-                    InferenceRequest,
-                    LogicalPrompt,
-                    Message,
-                    MessageRole,
-                    ModelRequirements,
+                # Build prompt - stricter on retries
+                if attempt == 0:
+                    system_prompt = self._build_decomposition_prompt()
+                else:
+                    system_prompt = self._build_strict_json_prompt()
+
+                user_prompt = f"Decompose this goal into executable tasks:\n\n{goal.goal_text}"
+
+                # Add retry context if this is a retry
+                if attempt > 0 and last_content:
+                    user_prompt += f"\n\nIMPORTANT: Your previous response was not valid JSON. Output ONLY the JSON object, no explanatory text."
+
+                # Create inference request
+                request = InferenceRequest.create(
+                    agent_did=goal.agent_did,
+                    messages=[
+                        Message(role=MessageRole.SYSTEM, content=system_prompt),
+                        Message(role=MessageRole.USER, content=user_prompt),
+                    ],
+                    temperature=0.1 if attempt > 0 else 0.3,  # Lower temp on retries
+                    max_tokens=2000,
+                    capabilities=[],
                 )
 
-            # Build prompt
-            system_prompt = """You are a task planning assistant. Your job is to decompose high-level goals into specific, executable tasks.
+                # Execute via L04 gateway
+                response = await self.gateway_client.execute(request)
+                last_content = response.content
+
+                # Parse response
+                plan = self._parse_llm_response(goal, response.content, response)
+
+                # Update metadata
+                plan.metadata.decomposition_strategy = "llm"
+                plan.metadata.llm_provider = response.provider_id if hasattr(response, 'provider_id') else None
+                plan.metadata.llm_model = response.model_id if hasattr(response, 'model_id') else None
+                plan.metadata.total_tokens_used = response.usage.total_tokens if hasattr(response, 'usage') else 0
+
+                if attempt > 0:
+                    logger.info(f"LLM decomposition succeeded on retry {attempt}")
+
+                return plan
+
+            except PlanningError as e:
+                if e.error_code == ErrorCode.E5106:  # Parse error
+                    last_error = e
+                    logger.warning(f"LLM response parse failed (attempt {attempt + 1}/{max_retries + 1})")
+                    if attempt < max_retries:
+                        continue
+                raise
+            except Exception as e:
+                last_error = e
+                logger.warning(f"LLM decomposition attempt {attempt + 1} failed: {e}")
+                if attempt < max_retries:
+                    continue
+                break
+
+        # All retries exhausted
+        logger.error(f"LLM decomposition failed after {max_retries + 1} attempts")
+        raise PlanningError.from_code(
+            ErrorCode.E5101,
+            details={
+                "goal_id": goal.goal_id,
+                "error": str(last_error),
+                "attempts": max_retries + 1,
+            },
+        )
+
+    def _build_decomposition_prompt(self) -> str:
+        """Build the standard decomposition system prompt."""
+        return """You are a task planning assistant. Your job is to decompose high-level goals into specific, executable tasks.
 
 For each task, provide:
 - id: unique identifier
@@ -314,7 +390,7 @@ For each task, provide:
 - inputs: required inputs
 - timeout_seconds: estimated timeout
 
-Output JSON format:
+Output ONLY valid JSON in this exact format:
 {
   "tasks": [
     {
@@ -327,46 +403,87 @@ Output JSON format:
       "timeout_seconds": 60
     }
   ]
-}"""
+}
 
-            user_prompt = f"Decompose this goal into executable tasks:\n\n{goal.goal_text}"
+Do not include any text before or after the JSON."""
 
-            # Create inference request
-            request = InferenceRequest.create(
-                agent_did=goal.agent_did,
-                messages=[
-                    Message(role=MessageRole.SYSTEM, content=system_prompt),
-                    Message(role=MessageRole.USER, content=user_prompt),
-                ],
-                temperature=0.3,  # Lower temperature for structured output
-                max_tokens=2000,
-                capabilities=[],  # InferenceRequest.create() will build ModelRequirements internally
-            )
+    def _build_strict_json_prompt(self) -> str:
+        """Build a stricter JSON-only prompt for retry attempts."""
+        return """You are a JSON-only task decomposition API. Output ONLY valid JSON, no other text.
 
-            # Execute via L04 gateway
-            response = await self.gateway_client.execute(request)
+Required format:
+{"tasks":[{"id":"task-1","name":"string","description":"string","type":"atomic","dependencies":[],"inputs":{},"timeout_seconds":60}]}
 
-            # Parse response
-            plan = self._parse_llm_response(goal, response.content, response)
+Rules:
+- Output MUST start with { and end with }
+- No markdown, no explanations, no code blocks
+- type must be: atomic, compound, tool_call, or llm_call
+- dependencies is array of task IDs this depends on
+- Respond with ONLY the JSON object"""
 
-            # Update metadata
-            plan.metadata.decomposition_strategy = "llm"
-            plan.metadata.llm_provider = response.provider_id if hasattr(response, 'provider_id') else None
-            plan.metadata.llm_model = response.model_id if hasattr(response, 'model_id') else None
-            plan.metadata.total_tokens_used = response.usage.total_tokens if hasattr(response, 'usage') else 0
+    def _extract_json_from_content(self, content: str) -> Tuple[str, str]:
+        """
+        Extract JSON from LLM response content.
 
-            return plan
+        Tries multiple extraction strategies:
+        1. ```json code blocks
+        2. Generic ``` code blocks
+        3. Raw JSON object detection
+        4. JSON between markers
 
-        except Exception as e:
-            logger.error(f"LLM decomposition failed: {e}")
-            raise PlanningError.from_code(
-                ErrorCode.E5101,
-                details={"goal_id": goal.goal_id, "error": str(e)},
-            )
+        Args:
+            content: Raw LLM response content
+
+        Returns:
+            Tuple of (json_string, extraction_method)
+
+        Raises:
+            ValueError: If no JSON found
+        """
+        content = content.strip()
+
+        # Strategy 1: ```json code block
+        json_block_match = re.search(r'```json\s*([\s\S]*?)\s*```', content, re.IGNORECASE)
+        if json_block_match:
+            return json_block_match.group(1).strip(), "json_code_block"
+
+        # Strategy 2: Generic ``` code block (might be JSON)
+        code_block_match = re.search(r'```\s*([\s\S]*?)\s*```', content)
+        if code_block_match:
+            block_content = code_block_match.group(1).strip()
+            if block_content.startswith('{'):
+                return block_content, "generic_code_block"
+
+        # Strategy 3: Find JSON object directly (handles { ... } anywhere in text)
+        # Look for the outermost { ... } that contains "tasks"
+        brace_start = content.find('{')
+        if brace_start != -1:
+            # Find matching closing brace
+            depth = 0
+            for i, char in enumerate(content[brace_start:], brace_start):
+                if char == '{':
+                    depth += 1
+                elif char == '}':
+                    depth -= 1
+                    if depth == 0:
+                        json_candidate = content[brace_start:i + 1]
+                        # Verify it looks like our expected format
+                        if '"tasks"' in json_candidate:
+                            return json_candidate, "brace_matching"
+                        break
+
+        # Strategy 4: Try entire content as JSON
+        if content.startswith('{') and content.endswith('}'):
+            return content, "raw_content"
+
+        # No JSON found
+        raise ValueError(f"No JSON object found in response (length: {len(content)} chars)")
 
     def _parse_llm_response(self, goal: Goal, content: str, response) -> ExecutionPlan:
         """
         Parse LLM response into ExecutionPlan.
+
+        Uses multiple JSON extraction strategies and validates the result.
 
         Args:
             goal: Original goal
@@ -380,25 +497,21 @@ Output JSON format:
             PlanningError: If parsing fails
         """
         try:
-            # Try to extract JSON from response
-            # Look for JSON block
-            if "```json" in content:
-                json_start = content.find("```json") + 7
-                json_end = content.find("```", json_start)
-                json_str = content[json_start:json_end].strip()
-            elif "```" in content:
-                json_start = content.find("```") + 3
-                json_end = content.find("```", json_start)
-                json_str = content[json_start:json_end].strip()
-            else:
-                # Assume entire content is JSON
-                json_str = content.strip()
+            # Extract JSON from response
+            json_str, extraction_method = self._extract_json_from_content(content)
+            logger.debug(f"Extracted JSON using method: {extraction_method}")
 
             # Parse JSON
             data = json.loads(json_str)
 
             if "tasks" not in data:
                 raise ValueError("LLM response missing 'tasks' field")
+
+            if not isinstance(data["tasks"], list):
+                raise ValueError("'tasks' field must be a list")
+
+            if len(data["tasks"]) == 0:
+                raise ValueError("'tasks' list is empty")
 
             # Create plan
             plan = ExecutionPlan.create(goal_id=goal.goal_id)
@@ -411,11 +524,19 @@ Output JSON format:
                 actual_task_id = str(uuid4())
                 task_id_map[llm_task_id] = actual_task_id
 
+                # Normalize task type
+                task_type_str = task_data.get("type", "atomic")
+                try:
+                    task_type = TaskType(task_type_str)
+                except ValueError:
+                    logger.warning(f"Unknown task type '{task_type_str}', defaulting to atomic")
+                    task_type = TaskType.ATOMIC
+
                 task = Task.create(
                     plan_id=plan.plan_id,
                     name=task_data.get("name", "Unnamed task"),
                     description=task_data.get("description", ""),
-                    task_type=TaskType(task_data.get("type", "atomic")),
+                    task_type=task_type,
                     inputs=task_data.get("inputs", {}),
                     timeout_seconds=task_data.get("timeout_seconds", 300),
                     tool_name=task_data.get("tool_name"),
@@ -437,10 +558,17 @@ Output JSON format:
 
                 plan.add_task(task)
 
+            logger.info(f"Parsed {len(plan.tasks)} tasks from LLM response")
             return plan
 
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse LLM response as JSON: {e}")
+            raise PlanningError.from_code(
+                ErrorCode.E5106,
+                details={"error": str(e), "content": content[:200]},
+            )
+        except ValueError as e:
+            logger.error(f"Invalid LLM response structure: {e}")
             raise PlanningError.from_code(
                 ErrorCode.E5106,
                 details={"error": str(e), "content": content[:200]},
@@ -535,8 +663,6 @@ Output JSON format:
 
     def _extract_entities(self, text: str) -> List[str]:
         """Extract entity references from goal text."""
-        import re
-
         entities = []
 
         # Extract quoted strings

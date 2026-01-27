@@ -7,7 +7,7 @@ Supports both API key and environment variable configuration.
 """
 
 from typing import AsyncIterator, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import logging
 import json
@@ -130,7 +130,7 @@ class AnthropicAdapter(BaseProviderAdapter):
 
             # Make API call
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                start_time = datetime.utcnow()
+                start_time = datetime.now(timezone.utc)
                 response = await client.post(
                     f"{self.base_url}/v1/messages",
                     json=payload,
@@ -150,7 +150,7 @@ class AnthropicAdapter(BaseProviderAdapter):
                     )
 
                 result = response.json()
-                end_time = datetime.utcnow()
+                end_time = datetime.now(timezone.utc)
 
                 # Extract completion from Anthropic's response format
                 generated_text = result["content"][0]["text"]
@@ -317,7 +317,7 @@ class AnthropicAdapter(BaseProviderAdapter):
                 provider_id=self.provider_id,
                 status=ProviderStatus.UNAVAILABLE,
                 circuit_state=CircuitState.OPEN,
-                last_check=datetime.utcnow(),
+                last_check=datetime.now(timezone.utc),
                 consecutive_failures=0,
                 metadata={"reason": "API key not configured"}
             )
@@ -349,7 +349,7 @@ class AnthropicAdapter(BaseProviderAdapter):
                         provider_id=self.provider_id,
                         status=ProviderStatus.HEALTHY,
                         circuit_state=CircuitState.CLOSED,
-                        last_check=datetime.utcnow(),
+                        last_check=datetime.now(timezone.utc),
                         consecutive_failures=0,
                         metadata={"api_version": self.api_version}
                     )
@@ -358,7 +358,7 @@ class AnthropicAdapter(BaseProviderAdapter):
                         provider_id=self.provider_id,
                         status=ProviderStatus.DEGRADED,
                         circuit_state=CircuitState.HALF_OPEN,
-                        last_check=datetime.utcnow(),
+                        last_check=datetime.now(timezone.utc),
                         consecutive_failures=1,
                         metadata={"status_code": response.status_code}
                     )
@@ -369,7 +369,7 @@ class AnthropicAdapter(BaseProviderAdapter):
                 provider_id=self.provider_id,
                 status=ProviderStatus.UNHEALTHY,
                 circuit_state=CircuitState.OPEN,
-                last_check=datetime.utcnow(),
+                last_check=datetime.now(timezone.utc),
                 consecutive_failures=1,
                 metadata={"error": str(e)}
             )

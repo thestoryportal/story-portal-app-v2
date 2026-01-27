@@ -92,7 +92,7 @@ class L01Bridge:
         """
         self.l01_client = l01_client
         self.base_url = base_url or os.getenv("L01_BASE_URL", "http://localhost:8001")
-        self.api_key = api_key or os.getenv("L01_API_KEY", "test_token_123")
+        self.api_key = api_key or os.getenv("L01_API_KEY", "dev_key_local_ONLY")
         self.timeout = timeout
 
         self._local_store: Dict[str, StoredRecord] = {}

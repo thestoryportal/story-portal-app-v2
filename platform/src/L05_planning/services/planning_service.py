@@ -322,8 +322,8 @@ class PlanningService:
             logger.info(f"Executing plan {plan.plan_id}")
 
             # Update plan status to executing in L01
-            from datetime import datetime
-            execution_start = datetime.utcnow()
+            from datetime import datetime, timezone
+            execution_start = datetime.now(timezone.utc)
             await self.l01_bridge.update_plan_status(
                 plan_id=plan.plan_id,
                 status=PlanStatus.EXECUTING.value,
@@ -347,7 +347,7 @@ class PlanningService:
             #     await monitor_task
 
             # Calculate execution metrics
-            execution_end = datetime.utcnow()
+            execution_end = datetime.now(timezone.utc)
             execution_time_ms = (execution_end - execution_start).total_seconds() * 1000
 
             # Count completed and failed tasks

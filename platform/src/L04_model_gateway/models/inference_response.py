@@ -6,7 +6,7 @@ Defines the response structure for model inference operations.
 
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 
@@ -93,7 +93,7 @@ class InferenceResponse:
     latency_ms: int
     cached: bool = False
     metadata: Dict[str, Any] = field(default_factory=dict)
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     status: ResponseStatus = ResponseStatus.SUCCESS
     error_message: Optional[str] = None
     finish_reason: Optional[str] = None  # "stop", "length", "tool_calls", etc.

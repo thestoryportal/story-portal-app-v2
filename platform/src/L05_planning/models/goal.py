@@ -5,7 +5,7 @@ Represents high-level objectives that need to be decomposed into executable task
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, Dict, Any
 from uuid import uuid4
@@ -59,7 +59,7 @@ class Goal:
     goal_type: GoalType = GoalType.COMPOUND  # Type of goal
     status: GoalStatus = GoalStatus.PENDING  # Current status
     constraints: GoalConstraints = field(default_factory=GoalConstraints)  # Constraints
-    created_at: datetime = field(default_factory=datetime.utcnow)  # Creation timestamp
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))  # Creation timestamp
     metadata: Dict[str, Any] = field(default_factory=dict)  # Additional metadata
     parent_goal_id: Optional[str] = None  # For recursive decomposition
     decomposition_strategy: Optional[str] = None  # "llm", "template", "hybrid"
@@ -82,7 +82,7 @@ class Goal:
             goal_type=goal_type,
             status=GoalStatus.PENDING,
             constraints=constraints or GoalConstraints(),
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             metadata=metadata or {},
             parent_goal_id=parent_goal_id,
         )

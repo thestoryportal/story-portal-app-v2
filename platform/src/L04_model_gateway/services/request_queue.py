@@ -6,7 +6,7 @@ Priority queue for request buffering during load spikes.
 
 import asyncio
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass
 from enum import Enum
 import logging
@@ -110,13 +110,13 @@ class RequestQueue:
                 timeout_seconds = self.default_timeout_seconds
 
             if deadline is None and timeout_seconds:
-                deadline = datetime.utcnow() + timedelta(seconds=timeout_seconds)
+                deadline = datetime.now(timezone.utc) + timedelta(seconds=timeout_seconds)
 
             # Create queued request
             queued = QueuedRequest(
                 request=request,
                 priority=priority,
-                enqueued_at=datetime.utcnow(),
+                enqueued_at=datetime.now(timezone.utc),
                 deadline=deadline
             )
 
@@ -160,7 +160,7 @@ class RequestQueue:
             )
 
             # Check if request expired
-            if queued.deadline and datetime.utcnow() > queued.deadline:
+            if queued.deadline and datetime.now(timezone.utc) > queued.deadline:
                 self._stats["expired"] += 1
                 logger.warning(
                     f"Request {queued.request.request_id} expired "
@@ -171,7 +171,7 @@ class RequestQueue:
             self._stats["dequeued"] += 1
             logger.debug(
                 f"Dequeued request {queued.request.request_id} "
-                f"(waited={(datetime.utcnow() - queued.enqueued_at).total_seconds():.2f}s)"
+                f"(waited={(datetime.now(timezone.utc) - queued.enqueued_at).total_seconds():.2f}s)"
             )
 
             return queued.request

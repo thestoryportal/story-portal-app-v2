@@ -16,7 +16,7 @@ Handles:
 import asyncio
 import logging
 from typing import Optional, Dict, Any, Set, List
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from ..models import (
@@ -276,7 +276,7 @@ class TaskOrchestrator:
         Returns:
             TaskResult with execution outcome
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
 
         try:
             logger.info(f"Executing task: {task.name} ({task.task_id})")
@@ -296,7 +296,7 @@ class TaskOrchestrator:
                 outputs = {"result": "Task executed (mock)"}
 
             # Calculate execution time
-            execution_time = (datetime.utcnow() - start_time).total_seconds()
+            execution_time = (datetime.now(timezone.utc) - start_time).total_seconds()
 
             return TaskResult(
                 task_id=task.task_id,
@@ -306,7 +306,7 @@ class TaskOrchestrator:
             )
 
         except asyncio.TimeoutError:
-            execution_time = (datetime.utcnow() - start_time).total_seconds()
+            execution_time = (datetime.now(timezone.utc) - start_time).total_seconds()
             logger.error(f"Task {task.name} timed out after {execution_time}s")
             return TaskResult(
                 task_id=task.task_id,
@@ -316,7 +316,7 @@ class TaskOrchestrator:
             )
 
         except Exception as e:
-            execution_time = (datetime.utcnow() - start_time).total_seconds()
+            execution_time = (datetime.now(timezone.utc) - start_time).total_seconds()
             logger.error(f"Task {task.name} failed: {e}")
             return TaskResult(
                 task_id=task.task_id,

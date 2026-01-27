@@ -10,7 +10,7 @@ Assigns tasks to qualified agents based on:
 
 import logging
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from ..models import (
@@ -146,7 +146,7 @@ class AgentAssigner:
                 agent_did=selected_agent.agent_did,
                 plan_id=plan_id,
                 status=AssignmentStatus.ASSIGNED,
-                assigned_at=datetime.utcnow(),
+                assigned_at=datetime.now(timezone.utc),
                 affinity_score=self._calculate_affinity(selected_agent, plan_id),
                 load_score=selected_agent.get_load_ratio(),
             )

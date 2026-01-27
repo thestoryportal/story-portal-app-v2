@@ -7,7 +7,7 @@ Embedding-based caching for similar prompts using Redis and vector similarity.
 import hashlib
 import json
 from typing import Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 import asyncio
 
@@ -336,7 +336,7 @@ class SemanticCache:
                     "cache_key": cache_key,
                     "request_id": response.request_id,
                     "model_id": response.model_id,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "prompt_hash": hashlib.md5(
                         self._format_prompt_for_embedding(request).encode()
                     ).hexdigest()[:16]
@@ -353,7 +353,7 @@ class SemanticCache:
                 mapping={
                     "request_id": response.request_id,
                     "model_id": response.model_id,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "has_embedding": "true"
                 }
             )

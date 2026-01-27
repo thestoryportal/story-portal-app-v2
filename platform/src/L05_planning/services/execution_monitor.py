@@ -11,7 +11,7 @@ Monitors plan execution:
 import logging
 import asyncio
 from typing import Optional, Dict, Any, Callable
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 from ..models import (
@@ -207,7 +207,7 @@ class ExecutionMonitor:
         Args:
             plan: Plan to check
         """
-        current_time = datetime.utcnow()
+        current_time = datetime.now(timezone.utc)
 
         for task in plan.tasks:
             if task.status == TaskStatus.EXECUTING and task.started_at:
@@ -241,7 +241,7 @@ class ExecutionMonitor:
         for task in failed_tasks:
             # Check if failure is recent (not already processed)
             if task.completed_at:
-                age_sec = (datetime.utcnow() - task.completed_at).total_seconds()
+                age_sec = (datetime.now(timezone.utc) - task.completed_at).total_seconds()
                 if age_sec < 5:  # Recent failure (within 5 seconds)
                     await self.on_task_failed(task, plan, task.error or "Unknown error")
 
@@ -303,7 +303,7 @@ class ExecutionMonitor:
         # Build event payload
         event_data = {
             "event_type": event_type.value,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             **kwargs,
         }
 

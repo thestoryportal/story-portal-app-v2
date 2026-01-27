@@ -404,7 +404,7 @@ class CLIPlanAdapter:
                 context=context.strip(),
                 steps=steps,
                 session_id=session_id,
-                approved_at=datetime.utcnow(),
+                approved_at=datetime.now(timezone.utc),
                 raw_markdown=markdown,
             )
 
@@ -833,7 +833,7 @@ class CLIPlanAdapter:
 
     def _generate_session_id(self, content: str) -> str:
         """Generate unique session ID based on content and timestamp."""
-        timestamp = datetime.utcnow().isoformat()
+        timestamp = datetime.now(timezone.utc).isoformat()
         combined = f"{timestamp}:{content[:100]}"
         return hashlib.sha256(combined.encode()).hexdigest()[:12]
 

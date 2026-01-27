@@ -195,10 +195,10 @@ class BaseProviderAdapter(ProviderAdapter):
 
     def _create_default_health(self, status: ProviderStatus) -> ProviderHealth:
         """Create a default ProviderHealth object"""
-        from datetime import datetime
+        from datetime import datetime, timezone
         return ProviderHealth(
             provider_id=self.provider_id,
             status=status,
             circuit_state=CircuitState.CLOSED,
-            last_check=datetime.utcnow()
+            last_check=datetime.now(timezone.utc)
         )

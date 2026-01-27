@@ -7,7 +7,7 @@ Publishes agent lifecycle events to L01 Data Layer for centralized tracking.
 import logging
 from typing import Dict, Any, Optional
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 
 from shared.clients import L01Client
 from ..models import AgentState, SpawnResult, AgentInstance
@@ -149,7 +149,7 @@ class L01Bridge:
                 status=l01_status,
                 runtime_metadata={
                     "l02_agent_state": new_state.value,
-                    "state_changed_at": datetime.utcnow().isoformat(),
+                    "state_changed_at": datetime.now(timezone.utc).isoformat(),
                     "previous_state": old_state.value,
                     **(metadata or {}),
                 },
@@ -197,7 +197,7 @@ class L01Bridge:
                 checkpoint={
                     "l02_checkpoint_id": checkpoint_id,
                     "size_bytes": checkpoint_size_bytes,
-                    "created_at": datetime.utcnow().isoformat(),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
                     **(metadata or {}),
                 },
             )
@@ -243,7 +243,7 @@ class L01Bridge:
                 runtime_metadata={
                     "l02_agent_state": "terminated",
                     "termination_reason": termination_reason,
-                    "terminated_at": datetime.utcnow().isoformat(),
+                    "terminated_at": datetime.now(timezone.utc).isoformat(),
                     "resource_usage": resource_usage or {},
                 },
             )

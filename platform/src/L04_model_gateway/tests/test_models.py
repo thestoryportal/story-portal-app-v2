@@ -5,7 +5,7 @@ Tests for data models and error codes.
 """
 
 import pytest
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..models import (
     # Error codes
@@ -235,7 +235,7 @@ def test_provider_health():
         provider_id="ollama",
         status=ProviderStatus.HEALTHY,
         circuit_state=CircuitState.CLOSED,
-        last_check=datetime.utcnow()
+        last_check=datetime.now(timezone.utc)
     )
 
     assert health.is_available()

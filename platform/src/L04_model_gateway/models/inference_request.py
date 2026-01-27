@@ -6,7 +6,7 @@ Defines the request structure for model inference operations.
 
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 import uuid
 
@@ -161,7 +161,7 @@ class InferenceRequest:
     requirements: ModelRequirements = field(default_factory=ModelRequirements)
     constraints: RequestConstraints = field(default_factory=RequestConstraints)
     metadata: Dict[str, Any] = field(default_factory=dict)
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     enable_cache: bool = True
     enable_streaming: bool = False
 

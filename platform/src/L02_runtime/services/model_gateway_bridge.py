@@ -7,7 +7,7 @@ Allows agents to request LLM inference through the gateway.
 
 import logging
 from typing import Optional, Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -156,7 +156,7 @@ class ModelGatewayBridge:
             return {
                 "gateway": "unavailable",
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
 
     async def get_available_models(self) -> List[Dict[str, Any]]:

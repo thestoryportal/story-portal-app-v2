@@ -7,7 +7,7 @@ Adapter for local Ollama models.
 import httpx
 import json
 from typing import AsyncIterator, Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 from .base import BaseProviderAdapter
@@ -82,7 +82,7 @@ class OllamaAdapter(BaseProviderAdapter):
         Returns:
             InferenceResponse with result
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
 
         try:
             # Create client if needed
@@ -103,7 +103,7 @@ class OllamaAdapter(BaseProviderAdapter):
             result = response.json()
 
             # Calculate latency
-            latency_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+            latency_ms = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
 
             # Build InferenceResponse
             content = result.get("message", {}).get("content", "")
@@ -256,7 +256,7 @@ class OllamaAdapter(BaseProviderAdapter):
                 provider_id=self.provider_id,
                 status=ProviderStatus.HEALTHY,
                 circuit_state=CircuitState.CLOSED,
-                last_check=datetime.utcnow(),
+                last_check=datetime.now(timezone.utc),
                 consecutive_failures=0,
                 average_latency_ms=None,
                 error_rate=0.0,
@@ -269,7 +269,7 @@ class OllamaAdapter(BaseProviderAdapter):
                 provider_id=self.provider_id,
                 status=ProviderStatus.UNAVAILABLE,
                 circuit_state=CircuitState.OPEN,
-                last_check=datetime.utcnow(),
+                last_check=datetime.now(timezone.utc),
                 consecutive_failures=1,
                 metadata={"error": "timeout"}
             )
@@ -279,7 +279,7 @@ class OllamaAdapter(BaseProviderAdapter):
                 provider_id=self.provider_id,
                 status=ProviderStatus.UNAVAILABLE,
                 circuit_state=CircuitState.OPEN,
-                last_check=datetime.utcnow(),
+                last_check=datetime.now(timezone.utc),
                 consecutive_failures=1,
                 metadata={"error": str(e)}
             )

@@ -5,7 +5,7 @@ Represents atomic or compound units of work within an execution plan.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, Dict, Any, List
 from uuid import uuid4
@@ -82,7 +82,7 @@ class Task:
     assigned_agent: Optional[str] = None  # DID of assigned agent
     timeout_seconds: int = 300  # Execution timeout (default 5 minutes)
     retry_policy: RetryPolicy = field(default_factory=RetryPolicy)  # Retry configuration
-    created_at: datetime = field(default_factory=datetime.utcnow)  # Creation timestamp
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))  # Creation timestamp
     started_at: Optional[datetime] = None  # Execution start time
     completed_at: Optional[datetime] = None  # Execution completion time
     error: Optional[str] = None  # Error message if failed
@@ -118,7 +118,7 @@ class Task:
             outputs={},
             timeout_seconds=timeout_seconds,
             retry_policy=RetryPolicy(),
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             metadata=metadata or {},
             tool_name=tool_name,
             llm_prompt=llm_prompt,
@@ -152,13 +152,13 @@ class Task:
         """Mark task as currently executing."""
         if self.status == TaskStatus.READY:
             self.status = TaskStatus.EXECUTING
-            self.started_at = datetime.utcnow()
+            self.started_at = datetime.now(timezone.utc)
 
     def mark_completed(self, outputs: Optional[Dict[str, Any]] = None) -> None:
         """Mark task as successfully completed."""
         if self.status == TaskStatus.EXECUTING:
             self.status = TaskStatus.COMPLETED
-            self.completed_at = datetime.utcnow()
+            self.completed_at = datetime.now(timezone.utc)
             if outputs:
                 self.outputs = outputs
 
@@ -166,7 +166,7 @@ class Task:
         """Mark task as failed with error message."""
         if self.status in (TaskStatus.EXECUTING, TaskStatus.READY):
             self.status = TaskStatus.FAILED
-            self.completed_at = datetime.utcnow()
+            self.completed_at = datetime.now(timezone.utc)
             self.error = error
 
     def mark_blocked(self) -> None:

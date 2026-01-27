@@ -6,7 +6,7 @@ Main gateway service that coordinates all components.
 
 import logging
 from typing import Optional, Dict, AsyncIterator
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..models import (
     InferenceRequest,
@@ -127,7 +127,7 @@ class ModelGateway:
         Raises:
             L04Error: On any error during execution
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
 
         try:
             logger.info(f"Executing request {request.request_id}")
@@ -171,7 +171,7 @@ class ModelGateway:
                 await self.l01_bridge.record_inference(request, response)
 
             # Log execution time
-            total_time = (datetime.utcnow() - start_time).total_seconds() * 1000
+            total_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
             logger.info(
                 f"Request {request.request_id} completed in {total_time:.0f}ms "
                 f"(model_latency={response.latency_ms}ms, cached={response.cached})"
@@ -380,7 +380,7 @@ class ModelGateway:
         """
         health = {
             "gateway": "healthy",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "registry": self.registry.get_stats(),
             "cache": self.cache.get_stats(),
             "queue": self.request_queue.get_stats(),

@@ -1,0 +1,49 @@
+{
+  "task_id": "l05-remaining-fixes",
+  "name": "L05 Planning Pipeline - Remaining Fixes",
+  "phase": "complete",
+  "iteration": 3,
+  "context": {
+    "working_on": null,
+    "last_action": "All fixes complete - P1 datetime, P0 auth, P2 LLM validation",
+    "next_step": null,
+    "baseline": "248 passed (no deprecation filter needed)"
+  },
+  "implementation_plan": {
+    "order": ["P1", "P0", "P2"],
+    "P1_datetime": {
+      "status": "COMPLETE",
+      "risk": "medium",
+      "scope": "L05 models, services, adapters + L02 bridges + L04 gateway models/providers",
+      "change": "datetime.utcnow() -> datetime.now(timezone.utc)",
+      "verify": "248 tests pass without -W ignore::DeprecationWarning"
+    },
+    "P0_auth": {
+      "status": "COMPLETE",
+      "risk": "low",
+      "scope": "shared/clients.py + L05_planning/tests/conftest.py + integration/l01_bridge.py",
+      "change": "Add X-API-Key header to L01Client, update fallback to dev_key_local_ONLY",
+      "env_var": "L01_API_KEY",
+      "fallback": "dev_key_local_ONLY"
+    },
+    "P2_llm_validation": {
+      "status": "COMPLETE",
+      "risk": "medium",
+      "scope": "L05_planning/services/goal_decomposer.py",
+      "change": "Add retry logic (max 2 retries) + improved JSON extraction from multiple formats"
+    }
+  },
+  "key_files": [
+    "platform/src/L05_planning/models/goal.py",
+    "platform/src/L05_planning/models/task.py",
+    "platform/src/L05_planning/models/plan.py",
+    "platform/src/L05_planning/tests/conftest.py",
+    "platform/src/L05_planning/services/goal_decomposer.py",
+    "platform/src/shared/clients.py"
+  ],
+  "test_command": "python3 -m pytest platform/src/L05_planning/tests --tb=short -q",
+  "recent_commits": [
+    "3e416fb feat(L05): wire AgentAssigner and ExecutionMonitor to L01 + fix import paths",
+    "8dac8d2 fix(L02): correct cross-layer import paths for MCP execution"
+  ]
+}

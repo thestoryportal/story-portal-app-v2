@@ -7,7 +7,7 @@ Supports both API key and environment variable configuration.
 """
 
 from typing import AsyncIterator, List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import logging
 import json
@@ -129,7 +129,7 @@ class OpenAIAdapter(BaseProviderAdapter):
 
             # Make API call
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                start_time = datetime.utcnow()
+                start_time = datetime.now(timezone.utc)
                 response = await client.post(
                     f"{self.base_url}/chat/completions",
                     json=payload,
@@ -148,7 +148,7 @@ class OpenAIAdapter(BaseProviderAdapter):
                     )
 
                 result = response.json()
-                end_time = datetime.utcnow()
+                end_time = datetime.now(timezone.utc)
 
                 # Extract completion
                 generated_text = result["choices"][0]["message"]["content"]
@@ -304,7 +304,7 @@ class OpenAIAdapter(BaseProviderAdapter):
                 provider_id=self.provider_id,
                 status=ProviderStatus.UNAVAILABLE,
                 circuit_state=CircuitState.OPEN,
-                last_check=datetime.utcnow(),
+                last_check=datetime.now(timezone.utc),
                 consecutive_failures=0,
                 metadata={"reason": "API key not configured"}
             )
@@ -324,7 +324,7 @@ class OpenAIAdapter(BaseProviderAdapter):
                         provider_id=self.provider_id,
                         status=ProviderStatus.HEALTHY,
                         circuit_state=CircuitState.CLOSED,
-                        last_check=datetime.utcnow(),
+                        last_check=datetime.now(timezone.utc),
                         consecutive_failures=0,
                         metadata={"api_version": "v1"}
                     )
@@ -333,7 +333,7 @@ class OpenAIAdapter(BaseProviderAdapter):
                         provider_id=self.provider_id,
                         status=ProviderStatus.DEGRADED,
                         circuit_state=CircuitState.HALF_OPEN,
-                        last_check=datetime.utcnow(),
+                        last_check=datetime.now(timezone.utc),
                         consecutive_failures=1,
                         metadata={"status_code": response.status_code}
                     )
@@ -344,7 +344,7 @@ class OpenAIAdapter(BaseProviderAdapter):
                 provider_id=self.provider_id,
                 status=ProviderStatus.UNHEALTHY,
                 circuit_state=CircuitState.OPEN,
-                last_check=datetime.utcnow(),
+                last_check=datetime.now(timezone.utc),
                 consecutive_failures=1,
                 metadata={"error": str(e)}
             )

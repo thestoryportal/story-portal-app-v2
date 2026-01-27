@@ -5,6 +5,7 @@ Pytest fixtures for testing L05 components.
 Uses direct imports to avoid triggering cross-layer import chains.
 """
 
+import os
 import pytest
 import asyncio
 from typing import AsyncGenerator
@@ -12,6 +13,9 @@ from uuid import uuid4
 
 # Import models directly
 from ..models import Goal, GoalType, GoalConstraints, Task, ExecutionPlan
+
+# Import bridges for integration testing
+from ..integration.l01_bridge import L01Bridge
 
 # Import services directly from their modules to avoid cross-layer import chains
 from ..services.goal_decomposer import GoalDecomposer
@@ -221,3 +225,32 @@ def model_router() -> ModelRouter:
         quality_threshold=0.7,
         prefer_local=True,
     )
+
+
+@pytest.fixture
+def l01_bridge() -> L01Bridge:
+    """
+    Create an L01 bridge for testing with proper API auth.
+
+    Uses L01_API_KEY from environment or falls back to test key.
+    For integration tests requiring real L01 service, set:
+        export L01_API_KEY=your_key
+        export L01_BASE_URL=http://localhost:8001
+    """
+    return L01Bridge(
+        api_key=os.getenv("L01_API_KEY", "dev_key_local_ONLY"),
+        base_url=os.getenv("L01_BASE_URL", "http://localhost:8001"),
+    )
+
+
+@pytest.fixture
+async def initialized_l01_bridge(l01_bridge: L01Bridge) -> L01Bridge:
+    """
+    Create an initialized L01 bridge for async tests.
+
+    Handles initialization and cleanup automatically.
+    Falls back to local storage if L01 service is unavailable.
+    """
+    await l01_bridge.initialize()
+    yield l01_bridge
+    await l01_bridge.close()

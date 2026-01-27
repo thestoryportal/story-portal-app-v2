@@ -5,7 +5,7 @@ Represents agent capabilities and task assignments.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, Dict, Any, List
 
@@ -79,7 +79,7 @@ class AgentAssignment:
     agent_did: str  # Agent DID
     plan_id: str  # Parent plan
     status: AssignmentStatus = AssignmentStatus.PENDING  # Assignment status
-    assigned_at: datetime = field(default_factory=datetime.utcnow)  # Assignment time
+    assigned_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))  # Assignment time
     started_at: Optional[datetime] = None  # Execution start time
     completed_at: Optional[datetime] = None  # Execution completion time
     affinity_score: float = 0.0  # Affinity score (0.0-1.0)
@@ -90,19 +90,19 @@ class AgentAssignment:
         """Mark assignment as executing."""
         if self.status == AssignmentStatus.ASSIGNED:
             self.status = AssignmentStatus.EXECUTING
-            self.started_at = datetime.utcnow()
+            self.started_at = datetime.now(timezone.utc)
 
     def mark_completed(self) -> None:
         """Mark assignment as completed."""
         if self.status == AssignmentStatus.EXECUTING:
             self.status = AssignmentStatus.COMPLETED
-            self.completed_at = datetime.utcnow()
+            self.completed_at = datetime.now(timezone.utc)
 
     def mark_failed(self) -> None:
         """Mark assignment as failed."""
         if self.status in (AssignmentStatus.EXECUTING, AssignmentStatus.ASSIGNED):
             self.status = AssignmentStatus.FAILED
-            self.completed_at = datetime.utcnow()
+            self.completed_at = datetime.now(timezone.utc)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary representation."""

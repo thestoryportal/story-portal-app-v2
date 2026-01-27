@@ -5,6 +5,7 @@ This module provides HTTP clients for communicating between platform layers.
 """
 
 import logging
+import os
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -24,25 +25,33 @@ class L01Client:
     def __init__(
         self,
         base_url: str = "http://localhost:8002",
-        timeout: float = 30.0
+        timeout: float = 30.0,
+        api_key: Optional[str] = None
     ):
         """Initialize L01 client.
 
         Args:
             base_url: Base URL for L01 Data Layer API
             timeout: Request timeout in seconds
+            api_key: API key for authentication (defaults to L01_API_KEY env var)
         """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        self.api_key = api_key or os.getenv("L01_API_KEY", "dev_key_local_ONLY")
         self._client: Optional[httpx.AsyncClient] = None
         logger.debug(f"L01Client initialized with base_url={base_url}")
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create async HTTP client."""
         if self._client is None or self._client.is_closed:
+            headers = {
+                "Content-Type": "application/json",
+                "X-API-Key": self.api_key,
+            }
             self._client = httpx.AsyncClient(
                 base_url=self.base_url,
-                timeout=self.timeout
+                timeout=self.timeout,
+                headers=headers
             )
         return self._client
 

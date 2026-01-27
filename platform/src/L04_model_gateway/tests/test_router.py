@@ -17,7 +17,7 @@ from ..models import (
     ProviderStatus,
     CircuitState
 )
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def test_router_initialization():
@@ -137,7 +137,7 @@ def test_route_with_provider_health():
         provider_id="ollama",
         status=ProviderStatus.UNAVAILABLE,
         circuit_state=CircuitState.OPEN,
-        last_check=datetime.utcnow()
+        last_check=datetime.now(timezone.utc)
     )
     router.update_provider_health(health)
 

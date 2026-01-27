@@ -6,7 +6,7 @@ Circuit breaker pattern for provider failover and health management.
 
 import time
 from typing import Dict, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 
 from ..models import (
@@ -199,7 +199,7 @@ class CircuitBreaker:
             provider_id=provider,
             status=status,
             circuit_state=state,
-            last_check=datetime.utcnow(),
+            last_check=datetime.now(timezone.utc),
             consecutive_failures=circuit["consecutive_failures"],
             last_failure_time=(
                 datetime.fromtimestamp(circuit["last_failure_time"])

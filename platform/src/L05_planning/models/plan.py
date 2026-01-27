@@ -5,7 +5,7 @@ Represents a complete plan with tasks, dependencies, and execution metadata.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, Dict, Any, List
 from uuid import uuid4
@@ -57,7 +57,7 @@ class ExecutionPlan:
     dependency_graph: Dict[str, List[str]] = field(default_factory=dict)  # Adjacency list
     status: PlanStatus = PlanStatus.DRAFT  # Current status
     resource_budget: Optional[ResourceConstraints] = None  # Resource limits
-    created_at: datetime = field(default_factory=datetime.utcnow)  # Creation time
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))  # Creation time
     validated_at: Optional[datetime] = None  # Validation time
     execution_started_at: Optional[datetime] = None  # Execution start time
     execution_completed_at: Optional[datetime] = None  # Execution completion time
@@ -84,7 +84,7 @@ class ExecutionPlan:
             dependency_graph=dependency_graph or {},
             status=PlanStatus.DRAFT,
             resource_budget=resource_budget,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             metadata=metadata or PlanMetadata(),
         )
 
@@ -122,26 +122,26 @@ class ExecutionPlan:
         """Mark plan as validated."""
         if self.status == PlanStatus.DRAFT:
             self.status = PlanStatus.VALIDATED
-            self.validated_at = datetime.utcnow()
+            self.validated_at = datetime.now(timezone.utc)
 
     def mark_executing(self) -> None:
         """Mark plan as executing."""
         if self.status == PlanStatus.VALIDATED:
             self.status = PlanStatus.EXECUTING
-            self.execution_started_at = datetime.utcnow()
+            self.execution_started_at = datetime.now(timezone.utc)
 
     def mark_completed(self) -> None:
         """Mark plan as completed."""
         if self.status == PlanStatus.EXECUTING:
             self.status = PlanStatus.COMPLETED
-            self.execution_completed_at = datetime.utcnow()
+            self.execution_completed_at = datetime.now(timezone.utc)
             self.completed_task_count = len(self.get_completed_tasks())
 
     def mark_failed(self, error: str) -> None:
         """Mark plan as failed."""
         if self.status in (PlanStatus.EXECUTING, PlanStatus.VALIDATED):
             self.status = PlanStatus.FAILED
-            self.execution_completed_at = datetime.utcnow()
+            self.execution_completed_at = datetime.now(timezone.utc)
             self.error = error
             self.completed_task_count = len(self.get_completed_tasks())
             self.failed_task_count = len(self.get_failed_tasks())

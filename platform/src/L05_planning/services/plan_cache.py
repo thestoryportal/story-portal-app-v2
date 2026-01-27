@@ -8,7 +8,7 @@ import hashlib
 import json
 import logging
 from typing import Optional, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from ..models import ExecutionPlan, PlanningError, ErrorCode
 
@@ -141,7 +141,7 @@ class PlanCache:
             logger.debug(f"Evicted L1 cache key {lru_key[:16]}... (LRU)")
 
         # Store plan with timestamp
-        self._l1_cache[cache_key] = (plan, datetime.utcnow())
+        self._l1_cache[cache_key] = (plan, datetime.now(timezone.utc))
 
         # Update access order
         if cache_key in self._l1_access_order:
