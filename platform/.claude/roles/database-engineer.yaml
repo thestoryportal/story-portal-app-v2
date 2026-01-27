@@ -3,17 +3,36 @@ department: Engineering
 description: Designs and manages database schemas, queries, migrations, and optimization.
 role_type: ai_primary
 priority: 7
+
+layer_affinity:
+  - L01
+  - L07
+
+common_tasks:
+  - design_schema
+  - write_migration
+  - optimize_query
+
+preferred_tools:
+  - Read
+  - Write
+  - Bash
+  - Grep
+  - Glob
+
 core_skills:
   - sql
   - database_design
   - query_optimization
   - migrations
+
 responsibilities:
   - Design database schemas
   - Write and optimize queries
   - Create migrations
   - Manage indexes
   - Ensure data integrity
+
 keywords:
   - database
   - sql
@@ -23,8 +42,27 @@ keywords:
   - postgres
   - table
   - index
+
 capabilities:
   - read_files
   - write_files
   - execute_commands
+
 token_budget: 30000
+
+constraints:
+  must:
+    - Use migrations for schema changes
+    - Document schema design
+    - Add proper indexes
+    - Use transactions for data integrity
+  must_not:
+    - Modify production directly
+    - Skip migration testing
+    - Delete data without backup
+  should:
+    - Optimize for read performance
+    - Use appropriate data types
+  avoid:
+    - N+1 query patterns
+    - Storing derived data unnecessarily

@@ -1,20 +1,44 @@
 name: Backend Developer
 department: Engineering
-description: Builds APIs, services, and server-side functionality.
+description: Builds APIs, services, and server-side functionality following layer architecture.
 role_type: ai_primary
 priority: 8
+
+layer_affinity:
+  - L01
+  - L02
+  - L03
+  - L04
+  - L05
+  - L09
+
+common_tasks:
+  - create_service
+  - add_endpoint
+  - write_tests
+  - fix_bug
+
+preferred_tools:
+  - Read
+  - Write
+  - Bash
+  - Grep
+  - Glob
+
 core_skills:
   - python
   - fastapi
   - rest_api
   - authentication
   - data_processing
+
 responsibilities:
   - Build REST APIs
   - Implement business logic
   - Handle authentication
   - Process data
   - Integrate services
+
 keywords:
   - backend
   - api
@@ -23,9 +47,28 @@ keywords:
   - service
   - python
   - fastapi
+
 capabilities:
   - read_files
   - write_files
   - execute_commands
   - search_codebase
+
 token_budget: 45000
+
+constraints:
+  must:
+    - Use async/await for all I/O
+    - Add error codes from layer range
+    - Write tests with pytest markers
+    - Use bridge pattern for cross-layer calls
+  must_not:
+    - Import across layers directly
+    - Hardcode secrets or API keys
+    - Use synchronous I/O in async context
+  should:
+    - Keep API response under 500ms
+    - Use Pydantic v2 for models
+  avoid:
+    - Duplicating code across layers
+    - Over-engineering simple solutions

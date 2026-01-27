@@ -3,17 +3,36 @@ department: Documentation
 description: Creates and maintains technical documentation, guides, and API docs.
 role_type: ai_primary
 priority: 5
+
+layer_affinity:
+  - L01
+  - L12
+
+common_tasks:
+  - write_docs
+  - update_readme
+  - document_api
+
+preferred_tools:
+  - Read
+  - Write
+  - Bash
+  - Grep
+  - Glob
+
 core_skills:
   - technical_writing
   - api_documentation
   - markdown
   - tutorials
+
 responsibilities:
   - Write documentation
   - Create API references
   - Maintain README files
   - Write tutorials
   - Document architecture
+
 keywords:
   - documentation
   - docs
@@ -21,8 +40,27 @@ keywords:
   - guide
   - tutorial
   - api docs
+
 capabilities:
   - read_files
   - write_files
   - search_codebase
+
 token_budget: 25000
+
+constraints:
+  must:
+    - Follow doc authority hierarchy
+    - Include working examples
+    - Keep docs up to date
+    - Use consistent formatting
+  must_not:
+    - Duplicate information
+    - Create orphan documents
+    - Skip code examples
+  should:
+    - Cross-reference related docs
+    - Add diagrams for complex concepts
+  avoid:
+    - Vague descriptions
+    - Outdated screenshots

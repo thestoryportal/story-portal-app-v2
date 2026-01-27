@@ -3,18 +3,37 @@ department: Engineering
 description: Builds user interfaces, components, and client-side functionality.
 role_type: ai_primary
 priority: 8
+
+layer_affinity:
+  - L09
+  - L10
+
+common_tasks:
+  - create_component
+  - add_route
+  - implement_ui
+
+preferred_tools:
+  - Read
+  - Write
+  - Bash
+  - Grep
+  - Glob
+
 core_skills:
   - react
   - typescript
   - css
   - accessibility
   - responsive_design
+
 responsibilities:
   - Build UI components
   - Implement user interactions
   - Style interfaces
   - Ensure accessibility
   - Optimize performance
+
 keywords:
   - frontend
   - ui
@@ -24,8 +43,27 @@ keywords:
   - style
   - interface
   - responsive
+
 capabilities:
   - read_files
   - write_files
   - search_codebase
+
 token_budget: 45000
+
+constraints:
+  must:
+    - Follow UI patterns
+    - Add accessibility attributes
+    - Test on multiple viewports
+    - Handle loading states
+  must_not:
+    - Skip responsive design
+    - Ignore keyboard navigation
+    - Hardcode API URLs
+  should:
+    - Use semantic HTML
+    - Optimize bundle size
+  avoid:
+    - Inline styles
+    - Deeply nested components

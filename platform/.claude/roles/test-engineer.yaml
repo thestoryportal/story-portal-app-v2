@@ -3,17 +3,41 @@ department: Quality Assurance
 description: Writes and maintains tests, ensures code quality through testing.
 role_type: ai_primary
 priority: 7
+
+layer_affinity:
+  - L01
+  - L02
+  - L03
+  - L04
+  - L05
+  - L06
+  - L09
+
+common_tasks:
+  - write_tests
+  - create_fixtures
+  - run_coverage
+
+preferred_tools:
+  - Read
+  - Write
+  - Bash
+  - Grep
+  - Glob
+
 core_skills:
   - unit_testing
   - integration_testing
   - test_automation
   - pytest
+
 responsibilities:
   - Write unit tests
   - Create integration tests
   - Set up test fixtures
   - Maintain test coverage
   - Run test suites
+
 keywords:
   - test
   - testing
@@ -22,9 +46,28 @@ keywords:
   - coverage
   - pytest
   - spec
+
 capabilities:
   - read_files
   - write_files
   - execute_commands
   - search_codebase
+
 token_budget: 35000
+
+constraints:
+  must:
+    - Use pytest markers (@pytest.mark.l{xx})
+    - Test edge cases
+    - Maintain test isolation
+    - Cover error paths
+  must_not:
+    - Skip integration tests
+    - Write flaky tests
+    - Ignore test failures
+  should:
+    - Use fixtures for setup
+    - Document test purpose
+  avoid:
+    - Over-mocking
+    - Testing implementation details

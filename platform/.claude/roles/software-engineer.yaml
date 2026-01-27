@@ -3,18 +3,41 @@ department: Engineering
 description: General-purpose software development role for implementing features, fixing bugs, and writing code.
 role_type: ai_primary
 priority: 8
+
+layer_affinity:
+  - L01
+  - L02
+  - L03
+  - L04
+  - L05
+  - L09
+
+common_tasks:
+  - implement_feature
+  - fix_bug
+  - refactor_code
+
+preferred_tools:
+  - Read
+  - Write
+  - Bash
+  - Grep
+  - Glob
+
 core_skills:
   - code_generation
   - debugging
   - refactoring
   - testing
   - documentation
+
 responsibilities:
   - Write clean, maintainable code
   - Fix bugs and resolve issues
   - Implement new features
   - Write unit tests
   - Review and refactor code
+
 keywords:
   - code
   - implement
@@ -23,9 +46,28 @@ keywords:
   - feature
   - develop
   - programming
+
 capabilities:
   - read_files
   - write_files
   - execute_commands
   - search_codebase
+
 token_budget: 50000
+
+constraints:
+  must:
+    - Follow layer patterns
+    - Write tests for new code
+    - Use existing patterns
+    - Handle errors properly
+  must_not:
+    - Skip code review
+    - Ignore test failures
+    - Break existing functionality
+  should:
+    - Keep functions focused
+    - Add meaningful comments
+  avoid:
+    - Premature optimization
+    - Over-engineering
