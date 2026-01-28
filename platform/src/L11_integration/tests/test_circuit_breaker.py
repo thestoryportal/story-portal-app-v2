@@ -81,10 +81,11 @@ class TestCircuitBreakerUnit:
             raise ValueError("Test error")
 
         # Trigger failures to open circuit
-        for _ in range(3):
+        for i in range(3):
             try:
                 await circuit_breaker.execute("test_service", fail_func, config=config)
-            except ValueError:
+            except (ValueError, IntegrationError):
+                # After threshold, circuit opens and raises IntegrationError
                 pass
 
         circuit = await circuit_breaker.get_state("test_service")
@@ -101,14 +102,18 @@ class TestCircuitBreakerUnit:
         async def fail_func():
             raise ValueError("Test error")
 
-        # Open the circuit
+        # Open the circuit - after 2 failures it opens
         for _ in range(2):
             try:
                 await circuit_breaker.execute("test_service", fail_func, config=config)
-            except ValueError:
+            except (ValueError, IntegrationError):
                 pass
 
-        # Should reject immediately
+        # Verify circuit is open
+        circuit = await circuit_breaker.get_state("test_service")
+        assert circuit.state == CircuitState.OPEN
+
+        # Next call should reject immediately with IntegrationError
         with pytest.raises(IntegrationError) as exc_info:
             await circuit_breaker.execute("test_service", fail_func, config=config)
 
@@ -197,6 +202,7 @@ class TestCircuitBreakerHalfOpen:
         cb = CircuitBreaker(l11_bridge=None)
         config = CircuitBreakerConfig(
             failure_threshold=1,
+            success_threshold=1,  # Single success closes circuit
             timeout_sec=0.1,  # Very short timeout for testing
         )
 
@@ -215,13 +221,10 @@ class TestCircuitBreakerHalfOpen:
         circuit = await cb.get_state("test")
         assert circuit.state == CircuitState.OPEN
 
-        # Wait for timeout to allow half-open
-        await asyncio.sleep(0.2)
+        # Wait for timeout to allow half-open transition
+        await asyncio.sleep(0.15)
 
-        # Circuit should reset window and allow request
-        circuit.reset_window()
-
-        # Success should close circuit
+        # Execute should transition to HALF_OPEN and then success closes it
         result = await cb.execute("test", success_func, config=config)
         assert result == "ok"
 

@@ -5,6 +5,7 @@ Tests saga orchestration with service calls.
 """
 
 import pytest
+import pytest_asyncio
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -29,7 +30,7 @@ from L11_integration.tests.fixtures.mock_http import MockHTTPClient
 class TestSagaWithServices:
     """Integration tests for saga orchestration with service calls."""
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def orchestration_stack(self):
         """Set up full orchestration stack with mocks."""
         # Service registry
@@ -41,18 +42,21 @@ class TestSagaWithServices:
             ServiceInfo(
                 service_id="l02",
                 service_name="L02_runtime",
+                service_version="0.1.0",
                 endpoint="http://localhost:8002",
                 status=ServiceStatus.HEALTHY,
             ),
             ServiceInfo(
                 service_id="l03",
                 service_name="L03_tool_execution",
+                service_version="0.1.0",
                 endpoint="http://localhost:8003",
                 status=ServiceStatus.HEALTHY,
             ),
             ServiceInfo(
                 service_id="l05",
                 service_name="L05_planning",
+                service_version="0.1.0",
                 endpoint="http://localhost:8005",
                 status=ServiceStatus.HEALTHY,
             ),
@@ -92,22 +96,22 @@ class TestSagaWithServices:
             saga_name="Deploy Agent Saga",
             steps=[
                 SagaStep(
+                    step_id="step-0",
                     step_name="Create Agent",
-                    step_index=0,
                     service_name="L02_runtime",
                     endpoint="/agents",
                     required=True,
                 ),
                 SagaStep(
+                    step_id="step-1",
                     step_name="Configure Tools",
-                    step_index=1,
                     service_name="L03_tool_execution",
                     endpoint="/tools/configure",
                     required=True,
                 ),
                 SagaStep(
+                    step_id="step-2",
                     step_name="Create Plan",
-                    step_index=2,
                     service_name="L05_planning",
                     endpoint="/plans",
                     required=True,
@@ -150,24 +154,24 @@ class TestSagaWithServices:
             auto_compensate=True,
             steps=[
                 SagaStep(
+                    step_id="step-0",
                     step_name="Create Agent",
-                    step_index=0,
                     service_name="L02_runtime",
                     endpoint="/agents",
                     compensation=compensation_1,
                     required=True,
                 ),
                 SagaStep(
+                    step_id="step-1",
                     step_name="Configure Tools",
-                    step_index=1,
                     service_name="L03_tool_execution",
                     endpoint="/tools/configure",
                     compensation=compensation_2,
                     required=True,
                 ),
                 SagaStep(
+                    step_id="step-2",
                     step_name="Create Plan (Will Fail)",
-                    step_index=2,
                     service_name="L05_planning",
                     endpoint="/plans",
                     required=True,
@@ -201,21 +205,21 @@ class TestSagaWithServices:
             saga_name="Mixed Steps Saga",
             steps=[
                 SagaStep(
+                    step_id="step-0",
                     step_name="Create Agent",
-                    step_index=0,
                     service_name="L02_runtime",
                     endpoint="/agents",
                     required=True,
                 ),
                 SagaStep(
+                    step_id="step-1",
                     step_name="Validate",
-                    step_index=1,
                     action=custom_validation,
                     required=True,
                 ),
                 SagaStep(
+                    step_id="step-2",
                     step_name="Create Plan",
-                    step_index=2,
                     service_name="L05_planning",
                     endpoint="/plans",
                     required=True,
@@ -239,14 +243,14 @@ class TestSagaWithServices:
             saga_name="Trace Test Saga",
             steps=[
                 SagaStep(
+                    step_id="step-0",
                     step_name="Step A",
-                    step_index=0,
                     service_name="L02_runtime",
                     endpoint="/agents",
                 ),
                 SagaStep(
+                    step_id="step-1",
                     step_name="Step B",
-                    step_index=1,
                     service_name="L03_tool_execution",
                     endpoint="/tools/configure",
                 ),
@@ -281,6 +285,7 @@ class TestCircuitBreakerWithSaga:
         svc = ServiceInfo(
             service_id="l02",
             service_name="L02_runtime",
+            service_version="0.1.0",
             endpoint="http://localhost:8002",
             status=ServiceStatus.HEALTHY,
         )
@@ -301,8 +306,8 @@ class TestCircuitBreakerWithSaga:
             saga_name="Circuit Test",
             steps=[
                 SagaStep(
+                    step_id="step-0",
                     step_name="Failing Step",
-                    step_index=0,
                     service_name="L02_runtime",
                     endpoint="/fail",
                     max_retries=0,

@@ -28,6 +28,7 @@ class TestRequestOrchestratorUnit:
         service = ServiceInfo(
             service_id="test-service",
             service_name="L02_runtime",
+            service_version="0.1.0",
             endpoint="http://localhost:8002",
             status=ServiceStatus.HEALTHY,
         )
@@ -78,7 +79,8 @@ class TestRequestOrchestratorUnit:
 
         assert result == {"status": "ok"}
         request = mock_http.get_requests()[0]
-        assert "X-Trace-ID" in request["headers"] or "x-trace-id" in str(request["headers"]).lower()
+        # RequestOrchestrator uses W3C Trace Context format (traceparent) or x-correlation-id
+        assert "traceparent" in request["headers"] or "x-correlation-id" in request["headers"]
 
     @pytest.mark.asyncio
     async def test_route_request_service_not_found(self, setup_orchestrator):
@@ -132,6 +134,7 @@ class TestRequestOrchestratorUnit:
         service2 = ServiceInfo(
             service_id="test-service-2",
             service_name="L03_tool_execution",
+            service_version="0.1.0",
             endpoint="http://localhost:8003",
             status=ServiceStatus.HEALTHY,
         )

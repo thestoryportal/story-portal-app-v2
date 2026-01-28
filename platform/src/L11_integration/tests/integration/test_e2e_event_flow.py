@@ -6,6 +6,7 @@ Requires: Redis running on localhost:6379
 """
 
 import pytest
+import pytest_asyncio
 import asyncio
 import json
 from unittest.mock import AsyncMock, patch
@@ -25,7 +26,7 @@ from L11_integration.tests.fixtures.event_data import (
 class TestE2EEventFlow:
     """End-to-end tests for event routing flow."""
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def mock_http_client(self):
         """Create mock HTTP client with all layer endpoints."""
         client = MockHTTPClient()
@@ -36,7 +37,7 @@ class TestE2EEventFlow:
         client.add_response("POST", "/events/session", {"status": "ok"})
         return client
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def event_router(self, mock_http_client):
         """Create event router with mock HTTP client."""
         router = EventRouter()
@@ -147,7 +148,7 @@ class TestE2EEventFlow:
 class TestEventHandlerIntegration:
     """Tests for the app-level event handler."""
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def router_with_mock(self):
         """Create router with mock HTTP client."""
         router = EventRouter()
