@@ -2,182 +2,305 @@
 
 The Model Gateway Layer provides intelligent routing and execution of LLM inference requests across multiple providers with caching, rate limiting, and failover capabilities.
 
+## Status: Production Ready
+
+- 194 tests passing (unit, integration, E2E)
+- 5 provider adapters implemented
+- Prometheus metrics instrumented
+- L01 integration complete
+
 ## Overview
 
 The L04 Model Gateway Layer sits between the agent runtime (L02) and external LLM providers, providing:
 
-- **Unified Interface**: Single API for multiple LLM providers (Anthropic, OpenAI, Azure, Google, local models)
+- **Unified Interface**: Single API for multiple LLM providers (Anthropic, OpenAI, Ollama, Claude Code)
 - **Intelligent Routing**: Capability-based model selection with cost and latency optimization
 - **Semantic Caching**: Embedding-based caching to reduce costs and improve latency
 - **Rate Limiting**: Token bucket rate limiting per agent and provider
 - **Circuit Breaker**: Automatic failover when providers are unhealthy
 - **Request Queue**: Priority queue for request buffering during load spikes
+- **Observability**: Prometheus metrics for monitoring and alerting
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────┐
-│           Model Gateway Layer (L04)             │
-├─────────────────────────────────────────────────┤
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐     │
-│  │ Registry │  │  Router  │  │  Health  │     │
-│  │          │  │          │  │  Monitor │     │
-│  └──────────┘  └──────────┘  └──────────┘     │
-├─────────────────────────────────────────────────┤
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐     │
-│  │   Rate   │→ │  Cache   │→ │ Provider │     │
-│  │ Limiter  │  │  Lookup  │  │  Adapter │     │
-│  └──────────┘  └──────────┘  └──────────┘     │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│              Model Gateway Layer (L04)                      │
+├─────────────────────────────────────────────────────────────┤
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
+│  │ Registry │  │  Router  │  │  Health  │  │ Metrics  │   │
+│  │          │  │          │  │  Monitor │  │          │   │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘   │
+├─────────────────────────────────────────────────────────────┤
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
+│  │   Rate   │→ │  Cache   │→ │ Circuit  │→ │ Provider │   │
+│  │ Limiter  │  │  Lookup  │  │ Breaker  │  │  Adapter │   │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘   │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ## Components
 
 ### Core Services
 
-- **Model Registry**: Catalog of available models with capabilities, costs, and limits
-- **LLM Router**: Intelligent model selection based on requirements and constraints
-- **Semantic Cache**: Embedding-based cache using Redis and SQLite
-- **Rate Limiter**: Token bucket rate limiting with Redis backend
-- **Circuit Breaker**: Provider health monitoring and failover
-- **Request Queue**: Priority queue for request buffering
+| Service | Description |
+|---------|-------------|
+| **ModelRegistry** | Catalog of available models with capabilities, costs, and limits |
+| **LLMRouter** | Intelligent model selection based on requirements and constraints |
+| **SemanticCache** | Embedding-based cache for response deduplication |
+| **RateLimiter** | Token bucket rate limiting with Redis backend |
+| **CircuitBreaker** | Provider health monitoring and automatic failover |
+| **RequestQueue** | Priority queue for request buffering during load spikes |
+| **MetricsManager** | Prometheus metrics collection and exposure |
+| **L01Bridge** | Integration with L01 Data Layer for usage tracking |
 
 ### Provider Adapters
 
-- **Anthropic Adapter**: Claude models via Anthropic API
-- **OpenAI Adapter**: GPT models via OpenAI API
-- **Azure Adapter**: Azure OpenAI Service
-- **Google Adapter**: Vertex AI models
-- **Ollama Adapter**: Local models via Ollama
+| Adapter | Models | Capabilities |
+|---------|--------|--------------|
+| **AnthropicAdapter** | claude-opus-4-5, claude-3-5-sonnet, claude-3-opus, claude-3-haiku | text, vision, streaming, tool_use |
+| **OpenAIAdapter** | gpt-4o, gpt-4o-mini, gpt-4-turbo, gpt-3.5-turbo | text, vision, streaming, function_calling |
+| **OllamaAdapter** | llama3, mistral, codellama, any local model | text, streaming |
+| **ClaudeCodeAdapter** | Claude via local Claude Code CLI | text, streaming, tool_use |
+| **MockAdapter** | mock | text, streaming (for testing) |
 
-### Data Models
+## Prometheus Metrics
 
-- **InferenceRequest**: Logical prompt with requirements and constraints
-- **InferenceResponse**: Normalized response with token usage and cost
-- **ModelConfig**: Model definition with capabilities and pricing
-- **ProviderConfig**: Provider connection and behavior configuration
-- **RoutingDecision**: Result of routing logic with fallback options
+All metrics are prefixed with `l04_`:
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `l04_inference_requests_total` | Counter | provider, model, status | Total inference requests |
+| `l04_inference_latency_seconds` | Histogram | provider, model | Request latency distribution |
+| `l04_cache_hits_total` | Counter | - | Cache hit count |
+| `l04_cache_misses_total` | Counter | - | Cache miss count |
+| `l04_rate_limit_rejections_total` | Counter | agent_did | Rate limit rejections |
+| `l04_circuit_breaker_state` | Gauge | provider | Circuit state (0=closed, 1=half_open, 2=open) |
+| `l04_active_requests` | Gauge | provider | Currently active requests |
+| `l04_token_usage_total` | Counter | direction, model | Token consumption |
+| `l04_gateway` | Info | version, layer | Gateway metadata |
+
+## Usage Example
+
+```python
+from L04_model_gateway.services import ModelGateway
+from L04_model_gateway.models import InferenceRequest, Message, MessageRole
+
+# Initialize gateway (uses default providers)
+gateway = ModelGateway()
+
+# Create a request
+request = InferenceRequest.create(
+    agent_did="did:key:agent1",
+    messages=[
+        Message(role=MessageRole.SYSTEM, content="You are a helpful assistant."),
+        Message(role=MessageRole.USER, content="Hello, world!")
+    ],
+    model_id="claude-3-5-sonnet-20241022",  # Optional: explicit model
+    enable_cache=True,
+    max_tokens=100
+)
+
+# Execute inference
+response = await gateway.execute(request)
+
+print(f"Response: {response.content}")
+print(f"Tokens: {response.token_usage.total_tokens}")
+print(f"Latency: {response.latency_ms}ms")
+print(f"Cached: {response.cached}")
+
+# Streaming inference
+async for chunk in gateway.stream(request):
+    print(chunk.content_delta, end="", flush=True)
+    if chunk.is_final:
+        print(f"\nTotal tokens: {chunk.token_usage.total_tokens}")
+
+# Health check
+health = await gateway.health_check()
+print(f"Gateway status: {health['gateway']}")
+
+# Cleanup
+await gateway.close()
+```
 
 ## Error Codes
 
 L04 uses error codes in the range E4000-E4999:
 
-| Range | Category |
-|-------|----------|
-| E4000-E4099 | Configuration errors |
-| E4100-E4199 | Routing errors |
-| E4200-E4299 | Provider errors |
-| E4300-E4399 | Cache errors |
-| E4400-E4499 | Rate limit errors |
-| E4500-E4599 | Request validation errors |
-| E4600-E4699 | Response processing errors |
-| E4700-E4799 | Circuit breaker errors |
-
-## Usage Example
-
-```python
-from L04_model_gateway import ModelRegistry
-from L04_model_gateway.models import InferenceRequest, Message, MessageRole
-
-# Initialize registry
-registry = ModelRegistry()
-registry.load_default_models()
-
-# Create a request
-messages = [Message(role=MessageRole.USER, content="Hello, world!")]
-request = InferenceRequest.create(
-    agent_did="did:key:agent1",
-    messages=messages,
-    capabilities=["text"],
-    max_tokens=100
-)
-
-# Route and execute (gateway integration coming in later phases)
-```
+| Range | Category | Common Codes |
+|-------|----------|--------------|
+| E4000-E4099 | Configuration | E4001: Model not found, E4002: Provider not configured |
+| E4100-E4199 | Routing | E4100: No suitable model, E4102: All models unavailable |
+| E4200-E4299 | Provider | E4200: Provider error, E4202: Timeout, E4203: Auth failed |
+| E4300-E4399 | Cache | E4300: Cache error, E4301: Embedding failed |
+| E4400-E4499 | Rate Limit | E4401: Rate limit exceeded, E4402: Quota exhausted |
+| E4500-E4599 | Validation | E4500: Invalid request, E4501: Invalid messages |
+| E4600-E4699 | Response | E4600: Parse error, E4604: Streaming error |
+| E4700-E4799 | Circuit Breaker | E4701: Circuit open, E4702: Recovery failed |
 
 ## Configuration
 
-### Local Development
+### Environment Variables
 
-For local development with Ollama:
+```bash
+# Provider API Keys
+ANTHROPIC_API_KEY=sk-ant-...        # Anthropic Claude API
+OPENAI_API_KEY=sk-...               # OpenAI API
 
-```python
-# Default configuration
-OLLAMA_BASE_URL = "http://localhost:11434"
-REDIS_URL = "redis://localhost:6379"
-CACHE_TTL = 3600  # seconds
-CACHE_SIMILARITY_THRESHOLD = 0.85
+# Local Providers
+OLLAMA_URL=http://localhost:11434   # Ollama server URL
+OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+OLLAMA_EMBEDDING_DIMENSIONS=768
+
+# Caching
+REDIS_URL=redis://localhost:6379/0  # Redis for rate limiting & cache
+CACHE_ENABLED=true                  # Enable semantic caching
+CACHE_TTL=3600                      # Cache TTL in seconds
+CACHE_SIMILARITY_THRESHOLD=0.85     # Embedding similarity threshold
+
+# Rate Limiting
+RATE_LIMIT_REQUESTS_PER_MINUTE=60   # Default rate limit
+RATE_LIMIT_TOKENS_PER_MINUTE=100000 # Token rate limit
+
+# Circuit Breaker
+CIRCUIT_BREAKER_FAILURE_THRESHOLD=5  # Failures before opening
+CIRCUIT_BREAKER_RECOVERY_TIMEOUT=60  # Seconds before retry
+
+# L01 Integration
+L01_BASE_URL=http://localhost:8001  # L01 Data Layer URL
+L01_API_KEY=dev_key_local_ONLY      # L01 authentication
 ```
 
-### Production
+### Provider-Specific Configuration
 
-Production configuration uses environment variables:
+```python
+from L04_model_gateway.providers import AnthropicAdapter, OpenAIAdapter, OllamaAdapter
 
-- `ANTHROPIC_API_KEY`: Anthropic API key
-- `OPENAI_API_KEY`: OpenAI API key
-- `AZURE_OPENAI_KEY`: Azure OpenAI key
-- `REDIS_URL`: Redis connection URL
-- `CACHE_ENABLED`: Enable semantic caching (default: true)
+# Anthropic with custom settings
+anthropic = AnthropicAdapter(
+    api_key="sk-ant-...",
+    base_url="https://api.anthropic.com",  # Default
+    timeout=60.0
+)
 
-## Development
+# OpenAI with custom settings
+openai = OpenAIAdapter(
+    api_key="sk-...",
+    base_url="https://api.openai.com",  # Default
+    timeout=60.0
+)
 
-### Directory Structure
+# Ollama for local models
+ollama = OllamaAdapter(
+    base_url="http://localhost:11434",
+    timeout=120.0  # Longer timeout for local inference
+)
+
+# Custom gateway with specific providers
+gateway = ModelGateway(
+    providers={
+        "anthropic": anthropic,
+        "openai": openai,
+        "ollama": ollama,
+    }
+)
+```
+
+## Directory Structure
 
 ```
 L04_model_gateway/
 ├── __init__.py
 ├── README.md
-├── PROGRESS.md
-├── models/              # Data models and error codes
+├── models/                    # Data models and error codes
 │   ├── __init__.py
-│   ├── error_codes.py
-│   ├── inference_request.py
-│   ├── inference_response.py
-│   ├── model_config.py
-│   ├── provider_config.py
-│   └── routing_config.py
-├── services/            # Core services
+│   ├── error_codes.py         # L04 error code definitions
+│   ├── inference_request.py   # Request models
+│   ├── inference_response.py  # Response models
+│   ├── model_config.py        # Model configuration
+│   ├── provider_config.py     # Provider configuration
+│   └── routing_config.py      # Routing configuration
+├── services/                  # Core services
 │   ├── __init__.py
-│   ├── model_registry.py
-│   ├── llm_router.py
-│   ├── semantic_cache.py
-│   ├── rate_limiter.py
-│   ├── request_queue.py
-│   ├── circuit_breaker.py
-│   ├── provider_health.py
-│   └── model_gateway.py
-├── providers/           # Provider adapters
+│   ├── model_registry.py      # Model catalog
+│   ├── llm_router.py          # Intelligent routing
+│   ├── semantic_cache.py      # Response caching
+│   ├── rate_limiter.py        # Rate limiting
+│   ├── circuit_breaker.py     # Failover management
+│   ├── request_queue.py       # Request buffering
+│   ├── model_gateway.py       # Main gateway service
+│   ├── metrics.py             # Prometheus metrics
+│   └── l01_bridge.py          # L01 integration
+├── providers/                 # Provider adapters
 │   ├── __init__.py
-│   ├── base.py
-│   ├── anthropic_adapter.py
-│   ├── openai_adapter.py
-│   ├── ollama_adapter.py
-│   └── mock_adapter.py
-└── tests/              # Test suite
+│   ├── base.py                # Base adapter protocol
+│   ├── anthropic_adapter.py   # Anthropic Claude
+│   ├── openai_adapter.py      # OpenAI GPT
+│   ├── ollama_adapter.py      # Local Ollama
+│   ├── claude_code_adapter.py # Claude Code CLI
+│   ├── mock_adapter.py        # Testing mock
+│   └── token_counter.py       # Token counting utilities
+└── tests/                     # Test suite
     ├── __init__.py
-    ├── conftest.py
-    └── test_*.py
+    ├── conftest.py            # Shared fixtures
+    ├── fixtures/              # Test fixtures
+    │   ├── api_responses.py   # Mock API responses
+    │   └── mock_clients.py    # Mock HTTP clients
+    ├── integration/           # Integration tests
+    │   ├── conftest.py
+    │   └── test_e2e_inference.py
+    ├── test_anthropic_adapter.py
+    ├── test_openai_adapter.py
+    ├── test_token_counter.py
+    ├── test_l01_bridge.py
+    ├── test_metrics.py
+    ├── test_models.py
+    ├── test_registry.py
+    ├── test_router.py
+    └── test_services.py
 ```
 
-### Testing
+## Testing
 
 ```bash
-# Run tests
-cd /Volumes/Extreme SSD/projects/story-portal-app/platform
-python3 -m pytest src/L04_model_gateway/tests/
+# Run all L04 tests
+pytest src/L04_model_gateway/tests/ -v
 
-# Type checking
-python3 -m mypy src/L04_model_gateway/
+# Run with coverage
+pytest src/L04_model_gateway/tests/ --cov=src/L04_model_gateway --cov-report=html
 
-# Syntax validation
-python3 -m py_compile $(find src/L04_model_gateway -name "*.py")
+# Run specific test categories
+pytest src/L04_model_gateway/tests/ -m "unit"        # Unit tests only
+pytest src/L04_model_gateway/tests/ -m "integration" # Integration tests
+pytest src/L04_model_gateway/tests/ -m "e2e"         # End-to-end tests
+
+# Run specific adapter tests
+pytest src/L04_model_gateway/tests/test_anthropic_adapter.py -v
+pytest src/L04_model_gateway/tests/test_openai_adapter.py -v
 ```
 
 ## Integration
 
-### With L02 Runtime Layer
+### With L01 Data Layer
 
-The L02 Runtime Layer calls L04 for model inference:
+Usage events are automatically recorded via L01Bridge:
+
+```python
+from L04_model_gateway.services import ModelGateway, L01Bridge
+
+# Gateway with L01 integration
+bridge = L01Bridge(
+    base_url="http://localhost:8001",
+    api_key="dev_key_local_ONLY"
+)
+gateway = ModelGateway(l01_bridge=bridge)
+
+# Inference automatically records usage in L01
+response = await gateway.execute(request)
+# Event recorded: inference_completed with tokens, latency, cost
+```
+
+### With L02 Runtime Layer
 
 ```python
 from L02_runtime import AgentRuntime
@@ -190,25 +313,18 @@ gateway = ModelGateway()
 response = await gateway.execute(request)
 ```
 
-### With L03 Tool Execution Layer
-
-Tool execution results can be passed back through the gateway:
+### With L05 Planning Layer
 
 ```python
-from L03_tool_execution import ToolExecutor
-from L04_model_gateway import ModelGateway
+from L05_planning.integration.l04_bridge import L04Bridge
 
-executor = ToolExecutor()
-gateway = ModelGateway()
-
-# Execute tool, feed result back to model
-tool_result = await executor.execute(tool_call)
-response = await gateway.execute_with_tools(request, [tool_result])
+# L05 uses bridge pattern for L04 access
+bridge = L04Bridge(base_url="http://localhost:8004")
+response = await bridge.generate(
+    prompt="Plan the following task...",
+    model="claude-3-5-sonnet-20241022"
+)
 ```
-
-## Status
-
-See [PROGRESS.md](PROGRESS.md) for implementation status.
 
 ## License
 
