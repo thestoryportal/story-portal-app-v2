@@ -14,6 +14,7 @@ from ..models import (
     AgentState,
     ControlOperation,
     ControlStatus,
+    UpdateQuotaRequest,
     ErrorCode,
     InterfaceError,
 )
@@ -229,12 +230,11 @@ class TestEmergencyStop:
 
         assert response.operation == ControlOperation.EMERGENCY_STOP
         assert response.status == ControlStatus.SUCCESS
-        # Emergency stop should force state to stopped/failed
-        assert response.new_state in ["stopped", "failed", "paused"]
+        assert response.new_state == "stopped"
 
     @pytest.mark.asyncio
     async def test_emergency_stop_from_any_state(self, control_service, mock_state_manager):
-        """Test emergency stop works from any state."""
+        """Test emergency stop works from any state (no state validation)."""
         # Emergency stop should work regardless of current state
         for state in ["running", "paused", "idle", "failed"]:
             mock_state_manager.get_agent_state.return_value = {
@@ -251,6 +251,91 @@ class TestEmergencyStop:
             )
 
             assert response.status == ControlStatus.SUCCESS
+            assert response.new_state == "stopped"
+
+    @pytest.mark.asyncio
+    async def test_emergency_stop_bypasses_normal_locks(self, control_service, redis_client, mock_state_manager):
+        """Test emergency stop force-acquires lock if already locked."""
+        mock_state_manager.get_agent_state.return_value = {
+            "agent_id": "agent-1",
+            "state": "running",
+            "tenant_id": "tenant-1",
+        }
+
+        # Pre-acquire a lock (simulating another operation in progress)
+        lock_key = "control:lock:agent-1"
+        await redis_client.set(lock_key, "locked", ex=60)
+
+        # Emergency stop should still succeed by force-releasing
+        response = await control_service.emergency_stop_agent(
+            agent_id="agent-1",
+            tenant_id="tenant-1",
+            user_id="admin-1",
+            reason="Critical emergency",
+        )
+
+        assert response.status == ControlStatus.SUCCESS
+
+    @pytest.mark.asyncio
+    async def test_emergency_stop_requires_reason(self, control_service, mock_state_manager):
+        """Test emergency stop requires a reason."""
+        mock_state_manager.get_agent_state.return_value = {
+            "agent_id": "agent-1",
+            "state": "running",
+            "tenant_id": "tenant-1",
+        }
+
+        # Reason is a required parameter in the method signature
+        # This test verifies the reason is included in the response
+        response = await control_service.emergency_stop_agent(
+            agent_id="agent-1",
+            tenant_id="tenant-1",
+            user_id="admin-1",
+            reason="Test emergency reason",
+        )
+
+        assert response.status == ControlStatus.SUCCESS
+        assert "Test emergency reason" in response.message
+
+    @pytest.mark.asyncio
+    async def test_emergency_stop_audit_logged(self, control_service, mock_audit_logger, mock_state_manager):
+        """Test that emergency stop is always audit logged."""
+        mock_state_manager.get_agent_state.return_value = {
+            "agent_id": "agent-1",
+            "state": "running",
+            "tenant_id": "tenant-1",
+        }
+
+        await control_service.emergency_stop_agent(
+            agent_id="agent-1",
+            tenant_id="tenant-1",
+            user_id="admin-1",
+            reason="Critical issue",
+        )
+
+        # Verify audit log was called with emergency flag
+        mock_audit_logger.log.assert_called_once()
+        call_args = mock_audit_logger.log.call_args
+        assert "emergency" in str(call_args).lower()
+
+    @pytest.mark.asyncio
+    async def test_emergency_stop_already_stopped_idempotent(self, control_service, mock_state_manager):
+        """Test emergency stop on already stopped agent is idempotent."""
+        mock_state_manager.get_agent_state.return_value = {
+            "agent_id": "agent-1",
+            "state": "stopped",
+            "tenant_id": "tenant-1",
+        }
+
+        response = await control_service.emergency_stop_agent(
+            agent_id="agent-1",
+            tenant_id="tenant-1",
+            user_id="admin-1",
+            reason="Already stopped",
+        )
+
+        assert response.status == ControlStatus.IDEMPOTENT
+        assert response.idempotent is True
 
 
 class TestDistributedLocking:
@@ -409,31 +494,104 @@ class TestQuotaAdjustment:
     """Test quota adjustment operations."""
 
     @pytest.mark.asyncio
-    async def test_adjust_quota_success(self, control_service, mock_state_manager):
-        """Test successful quota adjustment."""
-        response = await control_service.adjust_quota(
+    async def test_update_quota_tokens_success(self, control_service, mock_state_manager):
+        """Test successful token quota update."""
+        request = UpdateQuotaRequest(
             agent_id="agent-1",
+            tokens_per_hour=10000,
+        )
+
+        response = await control_service.update_quota(
+            request=request,
             tenant_id="tenant-1",
             user_id="user-1",
-            quota_type="api_calls",
-            new_limit=1000,
         )
 
         assert response.status == ControlStatus.SUCCESS
 
     @pytest.mark.asyncio
-    async def test_adjust_quota_invalid_value(self, control_service):
-        """Test invalid quota value raises error."""
+    async def test_update_quota_cpu_success(self, control_service, mock_state_manager):
+        """Test successful CPU quota update."""
+        request = UpdateQuotaRequest(
+            agent_id="agent-1",
+            cpu_millicores=500,
+        )
+
+        response = await control_service.update_quota(
+            request=request,
+            tenant_id="tenant-1",
+            user_id="user-1",
+        )
+
+        assert response.status == ControlStatus.SUCCESS
+
+    @pytest.mark.asyncio
+    async def test_update_quota_memory_success(self, control_service, mock_state_manager):
+        """Test successful memory quota update."""
+        request = UpdateQuotaRequest(
+            agent_id="agent-1",
+            memory_mb=1024,
+        )
+
+        response = await control_service.update_quota(
+            request=request,
+            tenant_id="tenant-1",
+            user_id="user-1",
+        )
+
+        assert response.status == ControlStatus.SUCCESS
+
+    @pytest.mark.asyncio
+    async def test_update_quota_invalid_negative(self, control_service):
+        """Test invalid negative quota value raises error."""
+        request = UpdateQuotaRequest(
+            agent_id="agent-1",
+            tokens_per_hour=-100,  # Invalid negative
+        )
+
         with pytest.raises(InterfaceError) as exc_info:
-            await control_service.adjust_quota(
-                agent_id="agent-1",
+            await control_service.update_quota(
+                request=request,
                 tenant_id="tenant-1",
                 user_id="user-1",
-                quota_type="api_calls",
-                new_limit=-100,  # Invalid negative
             )
 
-        assert exc_info.value.code in [ErrorCode.E10303, ErrorCode.E10304]
+        assert exc_info.value.code == ErrorCode.E10306
+
+    @pytest.mark.asyncio
+    async def test_update_quota_agent_not_found(self, control_service, mock_state_manager):
+        """Test quota update for nonexistent agent raises error."""
+        mock_state_manager.get_agent_state.return_value = None
+        request = UpdateQuotaRequest(
+            agent_id="nonexistent",
+            tokens_per_hour=10000,
+        )
+
+        with pytest.raises(InterfaceError) as exc_info:
+            await control_service.update_quota(
+                request=request,
+                tenant_id="tenant-1",
+                user_id="user-1",
+            )
+
+        assert exc_info.value.code == ErrorCode.E10302
+
+    @pytest.mark.asyncio
+    async def test_update_quota_publishes_event(self, control_service, mock_event_bus):
+        """Test that quota update publishes event."""
+        request = UpdateQuotaRequest(
+            agent_id="agent-1",
+            tokens_per_hour=10000,
+        )
+
+        await control_service.update_quota(
+            request=request,
+            tenant_id="tenant-1",
+            user_id="user-1",
+        )
+
+        # Verify event was published
+        mock_event_bus.publish.assert_called()
 
 
 class TestErrorHandling:

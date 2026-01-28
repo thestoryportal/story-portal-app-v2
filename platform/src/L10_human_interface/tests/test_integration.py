@@ -290,7 +290,7 @@ class TestWebSocketIntegration:
         await websocket_gateway._unregister_connection(conn_id)
 
 
-class TestEventService Integration:
+class TestEventServiceIntegration:
     """Integration tests for event service."""
 
     @pytest.mark.asyncio
