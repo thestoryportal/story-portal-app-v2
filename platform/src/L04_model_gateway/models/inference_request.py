@@ -164,6 +164,7 @@ class InferenceRequest:
     timestamp: datetime = field(default_factory=datetime.utcnow)
     enable_cache: bool = True
     enable_streaming: bool = False
+    model_id: Optional[str] = None  # Optional explicit model selection (bypasses routing)
 
     @classmethod
     def create(
@@ -201,7 +202,7 @@ class InferenceRequest:
 
     def to_dict(self) -> dict:
         """Convert to dictionary for serialization"""
-        return {
+        result = {
             "request_id": self.request_id,
             "agent_did": self.agent_did,
             "logical_prompt": self.logical_prompt.to_dict(),
@@ -212,6 +213,9 @@ class InferenceRequest:
             "enable_cache": self.enable_cache,
             "enable_streaming": self.enable_streaming
         }
+        if self.model_id:
+            result["model_id"] = self.model_id
+        return result
 
     def estimate_input_tokens(self) -> int:
         """Estimate input token count"""

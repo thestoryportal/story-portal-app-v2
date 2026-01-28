@@ -26,6 +26,7 @@ from .semantic_cache import SemanticCache
 from .rate_limiter import RateLimiter
 from .circuit_breaker import CircuitBreaker
 from .request_queue import RequestQueue, Priority
+from .metrics import get_metrics_manager
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +83,10 @@ class ModelGateway:
         if not self.providers:
             self._setup_default_providers()
 
+        # Initialize metrics
+        self.metrics = get_metrics_manager()
+        self.metrics.initialize()
+
         logger.info("ModelGateway initialized with all components")
 
     def _setup_default_providers(self) -> None:
@@ -121,39 +126,58 @@ class ModelGateway:
             L04Error: On any error during execution
         """
         start_time = datetime.utcnow()
+        provider_id = "unknown"
+        model_id = request.model_id or "unknown"
 
         try:
             logger.info(f"Executing request {request.request_id}")
 
             # Step 1: Check rate limits
             estimated_tokens = request.estimate_input_tokens()
-            await self.rate_limiter.check_rate_limit(
-                agent_did=request.agent_did,
-                provider="gateway",  # Global rate limit
-                tokens=estimated_tokens
-            )
+            try:
+                await self.rate_limiter.check_rate_limit(
+                    agent_did=request.agent_did,
+                    provider="gateway",  # Global rate limit
+                    tokens=estimated_tokens
+                )
+            except RateLimitError:
+                self.metrics.record_rate_limit_rejection(request.agent_did)
+                raise
 
             # Step 2: Check cache (if enabled)
             if request.enable_cache:
                 cached = await self.cache.get(request)
                 if cached:
                     logger.info(f"Cache hit for request {request.request_id}")
+                    self.metrics.record_cache_hit()
                     return cached
+                self.metrics.record_cache_miss()
+            else:
+                self.metrics.record_cache_miss()
 
             # Step 3: Route to model
             routing_decision = self.router.route(request, routing_strategy)
+            provider_id = routing_decision.primary_provider
+            model_id = routing_decision.primary_model_id
             logger.info(
                 f"Routed to {routing_decision.primary_model_id} "
                 f"({routing_decision.primary_provider})"
             )
 
-            # Step 4: Execute with failover
-            response = await self._execute_with_failover(
-                request,
-                routing_decision.primary_model_id,
-                routing_decision.primary_provider,
-                routing_decision.fallback_models
-            )
+            # Track active request
+            self.metrics.start_request(provider_id)
+
+            try:
+                # Step 4: Execute with failover
+                response = await self._execute_with_failover(
+                    request,
+                    routing_decision.primary_model_id,
+                    routing_decision.primary_provider,
+                    routing_decision.fallback_models
+                )
+            finally:
+                # Always end active request tracking
+                self.metrics.end_request(provider_id)
 
             # Step 5: Cache response (if enabled and successful)
             if request.enable_cache and response.is_success():
@@ -163,8 +187,22 @@ class ModelGateway:
             if self.l01_bridge:
                 await self.l01_bridge.record_inference(request, response)
 
+            # Calculate latency
+            latency_seconds = (datetime.utcnow() - start_time).total_seconds()
+
+            # Record metrics
+            self.metrics.record_inference_request(
+                provider=response.provider,
+                model=response.model_id,
+                status="success",
+                latency_seconds=latency_seconds,
+                input_tokens=response.token_usage.input_tokens if response.token_usage else 0,
+                output_tokens=response.token_usage.output_tokens if response.token_usage else 0,
+                cached=response.cached
+            )
+
             # Log execution time
-            total_time = (datetime.utcnow() - start_time).total_seconds() * 1000
+            total_time = latency_seconds * 1000
             logger.info(
                 f"Request {request.request_id} completed in {total_time:.0f}ms "
                 f"(model_latency={response.latency_ms}ms, cached={response.cached})"
@@ -175,6 +213,18 @@ class ModelGateway:
         except (RateLimitError, RoutingError):
             raise
         except Exception as e:
+            # Record error metrics
+            latency_seconds = (datetime.utcnow() - start_time).total_seconds()
+            self.metrics.record_inference_request(
+                provider=provider_id,
+                model=model_id,
+                status="error",
+                latency_seconds=latency_seconds,
+                input_tokens=0,
+                output_tokens=0,
+                cached=False
+            )
+
             logger.error(f"Request execution failed: {e}")
             if isinstance(e, L04Error):
                 raise
@@ -222,21 +272,32 @@ class ModelGateway:
         Raises:
             L04Error: On any error during execution
         """
+        start_time = datetime.utcnow()
+        provider_id = "unknown"
+        model_id = request.model_id or "unknown"
+
         try:
             logger.info(f"Executing streaming request {request.request_id}")
 
             # Check rate limits
             estimated_tokens = request.estimate_input_tokens()
-            await self.rate_limiter.check_rate_limit(
-                agent_did=request.agent_did,
-                provider="gateway",
-                tokens=estimated_tokens
-            )
+            try:
+                await self.rate_limiter.check_rate_limit(
+                    agent_did=request.agent_did,
+                    provider="gateway",
+                    tokens=estimated_tokens
+                )
+            except RateLimitError:
+                self.metrics.record_rate_limit_rejection(request.agent_did)
+                raise
 
             # Note: Streaming bypasses cache
+            self.metrics.record_cache_miss()
 
             # Route to model
             routing_decision = self.router.route(request, routing_strategy)
+            provider_id = routing_decision.primary_provider
+            model_id = routing_decision.primary_model_id
 
             # Get provider
             provider = self.providers.get(routing_decision.primary_provider)
@@ -246,20 +307,58 @@ class ModelGateway:
                     f"Provider not found: {routing_decision.primary_provider}"
                 )
 
-            # Execute streaming with circuit breaker
-            async def stream_operation():
-                return provider.stream(request, routing_decision.primary_model_id)
+            # Track active request
+            self.metrics.start_request(provider_id)
 
-            stream_gen = await self.circuit_breaker.call(
-                routing_decision.primary_provider,
-                stream_operation
-            )
+            try:
+                # Execute streaming with circuit breaker
+                async def stream_operation():
+                    return provider.stream(request, routing_decision.primary_model_id)
 
-            # Yield chunks
-            async for chunk in stream_gen:
-                yield chunk
+                stream_gen = await self.circuit_breaker.call(
+                    routing_decision.primary_provider,
+                    stream_operation
+                )
+
+                # Track token usage from stream
+                total_output_tokens = 0
+
+                # Yield chunks
+                async for chunk in stream_gen:
+                    # Estimate output tokens from chunk
+                    if chunk.content_delta:
+                        total_output_tokens += len(chunk.content_delta) // 4
+                    yield chunk
+
+                # Record success metrics after stream completes
+                latency_seconds = (datetime.utcnow() - start_time).total_seconds()
+                self.metrics.record_inference_request(
+                    provider=provider_id,
+                    model=model_id,
+                    status="success",
+                    latency_seconds=latency_seconds,
+                    input_tokens=estimated_tokens,
+                    output_tokens=total_output_tokens,
+                    cached=False
+                )
+
+            finally:
+                # Always end active request tracking
+                self.metrics.end_request(provider_id)
 
         except Exception as e:
+            # Record error metrics
+            latency_seconds = (datetime.utcnow() - start_time).total_seconds()
+            self.metrics.record_inference_request(
+                provider=provider_id,
+                model=model_id,
+                status="error",
+                latency_seconds=latency_seconds,
+                input_tokens=0,
+                output_tokens=0,
+                cached=False
+            )
+
             logger.error(f"Streaming request failed: {e}")
             if isinstance(e, L04Error):
                 raise

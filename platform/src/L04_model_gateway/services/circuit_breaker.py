@@ -16,6 +16,7 @@ from ..models import (
     CircuitBreakerError,
     L04ErrorCode
 )
+from .metrics import get_metrics_manager
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,9 @@ class CircuitBreaker:
         # Circuit state per provider
         self._circuits: Dict[str, dict] = {}
 
+        # Metrics manager
+        self._metrics = get_metrics_manager()
+
         logger.info(
             f"CircuitBreaker initialized "
             f"(threshold={failure_threshold}, timeout={recovery_timeout}s)"
@@ -75,6 +79,7 @@ class CircuitBreaker:
                 circuit["state"] = CircuitState.HALF_OPEN
                 circuit["half_open_requests"] = 0
                 logger.info(f"Circuit {provider}: OPEN -> HALF_OPEN")
+                self._metrics.set_circuit_breaker_state(provider, "half_open")
                 return CircuitState.HALF_OPEN
 
         return current_state
@@ -140,6 +145,7 @@ class CircuitBreaker:
                 circuit["state"] = CircuitState.CLOSED
                 circuit["half_open_requests"] = 0
                 logger.info(f"Circuit {provider}: HALF_OPEN -> CLOSED (recovered)")
+                self._metrics.set_circuit_breaker_state(provider, "closed")
 
     def record_failure(self, provider: str) -> None:
         """
@@ -162,12 +168,14 @@ class CircuitBreaker:
                     f"Circuit {provider}: {circuit['state'].value} -> OPEN "
                     f"({circuit['consecutive_failures']} failures)"
                 )
+                self._metrics.set_circuit_breaker_state(provider, "open")
 
         # If in HALF_OPEN and we get a failure, go back to OPEN
         elif circuit["state"] == CircuitState.HALF_OPEN:
             circuit["state"] = CircuitState.OPEN
             circuit["open_timestamp"] = time.time()
             logger.warning(f"Circuit {provider}: HALF_OPEN -> OPEN (recovery failed)")
+            self._metrics.set_circuit_breaker_state(provider, "open")
 
     def get_health(self, provider: str) -> ProviderHealth:
         """
@@ -226,6 +234,7 @@ class CircuitBreaker:
             circuit["consecutive_failures"] = 0
             circuit["half_open_requests"] = 0
             logger.info(f"Reset circuit breaker for {provider}")
+            self._metrics.set_circuit_breaker_state(provider, "closed")
 
     def _get_or_create_circuit(self, provider: str) -> dict:
         """Get or create circuit state for provider"""

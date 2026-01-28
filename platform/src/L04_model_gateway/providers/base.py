@@ -5,7 +5,7 @@ Defines the protocol that all provider adapters must implement.
 """
 
 from abc import ABC, abstractmethod
-from typing import AsyncIterator, Optional
+from typing import AsyncIterator, Optional, List
 import logging
 
 from ..models import (
@@ -185,13 +185,67 @@ class BaseProviderAdapter(ProviderAdapter):
         """Async context manager exit"""
         await self._close_client()
 
-    def _estimate_tokens(self, text: str) -> int:
+    def _estimate_tokens(self, text: str, model_id: Optional[str] = None) -> int:
         """
-        Rough token estimation (4 chars per token heuristic)
+        Estimate token count using appropriate tokenizer.
 
-        Override in subclasses for more accurate counting.
+        Uses tiktoken for OpenAI models, approximation for others.
+
+        Args:
+            text: Text to count tokens for
+            model_id: Optional model ID for model-specific counting
+
+        Returns:
+            Estimated token count
         """
-        return len(text) // 4
+        try:
+            from .token_counter import get_token_counter
+
+            # Use model_id if provided, otherwise try to infer from provider
+            model = model_id or getattr(self, "default_model", None)
+            if model:
+                counter = get_token_counter(model)
+                return counter.count(text)
+        except ImportError:
+            pass
+
+        # Fallback to simple heuristic
+        return max(1, len(text) // 4) if text else 0
+
+    def _estimate_message_tokens(
+        self, messages: List, model_id: Optional[str] = None
+    ) -> int:
+        """
+        Estimate token count for a list of messages.
+
+        Args:
+            messages: List of Message objects
+            model_id: Optional model ID for model-specific counting
+
+        Returns:
+            Estimated token count including message overhead
+        """
+        try:
+            from .token_counter import get_token_counter
+            from ..models import Message
+
+            model = model_id or getattr(self, "default_model", None)
+            if model:
+                counter = get_token_counter(model)
+                # Convert to Message objects if needed
+                if messages and hasattr(messages[0], "content"):
+                    return counter.count_messages(messages)
+
+        except ImportError:
+            pass
+
+        # Fallback: sum content lengths with overhead
+        total = 0
+        for msg in messages:
+            if hasattr(msg, "content") and msg.content:
+                total += self._estimate_tokens(msg.content, model_id)
+            total += 4  # Message overhead
+        return total
 
     def _create_default_health(self, status: ProviderStatus) -> ProviderHealth:
         """Create a default ProviderHealth object"""
