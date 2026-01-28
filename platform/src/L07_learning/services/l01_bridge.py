@@ -5,11 +5,19 @@ Bridge between L07 Learning and L01 Data Layer for persistent training data stor
 This bridge replaces temporary file storage (/tmp/l07_learning) with persistent
 PostgreSQL storage in L01. Training examples and datasets are stored centrally
 for cross-layer access and long-term retention.
+
+Features:
+- Event subscription for execution events
+- Graceful fallback when L01 unavailable
+- Health checking and automatic recovery
+- Metrics tracking
 """
 
+import asyncio
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Callable, Awaitable
 from uuid import UUID
+from collections import deque
 
 from shared.clients import L01Client
 from ..models.training_example import TrainingExample, ExampleSource, TaskType
@@ -30,14 +38,35 @@ class L07Bridge:
     - Publish learning events via L01 event stream
     """
 
-    def __init__(self, l01_base_url: str = "http://localhost:8002"):
+    def __init__(
+        self,
+        l01_base_url: str = "http://localhost:8002",
+        fallback_capacity: int = 10000,
+        health_check_interval: float = 30.0,
+    ):
         """Initialize L07 bridge.
 
         Args:
             l01_base_url: Base URL for L01 Data Layer API
+            fallback_capacity: Maximum items in fallback queue
+            health_check_interval: Seconds between health checks
         """
         self.l01_client = L01Client(base_url=l01_base_url)
         self.enabled = True
+        self._l01_available = True
+        self._health_check_interval = health_check_interval
+
+        # Fallback storage for when L01 is unavailable
+        self._fallback_storage: deque = deque(maxlen=fallback_capacity)
+
+        # Event subscriptions
+        self._subscriptions: Dict[str, List[Callable[[Dict], Awaitable[None]]]] = {}
+
+        # Metrics
+        self._total_synced = 0
+        self._total_stored = 0
+        self._total_failed = 0
+
         logger.info(f"L07Bridge initialized with base_url={l01_base_url}")
 
     async def initialize(self) -> None:
@@ -48,7 +77,7 @@ class L07Bridge:
         self,
         example: TrainingExample
     ) -> Optional[UUID]:
-        """Store training example in L01.
+        """Store training example in L01 with fallback support.
 
         Args:
             example: TrainingExample instance
@@ -59,32 +88,44 @@ class L07Bridge:
         if not self.enabled:
             return None
 
-        try:
-            # Map L07 TrainingExample to L01 API format
-            l01_example = await self.l01_client.create_training_example(
-                input_text=example.input_text,
-                execution_id=example.execution_id,
-                task_id=example.task_id,
-                agent_id=UUID(example.agent_id) if example.agent_id else None,
-                source_type=example.source_type.value,
-                output_text=example.output_text,
-                expected_actions=example.expected_actions,
-                final_answer=example.final_answer,
-                quality_score=example.quality_score,
-                confidence=example.confidence,
-                labels=example.labels,
-                domain=example.domain,
-                task_type=example.task_type.value,
-                difficulty=example.difficulty,
-                metadata=example.metadata
+        # If L01 is not available, use fallback storage
+        if not self._l01_available:
+            self._fallback_storage.append({
+                "type": "training_example",
+                "data": example
+            })
+            logger.warning(
+                f"L01 unavailable, stored example {example.example_id} in fallback"
             )
+            return None
 
-            l01_example_id = UUID(l01_example["id"])
-            logger.info(f"Stored training example {example.example_id} in L01 as {l01_example_id}")
-            return l01_example_id
+        try:
+            l01_example_id = await self._store_example_to_l01(example)
+
+            if l01_example_id:
+                self._total_stored += 1
+                logger.info(
+                    f"Stored training example {example.example_id} "
+                    f"in L01 as {l01_example_id}"
+                )
+                return l01_example_id
+            else:
+                # L01 call failed, add to fallback
+                self._fallback_storage.append({
+                    "type": "training_example",
+                    "data": example
+                })
+                self._total_failed += 1
+                return None
 
         except Exception as e:
             logger.error(f"Failed to store training example in L01: {e}")
+            # Add to fallback queue
+            self._fallback_storage.append({
+                "type": "training_example",
+                "data": example
+            })
+            self._total_failed += 1
             return None
 
     async def get_training_example(
@@ -357,7 +398,201 @@ class L07Bridge:
         # Default to train if not found in any split
         return "train"
 
+    # ==================== Event Subscription ====================
+
+    async def subscribe_to_events(
+        self,
+        event_types: List[str],
+        callback: Callable[[Dict], Awaitable[None]]
+    ) -> None:
+        """Subscribe to L01 events.
+
+        Args:
+            event_types: List of event types to subscribe to
+            callback: Async callback function for events
+        """
+        for event_type in event_types:
+            if event_type not in self._subscriptions:
+                self._subscriptions[event_type] = []
+            self._subscriptions[event_type].append(callback)
+            logger.info(f"Subscribed to event type: {event_type}")
+
+    async def _dispatch_event(self, event: Dict[str, Any]) -> None:
+        """Dispatch event to registered callbacks.
+
+        Args:
+            event: Event data with 'type' and 'data' keys
+        """
+        event_type = event.get("type", "")
+        callbacks = self._subscriptions.get(event_type, [])
+
+        for callback in callbacks:
+            try:
+                await callback(event)
+            except Exception as e:
+                logger.error(f"Error in event callback: {e}")
+
+    async def unsubscribe_from_events(self, event_types: List[str]) -> None:
+        """Unsubscribe from event types.
+
+        Args:
+            event_types: Event types to unsubscribe from
+        """
+        for event_type in event_types:
+            self._subscriptions.pop(event_type, None)
+            logger.info(f"Unsubscribed from event type: {event_type}")
+
+    # ==================== Fallback Storage ====================
+
+    def fallback_queue_size(self) -> int:
+        """Get size of fallback queue.
+
+        Returns:
+            Number of items in fallback queue
+        """
+        return len(self._fallback_storage)
+
+    async def sync_fallback(self) -> int:
+        """Sync fallback storage to L01.
+
+        Returns:
+            Number of items synced
+        """
+        if not self._l01_available:
+            return 0
+
+        synced = 0
+        while self._fallback_storage:
+            item = self._fallback_storage.popleft()
+            item_type = item.get("type")
+
+            try:
+                if item_type == "training_example":
+                    example = item.get("data")
+                    await self._store_example_to_l01(example)
+                    synced += 1
+                elif item_type == "dataset":
+                    dataset, examples = item.get("data")
+                    await self._store_dataset_to_l01(dataset, examples)
+                    synced += 1
+            except Exception as e:
+                # Put back in queue
+                self._fallback_storage.appendleft(item)
+                logger.error(f"Failed to sync from fallback: {e}")
+                break
+
+        self._total_synced += synced
+        if synced > 0:
+            logger.info(f"Synced {synced} items from fallback to L01")
+
+        return synced
+
+    async def _store_example_to_l01(self, example: TrainingExample) -> Optional[UUID]:
+        """Internal method to store example to L01.
+
+        Args:
+            example: Training example
+
+        Returns:
+            L01 example ID or None
+        """
+        try:
+            l01_example = await self.l01_client.create_training_example(
+                input_text=example.input_text,
+                execution_id=example.execution_id,
+                task_id=example.task_id,
+                agent_id=UUID(example.agent_id) if example.agent_id else None,
+                source_type=example.source_type.value,
+                output_text=example.output_text,
+                expected_actions=example.expected_actions,
+                final_answer=example.final_answer,
+                quality_score=example.quality_score,
+                confidence=example.confidence,
+                labels=example.labels,
+                domain=example.domain,
+                task_type=example.task_type.value,
+                difficulty=example.difficulty,
+                metadata=example.metadata
+            )
+            return UUID(l01_example["id"])
+        except Exception as e:
+            logger.error(f"Failed to store to L01: {e}")
+            return None
+
+    async def _store_dataset_to_l01(
+        self,
+        dataset: Dataset,
+        examples: List[TrainingExample]
+    ) -> Optional[UUID]:
+        """Internal method to store dataset to L01.
+
+        Args:
+            dataset: Dataset
+            examples: Training examples
+
+        Returns:
+            L01 dataset ID or None
+        """
+        try:
+            l01_dataset = await self.l01_client.create_dataset(
+                name=dataset.name,
+                version=dataset.version,
+                description=dataset.description,
+                tags=dataset.tags,
+                split_ratios=dataset.split_ratios,
+                statistics=dataset.statistics.to_dict() if dataset.statistics else {}
+            )
+            return UUID(l01_dataset["id"])
+        except Exception as e:
+            logger.error(f"Failed to store dataset to L01: {e}")
+            return None
+
+    # ==================== Health Check ====================
+
+    async def check_l01_health(self) -> bool:
+        """Check if L01 is healthy and available.
+
+        Returns:
+            True if L01 is available
+        """
+        try:
+            result = await self.l01_client.health_check()
+            self._l01_available = bool(result)
+        except Exception as e:
+            logger.warning(f"L01 health check failed: {e}")
+            self._l01_available = False
+
+        # Trigger sync if just became available
+        if self._l01_available and self.fallback_queue_size() > 0:
+            await self.sync_fallback()
+
+        return self._l01_available
+
+    # ==================== Metrics ====================
+
+    def get_metrics(self) -> Dict[str, Any]:
+        """Get bridge metrics.
+
+        Returns:
+            Dictionary of metrics
+        """
+        return {
+            "enabled": self.enabled,
+            "l01_available": self._l01_available,
+            "fallback_queue_size": self.fallback_queue_size(),
+            "total_synced": self._total_synced,
+            "total_stored": self._total_stored,
+            "total_failed": self._total_failed,
+            "subscription_count": sum(len(v) for v in self._subscriptions.values()),
+        }
+
+    # ==================== Cleanup ====================
+
     async def cleanup(self) -> None:
         """Cleanup resources."""
+        # Try to sync any remaining fallback items
+        if self._l01_available:
+            await self.sync_fallback()
+
         await self.l01_client.close()
         logger.info("L07Bridge cleanup complete")
