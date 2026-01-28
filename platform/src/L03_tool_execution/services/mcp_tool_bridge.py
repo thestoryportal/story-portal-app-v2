@@ -26,12 +26,7 @@ from ..models import (
     ToolExecutionError,
 )
 
-# TODO: Replace direct imports with HTTP client for L02
-# Cross-layer imports between containers don't work - need HTTP-based communication
-# from ...L02_runtime.services.document_bridge import DocumentBridge
-# from ...L02_runtime.services.session_bridge import SessionBridge
-DocumentBridge = None  # Placeholder until HTTP client is implemented
-SessionBridge = None   # Placeholder until HTTP client is implemented
+from .l02_http_client import L02HttpClient
 
 logger = logging.getLogger(__name__)
 
@@ -47,8 +42,8 @@ class MCPToolBridge:
         self,
         document_server_enabled: bool = True,
         context_server_enabled: bool = True,
-        document_bridge_config: Optional[Dict[str, Any]] = None,
-        session_bridge_config: Optional[Dict[str, Any]] = None,
+        l02_base_url: str = "http://localhost:8002",
+        l02_timeout: float = 30.0,
     ):
         """
         Initialize MCP Tool Bridge.
@@ -56,47 +51,35 @@ class MCPToolBridge:
         Args:
             document_server_enabled: Enable document-consolidator integration
             context_server_enabled: Enable context-orchestrator integration
-            document_bridge_config: Configuration for DocumentBridge
-            session_bridge_config: Configuration for SessionBridge
+            l02_base_url: L02 Runtime service URL
+            l02_timeout: L02 request timeout in seconds
         """
         self.document_server_enabled = document_server_enabled
         self.context_server_enabled = context_server_enabled
 
-        # Initialize L02 bridges
-        self.document_bridge = None
-        self.session_bridge = None
-
-        if self.document_server_enabled and DocumentBridge is not None:
-            self.document_bridge = DocumentBridge(config=document_bridge_config)
-            logger.info("DocumentBridge instantiated")
-        elif self.document_server_enabled:
-            logger.warning("DocumentBridge requested but not available (requires HTTP client for L02)")
-
-        if self.context_server_enabled and SessionBridge is not None:
-            self.session_bridge = SessionBridge(config=session_bridge_config)
-            logger.info("SessionBridge instantiated")
-        elif self.context_server_enabled:
-            logger.warning("SessionBridge requested but not available (requires HTTP client for L02)")
+        # Initialize L02 HTTP client for both document and session bridge operations
+        self.l02_client: Optional[L02HttpClient] = None
+        if self.document_server_enabled or self.context_server_enabled:
+            self.l02_client = L02HttpClient(
+                base_url=l02_base_url,
+                timeout=l02_timeout,
+            )
+            logger.info(f"L02HttpClient configured for {l02_base_url}")
 
     async def initialize(self):
         """Initialize MCP server connections"""
         logger.info("Initializing MCP Tool Bridge")
 
-        # Initialize document bridge
-        if self.document_bridge:
+        # Initialize L02 HTTP client
+        if self.l02_client:
             try:
-                await self.document_bridge.initialize()
-                logger.info("DocumentBridge initialized successfully")
+                available = await self.l02_client.initialize()
+                if available:
+                    logger.info("L02 HTTP Client connected successfully")
+                else:
+                    logger.warning("L02 HTTP Client initialized but service unavailable")
             except Exception as e:
-                logger.warning(f"Failed to initialize DocumentBridge: {e}")
-
-        # Initialize session bridge
-        if self.session_bridge:
-            try:
-                await self.session_bridge.initialize()
-                logger.info("SessionBridge initialized successfully")
-            except Exception as e:
-                logger.warning(f"Failed to initialize SessionBridge: {e}")
+                logger.warning(f"Failed to initialize L02 HTTP Client: {e}")
 
         logger.info("MCP Tool Bridge initialization complete")
 
@@ -104,21 +87,13 @@ class MCPToolBridge:
         """Close MCP server connections"""
         logger.info("Closing MCP Tool Bridge")
 
-        # Cleanup document bridge
-        if self.document_bridge:
+        # Cleanup L02 HTTP client
+        if self.l02_client:
             try:
-                await self.document_bridge.cleanup()
-                logger.info("DocumentBridge cleaned up")
+                await self.l02_client.close()
+                logger.info("L02 HTTP Client closed")
             except Exception as e:
-                logger.error(f"Error cleaning up DocumentBridge: {e}")
-
-        # Cleanup session bridge
-        if self.session_bridge:
-            try:
-                await self.session_bridge.cleanup()
-                logger.info("SessionBridge cleaned up")
-            except Exception as e:
-                logger.error(f"Error cleaning up SessionBridge: {e}")
+                logger.error(f"Error closing L02 HTTP Client: {e}")
 
         logger.info("MCP Tool Bridge closed")
 
@@ -132,7 +107,7 @@ class MCPToolBridge:
         """
         Retrieve document content from document-consolidator.
 
-        Phase 15 integration: get_document (via L02 DocumentBridge)
+        Phase 15 integration: get_document (via L02 HTTP Client)
 
         Args:
             document_id: Document identifier
@@ -141,15 +116,15 @@ class MCPToolBridge:
         Returns:
             Document content and metadata
         """
-        if not self.document_bridge:
-            logger.warning("Document bridge not initialized")
+        if not self.l02_client or not self.document_server_enabled:
+            logger.warning("Document bridge not initialized or disabled")
             return None
 
         try:
             logger.info(f"Retrieving document {document_id} (pinning: {version_pinning})")
 
-            # Call L02 DocumentBridge
-            document = await self.document_bridge.get_document(document_id)
+            # Call L02 HTTP Client
+            document = await self.l02_client.get_document(document_id, version_pinning)
 
             if document:
                 return {
@@ -178,7 +153,7 @@ class MCPToolBridge:
         """
         Semantic search for documents.
 
-        Phase 15 integration: query_documents (via L02 DocumentBridge)
+        Phase 15 integration: query_documents (via L02 HTTP Client)
 
         Args:
             query: Search query
@@ -187,26 +162,22 @@ class MCPToolBridge:
         Returns:
             List of matching documents
         """
-        if not self.document_bridge:
-            logger.warning("Document bridge not initialized")
+        if not self.l02_client or not self.document_server_enabled:
+            logger.warning("Document bridge not initialized or disabled")
             return []
 
         try:
             logger.info(f"Searching documents: {query}")
 
-            # Call L02 DocumentBridge query_documents
-            documents = await self.document_bridge.query_documents(
+            # Call L02 HTTP Client
+            documents = await self.l02_client.search_documents(
                 query=query,
-                filters={},
-                use_cache=True
+                limit=limit,
             )
-
-            # Limit results
-            limited_docs = documents[:limit]
 
             # Transform to expected format
             results = []
-            for doc in limited_docs:
+            for doc in documents:
                 results.append({
                     "document_id": doc.get("id", ""),
                     "title": doc.get("title", ""),
@@ -264,7 +235,7 @@ class MCPToolBridge:
         """
         Create checkpoint via context-orchestrator.
 
-        Phase 16 integration: create_checkpoint (via L02 SessionBridge)
+        Phase 16 integration: create_checkpoint (via L02 HTTP Client)
 
         Args:
             checkpoint: Checkpoint to create
@@ -272,35 +243,28 @@ class MCPToolBridge:
         Returns:
             Checkpoint ID
         """
-        if not self.session_bridge:
-            logger.warning("Session bridge not initialized")
+        if not self.l02_client or not self.context_server_enabled:
+            logger.warning("Session bridge not initialized or disabled")
             return str(checkpoint.checkpoint_id)
 
         try:
             logger.info(f"Creating checkpoint {checkpoint.checkpoint_id}")
 
-            # Convert L03 Checkpoint to context snapshot for SessionBridge
-            # SessionBridge uses save_snapshot with a task_id (session_id in L02 context)
+            # Convert L03 Checkpoint to context snapshot
             task_id = str(checkpoint.invocation_id)
 
-            context_data = {
-                "status": "in_progress",
-                "currentPhase": f"checkpoint_{checkpoint.checkpoint_type.value}",
-                "immediateContext": {
-                    "workingOn": f"Checkpoint {checkpoint.checkpoint_type.value}",
-                    "lastAction": "Checkpoint created",
-                    "nextStep": None,
-                    "blockers": [],
-                },
+            checkpoint_data = {
+                "checkpoint_id": str(checkpoint.checkpoint_id),
+                "checkpoint_type": checkpoint.checkpoint_type.value,
                 "state": checkpoint.state,
-                "progress": checkpoint.progress_percent,
+                "progress_percent": checkpoint.progress_percent,
+                "created_at": checkpoint.created_at.isoformat() if checkpoint.created_at else None,
             }
 
-            await self.session_bridge.save_snapshot(
-                session_id=task_id,
-                context=context_data,
-                change_summary=f"Checkpoint {checkpoint.checkpoint_type.value} at {checkpoint.progress_percent}%"
-            )
+            result = await self.l02_client.create_checkpoint(task_id, checkpoint_data)
+
+            if result:
+                return result
 
             return str(checkpoint.checkpoint_id)
 
@@ -319,40 +283,39 @@ class MCPToolBridge:
         """
         Restore checkpoint from context-orchestrator.
 
-        Phase 16 integration: get_unified_context (via L02 SessionBridge)
+        Phase 16 integration: restore_checkpoint (via L02 HTTP Client)
 
         Args:
-            checkpoint_id: Checkpoint identifier (task_id/session_id)
+            checkpoint_id: Checkpoint identifier
 
         Returns:
             Restored checkpoint
         """
-        if not self.session_bridge:
-            logger.warning("Session bridge not initialized")
+        if not self.l02_client or not self.context_server_enabled:
+            logger.warning("Session bridge not initialized or disabled")
             return None
 
         try:
             logger.info(f"Restoring checkpoint {checkpoint_id}")
 
-            # Get unified context from SessionBridge
-            context = await self.session_bridge.get_unified_context(
-                session_id=checkpoint_id
-            )
+            # Get checkpoint from L02 HTTP Client
+            data = await self.l02_client.restore_checkpoint(checkpoint_id)
 
-            if not context:
+            if not data:
                 return None
 
-            # Convert context back to L03 Checkpoint
-            # Note: This is a simplified conversion since SessionBridge stores
-            # context differently than L03 Checkpoints
+            # Convert to L03 Checkpoint
             from ..models import CheckpointType
 
+            checkpoint_type_str = data.get("checkpoint_type", "macro")
+            checkpoint_type = CheckpointType(checkpoint_type_str) if checkpoint_type_str in [ct.value for ct in CheckpointType] else CheckpointType.MACRO
+
             checkpoint = Checkpoint(
-                checkpoint_id=UUID(checkpoint_id) if len(checkpoint_id) == 36 else UUID(int=0),
-                invocation_id=UUID(checkpoint_id) if len(checkpoint_id) == 36 else UUID(int=0),
-                checkpoint_type=CheckpointType.MACRO,  # Default to MACRO
-                state=context.get("state", {}),
-                progress_percent=context.get("progress", 0),
+                checkpoint_id=UUID(data.get("checkpoint_id", checkpoint_id)) if len(data.get("checkpoint_id", checkpoint_id)) == 36 else UUID(int=0),
+                invocation_id=UUID(data.get("invocation_id", checkpoint_id)) if len(data.get("invocation_id", checkpoint_id)) == 36 else UUID(int=0),
+                checkpoint_type=checkpoint_type,
+                state=data.get("state", {}),
+                progress_percent=data.get("progress_percent", 0),
             )
 
             return checkpoint
@@ -374,23 +337,23 @@ class MCPToolBridge:
         """
         Save context snapshot via context-orchestrator.
 
-        Phase 16 integration: save_snapshot (via L02 SessionBridge)
+        Phase 16 integration: save_context_snapshot (via L02 HTTP Client)
 
         Args:
             task_id: Task identifier
             state: Current state to save
             sync_to_file: Sync to file cache
         """
-        if not self.session_bridge:
-            logger.warning("Session bridge not initialized")
+        if not self.l02_client or not self.context_server_enabled:
+            logger.warning("Session bridge not initialized or disabled")
             return
 
         try:
             logger.info(f"Saving context snapshot for task {task_id}")
 
-            # Call SessionBridge save_snapshot
-            await self.session_bridge.save_snapshot(
-                session_id=task_id,
+            # Call L02 HTTP Client
+            await self.l02_client.save_context_snapshot(
+                task_id=task_id,
                 context=state,
                 change_summary="Tool execution context snapshot"
             )

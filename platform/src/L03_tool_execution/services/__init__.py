@@ -12,6 +12,8 @@ from .mcp_tool_bridge import MCPToolBridge
 from .tool_composer import ToolComposer
 from .model_gateway_bridge import ToolModelBridge
 from .l01_bridge import L03Bridge
+from .task_manager import TaskManager, Task, TaskState
+from .l02_http_client import L02HttpClient, L02ClientError
 
 __all__ = [
     "ToolRegistry",
@@ -22,4 +24,9 @@ __all__ = [
     "ToolComposer",
     "ToolModelBridge",
     "L03Bridge",
+    "TaskManager",
+    "Task",
+    "TaskState",
+    "L02HttpClient",
+    "L02ClientError",
 ]

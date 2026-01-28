@@ -25,6 +25,8 @@ from .tool_result import (
     AgentContext,
     DocumentContext,
     ResourceLimits as ToolResourceLimits,
+    ExecutionOptions,
+    PollingInfo,
 )
 
 from .execution_context import (
@@ -69,6 +71,8 @@ __all__ = [
     "AgentContext",
     "DocumentContext",
     "ToolResourceLimits",
+    "ExecutionOptions",
+    "PollingInfo",
     # Execution context models
     "ExecutionContext",
     "ResourceLimits",
