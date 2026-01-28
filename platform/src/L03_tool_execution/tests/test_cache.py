@@ -5,6 +5,7 @@ Tests for result caching with Redis.
 """
 
 import pytest
+import pytest_asyncio
 from ..services import ResultCache
 from ..models import ToolResult
 
@@ -13,7 +14,7 @@ from ..models import ToolResult
 class TestResultCache:
     """Test ResultCache service"""
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def cache(self, mock_redis_url):
         """Create cache instance"""
         cache = ResultCache(redis_url=mock_redis_url)

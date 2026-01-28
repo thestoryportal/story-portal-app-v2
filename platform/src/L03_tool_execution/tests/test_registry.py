@@ -5,6 +5,7 @@ Tests for tool registration and semantic search.
 """
 
 import pytest
+import pytest_asyncio
 from ..services import ToolRegistry
 from ..models import ErrorCode, ToolExecutionError
 
@@ -13,17 +14,45 @@ from ..models import ErrorCode, ToolExecutionError
 class TestToolRegistry:
     """Test ToolRegistry service"""
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def registry(self, mock_db_connection_string):
-        """Create registry instance"""
+        """Create registry instance with test data cleanup"""
         registry = ToolRegistry(
             db_connection_string=mock_db_connection_string,
             ollama_base_url="http://localhost:11434",
         )
         try:
             await registry.initialize()
+            # Clean up any existing test tools before test
+            # Delete from tool_versions first (FK constraint), then tool_definitions
+            async with registry.db_pool.connection() as conn:
+                async with conn.cursor() as cur:
+                    await cur.execute(
+                        "DELETE FROM tool_versions WHERE tool_id = %s",
+                        ("test_tool",)
+                    )
+                    await cur.execute(
+                        "DELETE FROM tool_definitions WHERE tool_id = %s",
+                        ("test_tool",)
+                    )
+                await conn.commit()
             yield registry
         finally:
+            # Clean up test tools after test
+            try:
+                async with registry.db_pool.connection() as conn:
+                    async with conn.cursor() as cur:
+                        await cur.execute(
+                            "DELETE FROM tool_versions WHERE tool_id = %s",
+                            ("test_tool",)
+                        )
+                        await cur.execute(
+                            "DELETE FROM tool_definitions WHERE tool_id = %s",
+                            ("test_tool",)
+                        )
+                    await conn.commit()
+            except Exception:
+                pass  # Ignore cleanup errors
             await registry.close()
 
     async def test_register_tool(self, registry, sample_tool_definition, sample_tool_manifest):
