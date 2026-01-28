@@ -7,6 +7,7 @@ Basic tests for agent execution, tool invocation, and context management.
 import pytest
 import asyncio
 from typing import Dict, Any
+from unittest.mock import AsyncMock, MagicMock
 
 from ..services.agent_executor import (
     AgentExecutor,
@@ -14,6 +15,7 @@ from ..services.agent_executor import (
     ToolInvocation,
     ExecutionContext,
 )
+from ..services.model_gateway_bridge import ModelGatewayBridge
 from ..models import (
     AgentConfig,
     TrustLevel,
@@ -224,8 +226,37 @@ async def test_context_cleanup(executor, agent_config):
 
 
 @pytest.mark.asyncio
-async def test_execute_stub(executor, agent_config):
-    """Test execute method (stub implementation)"""
+async def test_execute_stub(agent_config):
+    """Test execute method with mocked model bridge"""
+    # Create mock model bridge
+    mock_bridge = AsyncMock(spec=ModelGatewayBridge)
+    mock_bridge.request_inference = AsyncMock(return_value={
+        "streaming": False,
+        "request_id": "test-request-id",
+        "model_id": "claude-opus-4-5-20251101",
+        "provider": "claude_code",
+        "content": "This is a test response from the LLM.",
+        "token_usage": {
+            "input_tokens": 10,
+            "output_tokens": 8,
+            "total_tokens": 18
+        },
+        "latency_ms": 150,
+        "cached": False,
+        "finish_reason": "stop"
+    })
+    mock_bridge.close = AsyncMock()
+
+    # Create executor with mock bridge
+    executor = AgentExecutor(
+        config={
+            "max_concurrent_tools": 5,
+            "tool_timeout_seconds": 10,
+            "context_window_tokens": 1000,
+        },
+        model_bridge=mock_bridge
+    )
+
     await executor.initialize()
 
     await executor.create_context(
@@ -242,3 +273,111 @@ async def test_execute_stub(executor, agent_config):
 
     assert result["agent_id"] == "test-agent-1"
     assert "response" in result
+    assert result["response"] == "This is a test response from the LLM."
+    assert result["model_id"] == "claude-opus-4-5-20251101"
+    assert result["tokens_used"] == 18
+
+    # Verify model bridge was called
+    mock_bridge.request_inference.assert_called_once()
+    call_kwargs = mock_bridge.request_inference.call_args[1]
+    assert call_kwargs["agent_did"] == "test-agent-1"
+    assert call_kwargs["streaming"] is False
+
+    await executor.cleanup()
+
+
+@pytest.mark.asyncio
+async def test_tool_call_parsing(agent_config):
+    """Test parsing tool_calls from L04 response"""
+    # Create mock model bridge with tool_calls in response
+    mock_bridge = AsyncMock(spec=ModelGatewayBridge)
+    mock_bridge.request_inference = AsyncMock(return_value={
+        "streaming": False,
+        "request_id": "test-request-id",
+        "model_id": "claude-opus-4-5-20251101",
+        "provider": "claude_code",
+        "content": "I'll use the calculator tool.",
+        "tool_calls": [
+            {"id": "tc-1", "name": "calculator", "arguments": {"a": 5, "b": 3}},
+            {"id": "tc-2", "name": "search", "arguments": {"query": "test"}},
+        ],
+        "token_usage": {
+            "input_tokens": 20,
+            "output_tokens": 30,
+            "total_tokens": 50
+        },
+        "latency_ms": 100,
+        "cached": False,
+    })
+    mock_bridge.close = AsyncMock()
+
+    # Create executor with mock bridge
+    executor = AgentExecutor(
+        config={"context_window_tokens": 1000},
+        model_bridge=mock_bridge
+    )
+
+    await executor.initialize()
+
+    await executor.create_context(
+        agent_id="test-agent-1",
+        session_id="session-1",
+        config=agent_config,
+    )
+
+    result = await executor.execute(
+        agent_id="test-agent-1",
+        input_data={"content": "Calculate 5 + 3"},
+        stream=False,
+    )
+
+    # Verify tool_calls are parsed
+    assert len(result["tool_calls"]) == 2
+    assert result["tool_calls"][0].tool_name == "calculator"
+    assert result["tool_calls"][0].parameters == {"a": 5, "b": 3}
+    assert result["tool_calls"][0].invocation_id == "tc-1"
+    assert result["tool_calls"][1].tool_name == "search"
+    assert result["tool_calls"][1].parameters == {"query": "test"}
+
+    await executor.cleanup()
+
+
+@pytest.mark.asyncio
+async def test_tool_call_parsing_empty(agent_config):
+    """Test parsing when no tool_calls in response"""
+    mock_bridge = AsyncMock(spec=ModelGatewayBridge)
+    mock_bridge.request_inference = AsyncMock(return_value={
+        "streaming": False,
+        "request_id": "test-request-id",
+        "model_id": "claude-opus-4-5-20251101",
+        "provider": "claude_code",
+        "content": "Hello, how can I help?",
+        "token_usage": {"total_tokens": 20},
+        "latency_ms": 50,
+        "cached": False,
+    })
+    mock_bridge.close = AsyncMock()
+
+    executor = AgentExecutor(
+        config={"context_window_tokens": 1000},
+        model_bridge=mock_bridge
+    )
+
+    await executor.initialize()
+
+    await executor.create_context(
+        agent_id="test-agent-1",
+        session_id="session-1",
+        config=agent_config,
+    )
+
+    result = await executor.execute(
+        agent_id="test-agent-1",
+        input_data={"content": "Hello"},
+        stream=False,
+    )
+
+    # Verify empty tool_calls
+    assert result["tool_calls"] == []
+
+    await executor.cleanup()

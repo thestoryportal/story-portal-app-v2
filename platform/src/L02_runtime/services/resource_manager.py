@@ -62,7 +62,11 @@ class ResourceManager:
     - Trigger enforcement actions (warn, throttle, suspend, terminate)
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        config: Optional[Dict[str, Any]] = None,
+        lifecycle_manager=None
+    ):
         """
         Initialize ResourceManager.
 
@@ -72,8 +76,10 @@ class ResourceManager:
                 - enforcement: Enforcement modes for each resource type
                 - token_budget_action: Action when token budget exceeded
                 - usage_report_interval_seconds: Usage reporting interval
+            lifecycle_manager: LifecycleManager for suspend/terminate actions
         """
         self.config = config or {}
+        self.lifecycle_manager = lifecycle_manager
 
         # Default limits
         default_limits = self.config.get("default_limits", {})
@@ -107,6 +113,9 @@ class ResourceManager:
         # Warning flags: agent_id -> set of warned resource types
         self._warned: Dict[str, set] = {}
 
+        # Throttled agents: agent_id set
+        self._throttled_agents: set = set()
+
         # Background tasks
         self._report_task: Optional[asyncio.Task] = None
 
@@ -114,7 +123,8 @@ class ResourceManager:
             f"ResourceManager initialized: "
             f"cpu_enforcement={self.cpu_enforcement.value}, "
             f"memory_enforcement={self.memory_enforcement.value}, "
-            f"token_enforcement={self.token_enforcement.value}"
+            f"token_enforcement={self.token_enforcement.value}, "
+            f"lifecycle_manager={'configured' if lifecycle_manager else 'none'}"
         )
 
     async def initialize(self) -> None:
@@ -385,19 +395,93 @@ class ResourceManager:
             action = QuotaAction.SUSPEND
 
         logger.info(
-            f"Taking enforcement action for agent {agent_id}: {action.value}"
+            f"Taking enforcement action for agent {agent_id}: "
+            f"resource={resource_type}, action={action.value}"
         )
 
-        # TODO: Integrate with LifecycleManager to actually suspend/terminate
-        # For now, just log the action
         if action == QuotaAction.WARN:
-            logger.warning(f"Agent {agent_id} quota exceeded (warn)")
+            # Warning only - already logged in _handle_violation
+            logger.warning(
+                f"Agent {agent_id} {resource_type} quota exceeded (warn only)"
+            )
+
         elif action == QuotaAction.THROTTLE:
-            logger.warning(f"Agent {agent_id} quota exceeded (throttle)")
+            # Add to throttled set - callers should check is_throttled()
+            self._throttled_agents.add(agent_id)
+            logger.warning(
+                f"Agent {agent_id} throttled due to {resource_type} quota exceeded"
+            )
+
         elif action == QuotaAction.SUSPEND:
-            logger.warning(f"Agent {agent_id} should be suspended (stub)")
+            # Suspend via LifecycleManager
+            if self.lifecycle_manager:
+                try:
+                    await self.lifecycle_manager.suspend(
+                        agent_id=agent_id,
+                        checkpoint=True
+                    )
+                    logger.info(
+                        f"Agent {agent_id} suspended due to {resource_type} quota exceeded"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Failed to suspend agent {agent_id}: {e}"
+                    )
+                    raise ResourceError(
+                        code="E2074",
+                        message=f"Failed to suspend agent: {str(e)}"
+                    )
+            else:
+                logger.warning(
+                    f"Agent {agent_id} should be suspended but LifecycleManager not configured"
+                )
+
         elif action == QuotaAction.TERMINATE:
-            logger.warning(f"Agent {agent_id} should be terminated (stub)")
+            # Terminate via LifecycleManager
+            if self.lifecycle_manager:
+                try:
+                    await self.lifecycle_manager.terminate(
+                        agent_id=agent_id,
+                        reason=f"quota_exceeded:{resource_type}"
+                    )
+                    logger.info(
+                        f"Agent {agent_id} terminated due to {resource_type} quota exceeded"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Failed to terminate agent {agent_id}: {e}"
+                    )
+                    raise ResourceError(
+                        code="E2075",
+                        message=f"Failed to terminate agent: {str(e)}"
+                    )
+            else:
+                logger.warning(
+                    f"Agent {agent_id} should be terminated but LifecycleManager not configured"
+                )
+
+    async def is_throttled(self, agent_id: str) -> bool:
+        """
+        Check if an agent is currently throttled.
+
+        Args:
+            agent_id: Agent identifier
+
+        Returns:
+            True if agent is throttled
+        """
+        return agent_id in self._throttled_agents
+
+    async def clear_throttle(self, agent_id: str) -> None:
+        """
+        Clear throttle status for an agent.
+
+        Args:
+            agent_id: Agent identifier
+        """
+        if agent_id in self._throttled_agents:
+            self._throttled_agents.discard(agent_id)
+            logger.info(f"Cleared throttle for agent {agent_id}")
 
     async def get_usage(self, agent_id: str) -> ResourceUsage:
         """
@@ -450,6 +534,7 @@ class ResourceManager:
             del self._usage[agent_id]
         if agent_id in self._warned:
             del self._warned[agent_id]
+        self._throttled_agents.discard(agent_id)
 
         logger.info(f"Cleaned up quota for agent {agent_id}")
 
@@ -511,5 +596,6 @@ class ResourceManager:
         self._quotas.clear()
         self._usage.clear()
         self._warned.clear()
+        self._throttled_agents.clear()
 
         logger.info("ResourceManager cleanup complete")

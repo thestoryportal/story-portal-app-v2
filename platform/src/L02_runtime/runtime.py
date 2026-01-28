@@ -12,7 +12,14 @@ from typing import Dict, Any, Optional, AsyncIterator
 
 from .models import AgentConfig, AgentState, SpawnResult
 from .backends import LocalRuntime, KubernetesRuntime
-from .services import SandboxManager, LifecycleManager, L01Bridge
+from .services import (
+    SandboxManager,
+    LifecycleManager,
+    L01Bridge,
+    ModelGatewayBridge,
+    AgentExecutor,
+    ResourceManager,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -46,6 +53,9 @@ class AgentRuntime:
         self.sandbox_manager = None
         self.lifecycle_manager = None
         self.l01_bridge = None
+        self.model_bridge = None
+        self.agent_executor = None
+        self.resource_manager = None
 
         logger.info("AgentRuntime created")
 
@@ -105,12 +115,41 @@ class AgentRuntime:
             l01_bridge=self.l01_bridge
         )
 
+        # Create model gateway bridge for LLM inference
+        l04_config = self.config.get("l04_gateway", {})
+        l04_base_url = l04_config.get("base_url", "http://localhost:8004")
+        l04_timeout = l04_config.get("timeout", 300)
+        self.model_bridge = ModelGatewayBridge(
+            base_url=l04_base_url,
+            timeout=l04_timeout
+        )
+        logger.info(f"ModelGatewayBridge created with base_url={l04_base_url}")
+
+        # Create agent executor with model bridge
+        executor_config = self.config.get("executor", {})
+        self.agent_executor = AgentExecutor(
+            config=executor_config,
+            model_bridge=self.model_bridge
+        )
+
+        # Create resource manager with lifecycle manager for enforcement
+        resource_config = self.config.get("resources", {})
+        self.resource_manager = ResourceManager(
+            config=resource_config,
+            lifecycle_manager=self.lifecycle_manager
+        )
+
         # Initialize all components
         await self.backend.initialize()
         await self.sandbox_manager.initialize()
         await self.lifecycle_manager.initialize()
+        await self.agent_executor.initialize()
+        await self.resource_manager.initialize()
 
-        logger.info(f"AgentRuntime initialized with {backend_type} backend")
+        logger.info(
+            f"AgentRuntime initialized with {backend_type} backend, "
+            f"model_bridge={l04_base_url}"
+        )
 
     async def spawn(
         self,
@@ -224,32 +263,66 @@ class AgentRuntime:
     async def execute(
         self,
         agent_id: str,
-        input_message: str
+        input_message: str,
+        stream: bool = False,
+        **kwargs
     ) -> AsyncIterator[str]:
         """
-        Execute agent with input, streaming response.
-
-        NOTE: This is a placeholder for Phase 2 (Agent Executor).
-        Currently not implemented.
+        Execute agent with input, optionally streaming response.
 
         Args:
             agent_id: Agent to execute
             input_message: Input message
+            stream: Whether to stream response (default: False)
+            **kwargs: Additional parameters (system_prompt, temperature, etc.)
 
         Yields:
-            Response chunks
+            Response chunks (if streaming) or full response dict
 
         Raises:
-            NotImplementedError: Phase 2 not yet implemented
+            RuntimeError: If not initialized or execution fails
         """
-        raise NotImplementedError(
-            "Agent execution is part of Phase 2 (Agent Executor). "
-            "Use spawn/terminate/suspend/resume for Phase 1 operations."
+        if not self.agent_executor:
+            raise RuntimeError("AgentRuntime not initialized")
+
+        # Build input data
+        input_data = {
+            "content": input_message,
+            **kwargs
+        }
+
+        # Execute via agent executor
+        result = await self.agent_executor.execute(
+            agent_id=agent_id,
+            input_data=input_data,
+            stream=stream
         )
+
+        if stream:
+            # Yield streaming chunks
+            async for chunk in result:
+                if chunk.get("type") == "content":
+                    yield chunk.get("delta", "")
+                elif chunk.get("type") == "end":
+                    break
+                elif chunk.get("type") == "error":
+                    raise RuntimeError(chunk.get("message", "Execution error"))
+        else:
+            # Yield full response content
+            yield result.get("response", "")
 
     async def cleanup(self) -> None:
         """Cleanup and shutdown runtime"""
         logger.info("Cleaning up AgentRuntime")
+
+        if self.agent_executor:
+            await self.agent_executor.cleanup()
+
+        if self.resource_manager:
+            await self.resource_manager.cleanup()
+
+        if self.model_bridge:
+            await self.model_bridge.close()
 
         if self.lifecycle_manager:
             await self.lifecycle_manager.cleanup()

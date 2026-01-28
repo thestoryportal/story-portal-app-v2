@@ -12,12 +12,20 @@ import logging
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
 from dataclasses import dataclass
+from enum import Enum
 
 from ..models import AgentConfig, AgentState, SpawnResult
 from ..models.fleet_models import ScalingMetrics, WarmInstance
 
 
 logger = logging.getLogger(__name__)
+
+
+class DrainState(Enum):
+    """Agent drain state"""
+    ACTIVE = "active"
+    DRAINING = "draining"
+    DRAINED = "drained"
 
 
 class FleetError(Exception):
@@ -116,6 +124,12 @@ class FleetManager:
         self._scale_down_count = 0
         self._warm_pool_hits = 0
         self._warm_pool_misses = 0
+
+        # Drain state tracking: agent_id -> DrainState
+        self._drain_states: Dict[str, DrainState] = {}
+
+        # In-flight tasks tracking: agent_id -> set of task_ids
+        self._in_flight_tasks: Dict[str, set] = {}
 
         logger.info(
             f"FleetManager initialized: "
@@ -363,13 +377,40 @@ class FleetManager:
         """
         Perform graceful drain of an agent instance.
 
+        Waits for in-flight tasks to complete before draining.
+
         Args:
             agent_id: Agent to drain
         """
         logger.info(f"Gracefully draining agent {agent_id}")
 
         try:
-            # Checkpoint before drain if enabled
+            # Mark as draining
+            self._drain_states[agent_id] = DrainState.DRAINING
+
+            # 1. Wait for in-flight tasks to complete (with timeout)
+            start_time = datetime.now(timezone.utc)
+            while True:
+                in_flight = await self._get_in_flight_tasks(agent_id)
+                if not in_flight:
+                    break
+
+                # Check timeout
+                elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
+                if elapsed >= self.drain_timeout:
+                    logger.warning(
+                        f"Drain timeout for agent {agent_id}: "
+                        f"{len(in_flight)} tasks still in-flight"
+                    )
+                    break
+
+                logger.debug(
+                    f"Agent {agent_id} has {len(in_flight)} in-flight tasks, "
+                    f"waiting... ({elapsed:.1f}s elapsed)"
+                )
+                await asyncio.sleep(1)
+
+            # 2. Checkpoint state before drain if enabled
             if self.checkpoint_before_drain and self._state_manager:
                 instance = self._active_instances.get(agent_id)
                 if instance:
@@ -377,23 +418,97 @@ class FleetManager:
                         agent_id=agent_id,
                         session_id=instance.get("session_id", ""),
                         state=AgentState.SUSPENDED,
-                        context={"drain_reason": "scale_down"},
-                        metadata={"drain_initiated_at": datetime.now(timezone.utc).isoformat()},
+                        context={
+                            "drain_reason": "scale_down",
+                            "in_flight_at_drain": list(self._in_flight_tasks.get(agent_id, set())),
+                        },
+                        metadata={
+                            "drain_initiated_at": start_time.isoformat(),
+                            "drain_completed_at": datetime.now(timezone.utc).isoformat(),
+                        },
                     )
 
-            # Wait for drain timeout (TODO: implement actual drain logic)
-            await asyncio.sleep(1)  # Stub drain wait
+            # 3. Mark as drained
+            self._drain_states[agent_id] = DrainState.DRAINED
+
+            # 4. Cleanup tracking
+            if agent_id in self._in_flight_tasks:
+                del self._in_flight_tasks[agent_id]
 
             logger.info(f"Agent {agent_id} drained successfully")
 
         except asyncio.TimeoutError:
             logger.warning(f"Drain timeout for agent {agent_id}")
+            self._drain_states[agent_id] = DrainState.DRAINED  # Mark drained anyway
             raise FleetError(
                 code="E2093",
                 message=f"Graceful drain timeout ({self.drain_timeout}s)"
             )
         except Exception as e:
             logger.warning(f"Drain failed for agent {agent_id}: {e}")
+            self._drain_states[agent_id] = DrainState.DRAINED  # Mark drained to allow termination
+
+    async def _get_in_flight_tasks(self, agent_id: str) -> set:
+        """
+        Get in-flight tasks for an agent.
+
+        Args:
+            agent_id: Agent identifier
+
+        Returns:
+            Set of in-flight task IDs
+        """
+        return self._in_flight_tasks.get(agent_id, set())
+
+    def register_task(self, agent_id: str, task_id: str) -> None:
+        """
+        Register an in-flight task for an agent.
+
+        Args:
+            agent_id: Agent identifier
+            task_id: Task identifier
+        """
+        if agent_id not in self._in_flight_tasks:
+            self._in_flight_tasks[agent_id] = set()
+        self._in_flight_tasks[agent_id].add(task_id)
+        logger.debug(f"Registered task {task_id} for agent {agent_id}")
+
+    def complete_task(self, agent_id: str, task_id: str) -> None:
+        """
+        Mark a task as complete for an agent.
+
+        Args:
+            agent_id: Agent identifier
+            task_id: Task identifier
+        """
+        if agent_id in self._in_flight_tasks:
+            self._in_flight_tasks[agent_id].discard(task_id)
+            logger.debug(f"Completed task {task_id} for agent {agent_id}")
+
+    def get_drain_state(self, agent_id: str) -> DrainState:
+        """
+        Get drain state for an agent.
+
+        Args:
+            agent_id: Agent identifier
+
+        Returns:
+            DrainState
+        """
+        return self._drain_states.get(agent_id, DrainState.ACTIVE)
+
+    def is_draining(self, agent_id: str) -> bool:
+        """
+        Check if an agent is currently draining.
+
+        Args:
+            agent_id: Agent identifier
+
+        Returns:
+            True if draining
+        """
+        state = self._drain_states.get(agent_id, DrainState.ACTIVE)
+        return state == DrainState.DRAINING
 
     async def get_fleet_metrics(self) -> ScalingMetrics:
         """

@@ -9,6 +9,7 @@ from .ollama_adapter import OllamaAdapter
 from .mock_adapter import MockAdapter
 from .anthropic_adapter import AnthropicAdapter
 from .openai_adapter import OpenAIAdapter
+from .claude_code_adapter import ClaudeCodeAdapter
 
 __all__ = [
     "ProviderAdapter",
@@ -16,5 +17,6 @@ __all__ = [
     "OllamaAdapter",
     "MockAdapter",
     "AnthropicAdapter",
-    "OpenAIAdapter"
+    "OpenAIAdapter",
+    "ClaudeCodeAdapter"
 ]

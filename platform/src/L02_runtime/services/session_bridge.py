@@ -14,12 +14,19 @@ import subprocess
 import os
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
+from enum import Enum
 
 from ..models import AgentState
 from .mcp_client import MCPClient, MCPToolResult
 
 
 logger = logging.getLogger(__name__)
+
+
+class MCPErrorMode(Enum):
+    """MCP error handling mode"""
+    FAIL_FAST = "fail_fast"      # Raise error if MCP unavailable
+    GRACEFUL_DEGRADE = "graceful"  # Fall back to stub mode
 
 
 class SessionError(Exception):
@@ -54,6 +61,7 @@ class SessionBridge:
                 - retry_policy: Retry configuration
                 - enable_recovery_check: Enable recovery checking
                 - mcp_server_path: Path to MCP server executable
+                - mcp_error_mode: Error handling mode ("fail_fast" or "graceful")
         """
         self.config = config or {}
 
@@ -65,6 +73,13 @@ class SessionBridge:
         self.heartbeat_interval = self.config.get("heartbeat_interval_seconds", 30)
         self.heartbeat_timeout = self.config.get("heartbeat_timeout_seconds", 5)
         self.enable_recovery_check = self.config.get("enable_recovery_check", True)
+
+        # MCP error handling mode
+        error_mode_str = self.config.get("mcp_error_mode", "graceful")
+        self.mcp_error_mode = MCPErrorMode(error_mode_str)
+
+        # Stub mode flag (set if MCP unavailable in graceful mode)
+        self._stub_mode = False
 
         # Retry policy
         retry_policy = self.config.get("retry_policy", {})
@@ -100,7 +115,12 @@ class SessionBridge:
         )
 
     async def initialize(self) -> None:
-        """Initialize session bridge"""
+        """
+        Initialize session bridge.
+
+        Raises:
+            SessionError: If MCP unavailable and mcp_error_mode is FAIL_FAST
+        """
         # Connect to MCP server
         try:
             connected = await self.mcp_client.connect()
@@ -108,12 +128,40 @@ class SessionBridge:
                 # Verify connection with check_recovery call
                 result = await self._call_mcp_tool("check_recovery", {})
                 logger.info("MCP context-orchestrator connection verified")
+                self._stub_mode = False
             else:
-                logger.warning("Failed to connect to MCP context-orchestrator, using stub mode")
+                self._handle_mcp_unavailable("Failed to connect to MCP context-orchestrator")
         except Exception as e:
-            logger.warning(f"Failed to verify MCP connection: {e}, using stub mode")
+            self._handle_mcp_unavailable(f"Failed to verify MCP connection: {e}")
 
-        logger.info("SessionBridge initialization complete")
+        logger.info(
+            f"SessionBridge initialization complete "
+            f"(stub_mode={self._stub_mode}, error_mode={self.mcp_error_mode.value})"
+        )
+
+    def _handle_mcp_unavailable(self, message: str) -> None:
+        """
+        Handle MCP unavailability based on error mode.
+
+        Args:
+            message: Error message
+
+        Raises:
+            SessionError: If error mode is FAIL_FAST
+        """
+        if self.mcp_error_mode == MCPErrorMode.FAIL_FAST:
+            logger.error(f"MCP required but unavailable: {message}")
+            raise SessionError(
+                code="E2055",
+                message=f"MCP context-orchestrator required but unavailable: {message}"
+            )
+        else:
+            logger.warning(f"{message}, using stub mode")
+            self._stub_mode = True
+
+    def is_stub_mode(self) -> bool:
+        """Check if bridge is operating in stub mode."""
+        return self._stub_mode
 
     async def start_session(
         self,
@@ -399,8 +447,13 @@ class SessionBridge:
             Tool result
 
         Raises:
-            Exception: If tool call fails
+            SessionError: If tool call fails and error mode is FAIL_FAST
         """
+        # In stub mode, return stub response
+        if self._stub_mode:
+            logger.debug(f"MCP tool call in stub mode: {tool_name}")
+            return self._get_stub_response(tool_name, parameters)
+
         logger.debug(f"MCP tool call: {tool_name} with params: {parameters}")
 
         try:
@@ -415,21 +468,75 @@ class SessionBridge:
                 return result.result if result.result is not None else {"success": True}
             else:
                 logger.error(f"MCP tool {tool_name} failed: {result.error}")
-                # Return stub response on failure for graceful degradation
-                return {
-                    "success": False,
-                    "error": result.error,
-                    "tool": tool_name,
-                }
+                return self._handle_tool_failure(tool_name, result.error)
 
         except Exception as e:
             logger.error(f"MCP tool call exception: {tool_name}: {e}")
-            # Return stub response on exception for graceful degradation
+            return self._handle_tool_failure(tool_name, str(e))
+
+    def _handle_tool_failure(
+        self,
+        tool_name: str,
+        error: str
+    ) -> Dict[str, Any]:
+        """
+        Handle MCP tool failure based on error mode.
+
+        Args:
+            tool_name: Tool name
+            error: Error message
+
+        Returns:
+            Stub response if graceful mode
+
+        Raises:
+            SessionError: If error mode is FAIL_FAST
+        """
+        if self.mcp_error_mode == MCPErrorMode.FAIL_FAST:
+            raise SessionError(
+                code="E2056",
+                message=f"MCP tool {tool_name} failed: {error}"
+            )
+        else:
+            # Graceful degradation - return stub response
             return {
                 "success": False,
-                "error": str(e),
+                "error": error,
                 "tool": tool_name,
+                "stub_mode": True,
             }
+
+    def _get_stub_response(
+        self,
+        tool_name: str,
+        parameters: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Get stub response for MCP tool call.
+
+        Args:
+            tool_name: Tool name
+            parameters: Tool parameters
+
+        Returns:
+            Stub response based on tool type
+        """
+        # Provide meaningful stub responses for common tools
+        stub_responses = {
+            "check_recovery": {"needsRecovery": [], "checked": True},
+            "save_context_snapshot": {"success": True, "stub": True},
+            "get_unified_context": {
+                "taskId": parameters.get("taskId"),
+                "context": {},
+                "stub": True,
+            },
+        }
+
+        return stub_responses.get(tool_name, {
+            "success": True,
+            "tool": tool_name,
+            "stub": True,
+        })
 
     async def get_active_sessions(self) -> List[str]:
         """

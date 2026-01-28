@@ -13,10 +13,17 @@ import logging
 import os
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta, timezone
+from enum import Enum
 
 from .mcp_client import MCPClient, MCPToolResult
 
 logger = logging.getLogger(__name__)
+
+
+class MCPErrorMode(Enum):
+    """MCP error handling mode"""
+    FAIL_FAST = "fail_fast"      # Raise error if MCP unavailable
+    GRACEFUL_DEGRADE = "graceful"  # Fall back to stub mode
 
 
 class DocumentError(Exception):
@@ -49,6 +56,7 @@ class DocumentBridge:
                 - max_sources: Maximum sources to return
                 - cache_ttl_seconds: Cache TTL
                 - verify_claims: Enable claim verification
+                - mcp_error_mode: Error handling mode ("fail_fast" or "graceful")
         """
         self.config = config or {}
 
@@ -63,6 +71,13 @@ class DocumentBridge:
         self.max_sources = self.config.get("max_sources", 5)
         self.cache_ttl = self.config.get("cache_ttl_seconds", 300)
         self.verify_claims = self.config.get("verify_claims", True)
+
+        # MCP error handling mode
+        error_mode_str = self.config.get("mcp_error_mode", "graceful")
+        self.mcp_error_mode = MCPErrorMode(error_mode_str)
+
+        # Stub mode flag (set if MCP unavailable in graceful mode)
+        self._stub_mode = False
 
         # MCP server configuration
         mcp_base_path = self.config.get(
@@ -90,7 +105,12 @@ class DocumentBridge:
         )
 
     async def initialize(self) -> None:
-        """Initialize document bridge"""
+        """
+        Initialize document bridge.
+
+        Raises:
+            DocumentError: If MCP unavailable and mcp_error_mode is FAIL_FAST
+        """
         # Connect to MCP server
         try:
             connected = await self.mcp_client.connect()
@@ -98,12 +118,40 @@ class DocumentBridge:
                 # Verify connection by listing tools
                 tools = await self.mcp_client.list_tools()
                 logger.info(f"MCP document-consolidator connected with {len(tools)} tools available")
+                self._stub_mode = False
             else:
-                logger.warning("Failed to connect to MCP document-consolidator, using stub mode")
+                self._handle_mcp_unavailable("Failed to connect to MCP document-consolidator")
         except Exception as e:
-            logger.warning(f"Failed to verify MCP connection: {e}, using stub mode")
+            self._handle_mcp_unavailable(f"Failed to verify MCP connection: {e}")
 
-        logger.info("DocumentBridge initialization complete")
+        logger.info(
+            f"DocumentBridge initialization complete "
+            f"(stub_mode={self._stub_mode}, error_mode={self.mcp_error_mode.value})"
+        )
+
+    def _handle_mcp_unavailable(self, message: str) -> None:
+        """
+        Handle MCP unavailability based on error mode.
+
+        Args:
+            message: Error message
+
+        Raises:
+            DocumentError: If error mode is FAIL_FAST
+        """
+        if self.mcp_error_mode == MCPErrorMode.FAIL_FAST:
+            logger.error(f"MCP required but unavailable: {message}")
+            raise DocumentError(
+                code="E2065",
+                message=f"MCP document-consolidator required but unavailable: {message}"
+            )
+        else:
+            logger.warning(f"{message}, using stub mode")
+            self._stub_mode = True
+
+    def is_stub_mode(self) -> bool:
+        """Check if bridge is operating in stub mode."""
+        return self._stub_mode
 
     async def query_documents(
         self,
@@ -224,6 +272,9 @@ class DocumentBridge:
         """
         Verify a claim against authoritative sources.
 
+        Uses semantic similarity matching and consensus scoring
+        to determine claim validity.
+
         Args:
             claim: Claim to verify
             context: Optional context for claim
@@ -232,6 +283,7 @@ class DocumentBridge:
             Verification result with:
                 - verified: bool
                 - confidence: float
+                - consensus_score: float
                 - sources: List of supporting documents
                 - explanation: str
 
@@ -243,6 +295,7 @@ class DocumentBridge:
             return {
                 "verified": False,
                 "confidence": 0.0,
+                "consensus_score": 0.0,
                 "sources": [],
                 "explanation": "Claim verification is disabled",
             }
@@ -262,39 +315,65 @@ class DocumentBridge:
                     message="No authoritative source found for claim"
                 )
 
-            # Analyze documents to verify claim
-            # TODO: Implement more sophisticated claim verification logic
-            # For now, check if any high-confidence document supports the claim
-
-            verified = False
-            max_confidence = 0.0
+            # Build supporting sources with semantic similarity
             supporting_sources = []
 
             for doc in documents:
-                confidence = doc.get("confidence", 0)
-                if confidence >= self.confidence_threshold:
-                    verified = True
-                    max_confidence = max(max_confidence, confidence)
+                doc_confidence = doc.get("confidence", 0)
+                doc_content = doc.get("content", doc.get("snippet", ""))
+
+                # Compute semantic similarity between claim and document
+                similarity = self._compute_semantic_similarity(claim, doc_content)
+
+                # Compute recency factor (newer docs get higher weight)
+                recency = self._compute_recency_factor(doc)
+
+                # Combined relevance score
+                relevance_score = (
+                    doc_confidence * 0.4 +
+                    similarity * 0.4 +
+                    recency * 0.2
+                )
+
+                if relevance_score >= self.confidence_threshold * 0.8:
                     supporting_sources.append({
                         "document_id": doc.get("id"),
                         "title": doc.get("title"),
-                        "confidence": confidence,
+                        "confidence": doc_confidence,
+                        "similarity": similarity,
+                        "recency": recency,
+                        "relevance_score": relevance_score,
                     })
+
+            # Sort by relevance score
+            supporting_sources.sort(
+                key=lambda x: x["relevance_score"],
+                reverse=True
+            )
+
+            # Compute consensus score
+            consensus_score = self._compute_consensus_score(supporting_sources)
+
+            # Determine verification result
+            verified = consensus_score >= 0.7 and len(supporting_sources) > 0
+            max_confidence = max(
+                (s["relevance_score"] for s in supporting_sources),
+                default=0.0
+            )
 
             result = {
                 "verified": verified,
                 "confidence": max_confidence,
+                "consensus_score": consensus_score,
                 "sources": supporting_sources[:self.max_sources],
-                "explanation": (
-                    f"Claim verified by {len(supporting_sources)} authoritative source(s)"
-                    if verified
-                    else "No authoritative sources found to support claim"
+                "explanation": self._build_verification_explanation(
+                    verified, consensus_score, supporting_sources
                 ),
             }
 
             logger.info(
                 f"Claim verification complete: verified={verified}, "
-                f"confidence={max_confidence:.2f}"
+                f"confidence={max_confidence:.2f}, consensus={consensus_score:.2f}"
             )
 
             return result
@@ -307,6 +386,171 @@ class DocumentBridge:
                 code="E2062",
                 message=f"Claim verification failed: {str(e)}"
             )
+
+    def _compute_semantic_similarity(
+        self,
+        claim: str,
+        content: str
+    ) -> float:
+        """
+        Compute semantic similarity between claim and document content.
+
+        Uses simple word overlap for now. In production, this would use
+        embeddings-based similarity via L04.
+
+        Args:
+            claim: Claim text
+            content: Document content
+
+        Returns:
+            Similarity score between 0.0 and 1.0
+        """
+        if not claim or not content:
+            return 0.0
+
+        # Normalize text
+        claim_words = set(claim.lower().split())
+        content_words = set(content.lower().split())
+
+        # Remove common stop words
+        stop_words = {
+            "the", "a", "an", "is", "are", "was", "were", "be", "been",
+            "being", "have", "has", "had", "do", "does", "did", "will",
+            "would", "could", "should", "may", "might", "must", "shall",
+            "to", "of", "in", "for", "on", "with", "at", "by", "from",
+            "as", "into", "through", "during", "before", "after", "above",
+            "below", "between", "under", "again", "further", "then", "once",
+            "and", "but", "or", "nor", "so", "yet", "both", "either",
+            "neither", "not", "only", "own", "same", "than", "too", "very",
+        }
+
+        claim_words = claim_words - stop_words
+        content_words = content_words - stop_words
+
+        if not claim_words or not content_words:
+            return 0.0
+
+        # Jaccard similarity
+        intersection = claim_words & content_words
+        union = claim_words | content_words
+
+        return len(intersection) / len(union) if union else 0.0
+
+    def _compute_recency_factor(self, doc: Dict[str, Any]) -> float:
+        """
+        Compute recency factor for a document.
+
+        Newer documents get higher scores.
+
+        Args:
+            doc: Document data
+
+        Returns:
+            Recency score between 0.0 and 1.0
+        """
+        updated_at = doc.get("updated_at") or doc.get("created_at")
+
+        if not updated_at:
+            return 0.5  # Default for unknown age
+
+        try:
+            if isinstance(updated_at, str):
+                from datetime import datetime
+                updated_at = datetime.fromisoformat(
+                    updated_at.replace("Z", "+00:00")
+                )
+
+            now = datetime.now(timezone.utc)
+            age_days = (now - updated_at).days
+
+            # Decay function: 1.0 for today, 0.5 at 30 days, ~0.25 at 90 days
+            decay_rate = 0.023  # ln(2)/30
+            return max(0.1, 1.0 / (1 + decay_rate * age_days))
+
+        except Exception:
+            return 0.5
+
+    def _compute_consensus_score(
+        self,
+        sources: List[Dict[str, Any]]
+    ) -> float:
+        """
+        Compute consensus score from multiple sources.
+
+        Higher scores indicate stronger agreement across sources.
+
+        Args:
+            sources: List of supporting sources
+
+        Returns:
+            Consensus score between 0.0 and 1.0
+        """
+        if not sources:
+            return 0.0
+
+        # Single source: use its relevance but cap at 0.7
+        if len(sources) == 1:
+            return min(0.7, sources[0].get("relevance_score", 0))
+
+        # Multiple sources: weighted average with bonus for agreement
+        total_relevance = sum(s.get("relevance_score", 0) for s in sources)
+        avg_relevance = total_relevance / len(sources)
+
+        # Agreement bonus: more sources agreeing increases confidence
+        agreement_bonus = min(0.2, 0.05 * len(sources))
+
+        # Consistency penalty: high variance in scores reduces confidence
+        if len(sources) > 1:
+            scores = [s.get("relevance_score", 0) for s in sources]
+            variance = sum((s - avg_relevance) ** 2 for s in scores) / len(scores)
+            consistency_penalty = min(0.1, variance)
+        else:
+            consistency_penalty = 0
+
+        consensus = avg_relevance + agreement_bonus - consistency_penalty
+
+        return max(0.0, min(1.0, consensus))
+
+    def _build_verification_explanation(
+        self,
+        verified: bool,
+        consensus_score: float,
+        sources: List[Dict[str, Any]]
+    ) -> str:
+        """
+        Build human-readable explanation for verification result.
+
+        Args:
+            verified: Whether claim was verified
+            consensus_score: Consensus score
+            sources: Supporting sources
+
+        Returns:
+            Explanation string
+        """
+        if not sources:
+            return "No authoritative sources found to evaluate this claim."
+
+        if verified:
+            if consensus_score >= 0.9:
+                strength = "strongly"
+            elif consensus_score >= 0.8:
+                strength = "well"
+            else:
+                strength = "moderately"
+
+            return (
+                f"Claim is {strength} supported by {len(sources)} "
+                f"authoritative source(s) with {consensus_score:.0%} consensus."
+            )
+        else:
+            if sources:
+                return (
+                    f"Found {len(sources)} related source(s) but consensus "
+                    f"({consensus_score:.0%}) is below verification threshold."
+                )
+            else:
+                return "No sources found that support this claim."
 
     async def find_source_of_truth(
         self,
@@ -370,8 +614,13 @@ class DocumentBridge:
             Tool result
 
         Raises:
-            Exception: If tool call fails
+            DocumentError: If tool call fails and error mode is FAIL_FAST
         """
+        # In stub mode, return stub response
+        if self._stub_mode:
+            logger.debug(f"MCP tool call in stub mode: {tool_name}")
+            return self._get_stub_response(tool_name, parameters)
+
         logger.debug(f"MCP tool call: {tool_name} with params: {parameters}")
 
         try:
@@ -386,23 +635,73 @@ class DocumentBridge:
                 return result.result if result.result is not None else {"success": True}
             else:
                 logger.error(f"MCP tool {tool_name} failed: {result.error}")
-                # Return stub response on failure for graceful degradation
-                return {
-                    "success": False,
-                    "error": result.error,
-                    "tool": tool_name,
-                    "documents": [],
-                }
+                return self._handle_tool_failure(tool_name, result.error)
 
         except Exception as e:
             logger.error(f"MCP tool call exception: {tool_name}: {e}")
-            # Return stub response on exception for graceful degradation
+            return self._handle_tool_failure(tool_name, str(e))
+
+    def _handle_tool_failure(
+        self,
+        tool_name: str,
+        error: str
+    ) -> Dict[str, Any]:
+        """
+        Handle MCP tool failure based on error mode.
+
+        Args:
+            tool_name: Tool name
+            error: Error message
+
+        Returns:
+            Stub response if graceful mode
+
+        Raises:
+            DocumentError: If error mode is FAIL_FAST
+        """
+        if self.mcp_error_mode == MCPErrorMode.FAIL_FAST:
+            raise DocumentError(
+                code="E2066",
+                message=f"MCP tool {tool_name} failed: {error}"
+            )
+        else:
+            # Graceful degradation - return stub response
             return {
                 "success": False,
-                "error": str(e),
+                "error": error,
                 "tool": tool_name,
                 "documents": [],
+                "stub_mode": True,
             }
+
+    def _get_stub_response(
+        self,
+        tool_name: str,
+        parameters: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Get stub response for MCP tool call.
+
+        Args:
+            tool_name: Tool name
+            parameters: Tool parameters
+
+        Returns:
+            Stub response based on tool type
+        """
+        # Provide meaningful stub responses for common tools
+        stub_responses = {
+            "search_hybrid": {"documents": [], "stub": True},
+            "get_document": {"document": None, "stub": True},
+            "get_source_of_truth": {"answer": None, "sources": [], "stub": True},
+        }
+
+        return stub_responses.get(tool_name, {
+            "success": True,
+            "tool": tool_name,
+            "documents": [],
+            "stub": True,
+        })
 
     def _get_cache_key(
         self,

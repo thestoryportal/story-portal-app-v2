@@ -18,6 +18,7 @@ from ..models import (
     AgentState,
     ToolDefinition,
 )
+from .model_gateway_bridge import ModelGatewayBridge, ModelGatewayBridgeError
 
 
 logger = logging.getLogger(__name__)
@@ -88,7 +89,11 @@ class AgentExecutor:
     - Retry logic for failed tools
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        config: Optional[Dict[str, Any]] = None,
+        model_bridge: Optional[ModelGatewayBridge] = None
+    ):
         """
         Initialize AgentExecutor.
 
@@ -100,6 +105,10 @@ class AgentExecutor:
                 - enable_streaming: Enable streaming responses
                 - retry_on_tool_failure: Retry failed tools
                 - max_tool_retries: Maximum retry attempts
+                - system_prompt: Default system prompt for agents
+                - temperature: Default temperature for LLM inference
+                - max_tokens: Default max tokens for LLM inference
+            model_bridge: ModelGatewayBridge for LLM inference (created if None)
         """
         self.config = config or {}
 
@@ -110,6 +119,15 @@ class AgentExecutor:
         self.enable_streaming = self.config.get("enable_streaming", True)
         self.retry_on_failure = self.config.get("retry_on_tool_failure", True)
         self.max_tool_retries = self.config.get("max_tool_retries", 3)
+        self.default_system_prompt = self.config.get(
+            "system_prompt",
+            "You are a helpful AI assistant. Execute tasks efficiently and accurately."
+        )
+        self.default_temperature = self.config.get("temperature", 0.7)
+        self.default_max_tokens = self.config.get("max_tokens", 4096)
+
+        # Model gateway bridge for LLM inference
+        self.model_bridge = model_bridge or ModelGatewayBridge()
 
         # Tool registry: tool_name -> callable
         self._tool_registry: Dict[str, Callable] = {}
@@ -123,7 +141,8 @@ class AgentExecutor:
         logger.info(
             f"AgentExecutor initialized: "
             f"max_concurrent_tools={self.max_concurrent_tools}, "
-            f"context_window={self.context_window_tokens}"
+            f"context_window={self.context_window_tokens}, "
+            f"model_bridge={type(self.model_bridge).__name__}"
         )
 
     async def initialize(self) -> None:
@@ -261,7 +280,7 @@ class AgentExecutor:
         input_data: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        Execute agent synchronously.
+        Execute agent synchronously via LLM inference.
 
         Args:
             agent_id: Agent identifier
@@ -269,23 +288,69 @@ class AgentExecutor:
             input_data: Input data
 
         Returns:
-            Execution result
+            Execution result with LLM response
         """
-        # TODO: Integrate with ModelBridge for LLM inference
-        # For now, return a mock result
-        result = {
-            "agent_id": agent_id,
-            "session_id": context.session_id,
-            "response": "Agent execution result (stub)",
-            "tool_calls": [],
-            "tokens_used": 0,
-        }
+        # Build messages for LLM from context
+        messages = [
+            {"role": msg["role"], "content": msg["content"]}
+            for msg in context.messages
+        ]
 
-        # Add response to context
-        response_tokens = len(result["response"].split())
-        context.add_message("assistant", result["response"], response_tokens)
+        # Get system prompt from input or use default
+        system_prompt = input_data.get("system_prompt", self.default_system_prompt)
+        temperature = input_data.get("temperature", self.default_temperature)
+        max_tokens = input_data.get("max_tokens", self.default_max_tokens)
 
-        return result
+        try:
+            # Request LLM inference via model bridge
+            response = await self.model_bridge.request_inference(
+                agent_did=agent_id,
+                messages=messages,
+                system_prompt=system_prompt,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                streaming=False
+            )
+
+            # Extract response content
+            content = response.get("content", "")
+            token_usage = response.get("token_usage", {})
+            total_tokens = token_usage.get("total_tokens", 0)
+
+            # Parse tool calls from L04 response
+            tool_calls = self._parse_tool_calls(response)
+
+            result = {
+                "agent_id": agent_id,
+                "session_id": context.session_id,
+                "response": content,
+                "request_id": response.get("request_id"),
+                "model_id": response.get("model_id"),
+                "provider": response.get("provider"),
+                "tool_calls": tool_calls,
+                "tokens_used": total_tokens,
+                "token_usage": token_usage,
+                "latency_ms": response.get("latency_ms"),
+                "cached": response.get("cached", False),
+            }
+
+            # Add response to context
+            output_tokens = token_usage.get("output_tokens", len(content.split()))
+            context.add_message("assistant", content, output_tokens)
+
+            logger.info(
+                f"Agent {agent_id} execution complete: "
+                f"tokens={total_tokens}, latency={response.get('latency_ms', 0)}ms"
+            )
+
+            return result
+
+        except ModelGatewayBridgeError as e:
+            logger.error(f"LLM inference failed for agent {agent_id}: {e}")
+            raise ExecutorError(
+                code=e.error_code or "E2005",
+                message=f"LLM inference failed: {str(e)}"
+            )
 
     async def _execute_streaming(
         self,
@@ -294,7 +359,7 @@ class AgentExecutor:
         input_data: Dict[str, Any]
     ) -> AsyncIterator[Dict[str, Any]]:
         """
-        Execute agent with streaming response.
+        Execute agent with streaming LLM response.
 
         Args:
             agent_id: Agent identifier
@@ -302,22 +367,141 @@ class AgentExecutor:
             input_data: Input data
 
         Yields:
-            Streaming response chunks
+            Streaming response chunks with incremental content
         """
-        # TODO: Integrate with ModelBridge for streaming inference
-        # For now, yield mock chunks
-        chunks = [
-            {"type": "start", "agent_id": agent_id},
-            {"type": "content", "delta": "Agent "},
-            {"type": "content", "delta": "execution "},
-            {"type": "content", "delta": "result "},
-            {"type": "content", "delta": "(stub)"},
-            {"type": "end", "tokens_used": 0},
+        # Build messages for LLM from context
+        messages = [
+            {"role": msg["role"], "content": msg["content"]}
+            for msg in context.messages
         ]
 
-        for chunk in chunks:
-            yield chunk
-            await asyncio.sleep(0.1)  # Simulate streaming delay
+        # Get system prompt from input or use default
+        system_prompt = input_data.get("system_prompt", self.default_system_prompt)
+        temperature = input_data.get("temperature", self.default_temperature)
+        max_tokens = input_data.get("max_tokens", self.default_max_tokens)
+
+        try:
+            # Request streaming inference via model bridge
+            response = await self.model_bridge.request_inference(
+                agent_did=agent_id,
+                messages=messages,
+                system_prompt=system_prompt,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                streaming=True
+            )
+
+            # Yield start event
+            yield {
+                "type": "start",
+                "agent_id": agent_id,
+                "session_id": context.session_id
+            }
+
+            # Accumulate full content for context update
+            full_content = ""
+            total_tokens = 0
+            request_id = None
+
+            # Stream chunks from model bridge
+            stream = response.get("stream")
+            if stream:
+                async for chunk in stream:
+                    request_id = chunk.get("request_id") or request_id
+                    content_delta = chunk.get("content_delta", "")
+                    full_content += content_delta
+
+                    # Yield content chunk
+                    yield {
+                        "type": "content",
+                        "delta": content_delta,
+                        "request_id": request_id
+                    }
+
+                    # Check for final chunk
+                    if chunk.get("is_final"):
+                        total_tokens = chunk.get("token_count", 0)
+                        break
+
+            # Add full response to context
+            output_tokens = total_tokens or len(full_content.split())
+            context.add_message("assistant", full_content, output_tokens)
+
+            # Yield end event
+            yield {
+                "type": "end",
+                "agent_id": agent_id,
+                "session_id": context.session_id,
+                "request_id": request_id,
+                "tokens_used": total_tokens,
+                "content_length": len(full_content)
+            }
+
+            logger.info(
+                f"Agent {agent_id} streaming complete: "
+                f"content_length={len(full_content)}, tokens={total_tokens}"
+            )
+
+        except ModelGatewayBridgeError as e:
+            logger.error(f"Streaming LLM inference failed for agent {agent_id}: {e}")
+            # Yield error event
+            yield {
+                "type": "error",
+                "agent_id": agent_id,
+                "error_code": e.error_code or "E2005",
+                "message": str(e)
+            }
+
+    def _parse_tool_calls(self, response: Dict[str, Any]) -> List[ToolInvocation]:
+        """
+        Parse tool_calls from L04 response into L02 ToolInvocation format.
+
+        L04 returns tool_calls in format:
+        [{"id": "...", "name": "...", "arguments": {...}}, ...]
+
+        Args:
+            response: L04 inference response
+
+        Returns:
+            List of ToolInvocation objects
+        """
+        raw_tool_calls = response.get("tool_calls", [])
+        if not raw_tool_calls:
+            return []
+
+        tool_invocations = []
+        for tc in raw_tool_calls:
+            if not tc:
+                continue
+
+            # Handle both dict format and potential object format
+            if isinstance(tc, dict):
+                tool_name = tc.get("name", "")
+                arguments = tc.get("arguments", {})
+                invocation_id = tc.get("id", f"tool_{datetime.now(timezone.utc).timestamp()}")
+            else:
+                # Handle potential object with attributes
+                tool_name = getattr(tc, "name", "")
+                arguments = getattr(tc, "arguments", {})
+                invocation_id = getattr(tc, "id", f"tool_{datetime.now(timezone.utc).timestamp()}")
+
+            if not tool_name:
+                logger.warning(f"Skipping tool call with empty name: {tc}")
+                continue
+
+            tool_invocations.append(
+                ToolInvocation(
+                    tool_name=tool_name,
+                    parameters=arguments if isinstance(arguments, dict) else {},
+                    invocation_id=invocation_id,
+                    timeout_seconds=self.tool_timeout,
+                )
+            )
+
+        if tool_invocations:
+            logger.info(f"Parsed {len(tool_invocations)} tool calls from L04 response")
+
+        return tool_invocations
 
     async def invoke_tool(
         self,
@@ -496,8 +680,13 @@ class AgentExecutor:
             logger.info(f"Cleaned up execution context for agent {agent_id}")
 
     async def cleanup(self) -> None:
-        """Cleanup all execution contexts"""
+        """Cleanup all execution contexts and resources"""
         logger.info("Cleaning up AgentExecutor")
         self._contexts.clear()
         self._tool_registry.clear()
+
+        # Close model bridge
+        if self.model_bridge:
+            await self.model_bridge.close()
+
         logger.info("AgentExecutor cleanup complete")

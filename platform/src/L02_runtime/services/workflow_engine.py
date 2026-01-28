@@ -801,17 +801,22 @@ class WorkflowEngine:
         self,
         context: ExecutionContext
     ) -> None:
-        """Save workflow checkpoint"""
+        """Save workflow checkpoint with graph for recovery"""
         if not self._state_manager:
             return
 
         try:
+            # Serialize graph for recovery
+            graph_data = self._serialize_graph(context.graph)
+
             checkpoint_data = {
                 "workflow_id": context.workflow_id,
                 "state": context.state,
                 "visited_nodes": list(context.visited_nodes),
                 "execution_path": context.execution_path,
                 "depth": context.depth,
+                "graph": graph_data,
+                "checkpoint_time": datetime.now(timezone.utc).isoformat(),
             }
 
             await self._state_manager.save_hot_state(
@@ -821,6 +826,38 @@ class WorkflowEngine:
 
         except Exception as e:
             logger.warning(f"Failed to checkpoint workflow: {e}")
+
+    def _serialize_graph(self, graph: WorkflowGraph) -> Dict[str, Any]:
+        """
+        Serialize workflow graph for checkpoint storage.
+
+        Args:
+            graph: WorkflowGraph to serialize
+
+        Returns:
+            Serialized graph data
+        """
+        nodes_data = {}
+        for node_id, node in graph.nodes.items():
+            nodes_data[node_id] = {
+                "node_id": node.node_id,
+                "node_type": node.node_type.value,
+                "config": node.config,
+            }
+
+        edges_data = []
+        for edge in graph.edges:
+            edges_data.append({
+                "source": edge.source,
+                "target": edge.target,
+                "condition": edge.condition,
+            })
+
+        return {
+            "nodes": nodes_data,
+            "edges": edges_data,
+            "entry_node": graph.entry_node,
+        }
 
     async def get_execution_status(
         self,
@@ -903,9 +940,54 @@ class WorkflowEngine:
                 f"(path length: {len(execution_path)})"
             )
 
-            # TODO: Reconstruct graph and continue execution
-            # For now, return the checkpoint state
-            return checkpoint_data
+            # Reconstruct the graph from checkpoint
+            graph = await self._reconstruct_graph(checkpoint_data, workflow_id)
+            if not graph:
+                raise WorkflowError(
+                    code="E2012",
+                    message="Cannot resume: graph not found in checkpoint"
+                )
+
+            # Create execution context from checkpoint
+            context = ExecutionContext(
+                workflow_id=workflow_id,
+                graph=graph,
+                state=checkpoint_data.get("state", {}),
+                visited_nodes=set(checkpoint_data.get("visited_nodes", [])),
+                execution_path=execution_path.copy(),
+                depth=checkpoint_data.get("depth", 0),
+                started_at=datetime.now(timezone.utc),
+            )
+
+            self._active_executions[workflow_id] = context
+
+            # Find the resume node (next node after last executed)
+            resume_node = await self._find_resume_node(context, execution_path)
+
+            if not resume_node:
+                # No more nodes to execute, workflow was already complete
+                logger.info(f"Workflow {workflow_id} was already complete")
+                return checkpoint_data.get("state", {})
+
+            try:
+                # Continue execution from resume node
+                result = await asyncio.wait_for(
+                    self._execute_from_node(context, resume_node),
+                    timeout=self.workflow_timeout
+                )
+
+                context.completed_at = datetime.now(timezone.utc)
+
+                logger.info(
+                    f"Workflow {workflow_id} resumed and completed successfully "
+                    f"(total nodes: {len(context.execution_path)})"
+                )
+
+                return result
+
+            finally:
+                if workflow_id in self._active_executions:
+                    del self._active_executions[workflow_id]
 
         except WorkflowError:
             raise
@@ -915,6 +997,146 @@ class WorkflowEngine:
                 code="E2012",
                 message=f"Workflow resume failed: {str(e)}"
             )
+
+    async def _reconstruct_graph(
+        self,
+        checkpoint_data: Dict[str, Any],
+        workflow_id: str
+    ) -> Optional[WorkflowGraph]:
+        """
+        Reconstruct workflow graph from checkpoint data.
+
+        Args:
+            checkpoint_data: Checkpoint data containing graph info
+            workflow_id: Workflow identifier
+
+        Returns:
+            Reconstructed WorkflowGraph or None
+        """
+        # Check if graph is embedded in checkpoint
+        graph_data = checkpoint_data.get("graph")
+
+        if graph_data:
+            # Reconstruct from embedded graph data
+            try:
+                if isinstance(graph_data, WorkflowGraph):
+                    return graph_data
+
+                # Build graph from serialized data
+                nodes = {}
+                for node_id, node_data in graph_data.get("nodes", {}).items():
+                    nodes[node_id] = WorkflowNode(
+                        node_id=node_data.get("node_id", node_id),
+                        node_type=NodeType(node_data.get("node_type", "agent")),
+                        config=node_data.get("config", {}),
+                    )
+
+                edges = []
+                for edge_data in graph_data.get("edges", []):
+                    edges.append(WorkflowEdge(
+                        source=edge_data.get("source"),
+                        target=edge_data.get("target"),
+                        condition=edge_data.get("condition"),
+                    ))
+
+                return WorkflowGraph(
+                    nodes=nodes,
+                    edges=edges,
+                    entry_node=graph_data.get("entry_node"),
+                )
+
+            except Exception as e:
+                logger.warning(f"Failed to reconstruct graph from checkpoint: {e}")
+
+        # Try to load from state manager if available
+        if self._state_manager:
+            try:
+                workflow_data = await self._state_manager.load_hot_state(
+                    f"{workflow_id}_graph"
+                )
+                if workflow_data and "graph" in workflow_data:
+                    return await self._reconstruct_graph(
+                        {"graph": workflow_data["graph"]},
+                        workflow_id
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to load graph from state manager: {e}")
+
+        return None
+
+    async def _find_resume_node(
+        self,
+        context: ExecutionContext,
+        execution_path: List[str]
+    ) -> Optional[str]:
+        """
+        Find the node to resume execution from.
+
+        Args:
+            context: Execution context
+            execution_path: Executed nodes path
+
+        Returns:
+            Node ID to resume from, or None if complete
+        """
+        if not execution_path:
+            # Start from entry node
+            return context.graph.entry_node
+
+        # Get the last executed node
+        last_node_id = execution_path[-1]
+        last_node = context.graph.nodes.get(last_node_id)
+
+        if not last_node:
+            logger.warning(f"Last node {last_node_id} not found in graph")
+            return None
+
+        # Check if last node was an end node
+        if last_node.node_type == NodeType.END:
+            return None
+
+        # Find outgoing edges from last node
+        outgoing_edges = [
+            edge for edge in context.graph.edges
+            if edge.source == last_node_id
+        ]
+
+        if not outgoing_edges:
+            return None
+
+        # For conditional nodes, we need the state to determine which edge
+        # For simplicity, take the first edge that wasn't already visited
+        for edge in outgoing_edges:
+            if edge.target not in context.visited_nodes:
+                return edge.target
+
+        # All edges lead to visited nodes (potential cycle or complete)
+        return None
+
+    async def _execute_from_node(
+        self,
+        context: ExecutionContext,
+        start_node_id: str
+    ) -> Dict[str, Any]:
+        """
+        Execute workflow starting from a specific node.
+
+        Args:
+            context: Execution context
+            start_node_id: Node to start from
+
+        Returns:
+            Final workflow state
+        """
+        logger.info(f"Executing workflow from node {start_node_id}")
+
+        # Reset visited nodes for the new execution path
+        # Keep the nodes that were already visited before checkpoint
+        # but allow revisiting if needed for the new execution
+
+        await self._execute_node(start_node_id, context)
+
+        return context.state
 
     async def cancel_workflow(
         self,
