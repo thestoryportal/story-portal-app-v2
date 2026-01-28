@@ -47,6 +47,47 @@ The Integration Layer (L11) provides the communication backbone for all vertical
 └─────────────────────────────────────────────────┘
 ```
 
+## API Reference
+
+### Health Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health/live` | GET | Liveness probe |
+| `/health/ready` | GET | Readiness probe |
+| `/health/detailed` | GET | Detailed health with component status |
+
+### Event Routing Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/events` | GET | Event routing statistics |
+| `/events/dlq` | GET | List dead letter queue events |
+| `/events/dlq/retry` | POST | Retry failed events |
+
+### Circuit Breaker Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/circuits` | GET | List all circuit breakers |
+| `/circuits/{name}/reset` | POST | Reset circuit to closed state |
+
+### Saga Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/sagas` | GET | List saga executions (supports ?status, ?saga_name filters) |
+| `/sagas/{execution_id}` | GET | Get saga execution details with trace |
+
+### Observability Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/traces/{trace_id}` | GET | Get distributed trace spans |
+| `/metrics` | GET | JSON metrics |
+| `/metrics/prometheus` | GET | Prometheus format metrics |
+| `/services` | GET | List registered services |
+
 ## Quick Start
 
 ### Installation
@@ -258,15 +299,57 @@ DEFAULT_CONFIG = {
 }
 ```
 
-## Testing
+## Running the Service
 
-Run integration tests:
+### Development
 
 ```bash
-pytest tests/test_integration.py -v
+# Standard logging
+uvicorn L11_integration.app:app --port 8011
+
+# JSON structured logging
+LOG_FORMAT=json uvicorn L11_integration.app:app --port 8011
+
+# Debug mode
+LOG_LEVEL=DEBUG uvicorn L11_integration.app:app --port 8011
 ```
 
-Tests require Redis running on localhost:6379.
+### Docker
+
+```bash
+docker build -t l11-integration -f src/L11_integration/Dockerfile .
+docker run -p 8011:8011 l11-integration
+```
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LOG_LEVEL` | INFO | Logging level (DEBUG, INFO, WARNING, ERROR) |
+| `LOG_FORMAT` | text | Log format (text, json) |
+| `REDIS_URL` | redis://localhost:6379/0 | Redis connection URL |
+
+## Testing
+
+Run all L11 tests:
+
+```bash
+pytest src/L11_integration/tests/ -v -m l11
+```
+
+Run unit tests only:
+
+```bash
+pytest src/L11_integration/tests/ -v -m "l11 and unit"
+```
+
+Run with coverage:
+
+```bash
+pytest src/L11_integration/tests/ --cov=src/L11_integration --cov-report=term
+```
+
+Tests require Redis running on localhost:6379 for integration tests.
 
 ## Error Codes
 
@@ -290,12 +373,57 @@ This implementation is adapted for local development:
 - **Tracing**: Console/file output instead of Jaeger
 - **Service discovery**: Config-based instead of K8s DNS
 
+## Event Routing
+
+L11 automatically routes L01 events to target layers based on aggregate type:
+
+| Aggregate Type | Target Layer | Endpoint |
+|----------------|--------------|----------|
+| `agent` | L02 Runtime | POST /events/agent |
+| `tool`, `tool_execution` | L03 Tool Execution | POST /events/tool |
+| `plan` | L05 Planning | POST /events/plan |
+| `dataset`, `training_example` | L07 Learning | POST /events/training |
+| `session` | L10 Human Interface | POST /events/session |
+
+Events with unknown aggregate types are logged but not routed. Failed deliveries are added to the dead letter queue.
+
+## Prometheus Metrics
+
+Available at `/metrics/prometheus`:
+
+```prometheus
+# Service health
+l11_up 1
+
+# Event routing
+l11_events_received_total 1234
+l11_events_routed_total 1200
+l11_events_by_type_total{aggregate_type="agent"} 500
+l11_route_errors_total{layer="L02_runtime"} 2
+l11_dlq_size{route="L02_runtime"} 0
+
+# Circuit breakers
+l11_circuits_total 5
+l11_circuits_open 0
+l11_circuits_half_open 0
+l11_circuits_closed 5
+
+# Sagas
+l11_sagas_total 100
+l11_sagas_running 2
+l11_sagas_completed 95
+l11_sagas_failed 3
+```
+
 ## Dependencies
 
 - `httpx>=0.27.0` - HTTP client for request orchestration
 - `redis>=5.0.0` - Redis client for event bus
+- `structlog>=24.1.0` - Structured logging (optional)
+- `prometheus-client>=0.19.0` - Prometheus metrics (optional)
 - `pytest>=8.0.0` - Testing framework
 - `pytest-asyncio>=0.23.0` - Async test support
+- `pytest-cov>=4.1.0` - Coverage reporting
 
 ## License
 

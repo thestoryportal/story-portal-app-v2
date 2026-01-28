@@ -231,13 +231,13 @@ class SagaOrchestrator:
         step.start()
 
         # Record saga step in L01
-        step_id = f"{execution.execution_id}-step-{step.step_index}"
+        saga_step_id = f"{execution.execution_id}-step-{execution.current_step_index}"
         if self.l11_bridge:
             await self.l11_bridge.record_saga_step(
-                step_id=step_id,
+                step_id=saga_step_id,
                 saga_id=execution.execution_id,
                 step_name=step.step_name,
-                step_index=step.step_index,
+                step_index=execution.current_step_index,
                 service_id=step.service_name or "local",
                 status="executing",
             )
@@ -502,10 +502,10 @@ class SagaOrchestrator:
             ).total_seconds() * 1000
 
         # Build step traces
-        for step in execution.saga_definition.steps:
+        for step_idx, step in enumerate(execution.saga_definition.steps):
             step_trace = {
                 "step_name": step.step_name,
-                "step_index": step.step_index,
+                "step_index": step_idx,
                 "status": step.status.value if hasattr(step.status, 'value') else str(step.status),
                 "service_name": step.service_name,
                 "endpoint": step.endpoint,

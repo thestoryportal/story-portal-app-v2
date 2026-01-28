@@ -6,6 +6,7 @@ from .circuit_breaker import CircuitBreaker, CircuitBreakerMiddleware
 from .request_orchestrator import RequestOrchestrator
 from .saga_orchestrator import SagaOrchestrator
 from .observability import ObservabilityCollector, Counter, Gauge, Histogram
+from .event_router import EventRouter
 
 __all__ = [
     "ServiceRegistry",
@@ -18,4 +19,5 @@ __all__ = [
     "Counter",
     "Gauge",
     "Histogram",
+    "EventRouter",
 ]
